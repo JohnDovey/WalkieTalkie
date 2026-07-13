@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WalkieTalkie</title>
+  <link rel="stylesheet" href="/static/vendor/bootstrap.min.css">
+</head>
+<body>
+  <nav class="navbar navbar-expand navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">WalkieTalkie</a>
+      <div class="navbar-nav">
+        <a class="nav-link active" href="/">Devices</a>
+        <a class="nav-link" href="/settings">Settings</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h1 class="h4 mb-3">Devices</h1>
+    <table class="table table-striped align-middle">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Platform</th>
+          <th>Status</th>
+          <th>Last Seen</th>
+          <th>GPS</th>
+          <th>Discovery</th>
+        </tr>
+      </thead>
+      <tbody id="device-rows">
+        <tr><td colspan="6" class="text-muted">Loading&hellip;</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script src="/static/vendor/jquery.min.js"></script>
+  <script src="/static/vendor/bootstrap.bundle.min.js"></script>
+  <script>
+    function statusBadge(status) {
+      var cls = status === 'connected' ? 'bg-success' : 'bg-secondary';
+      return '<span class="badge ' + cls + '">' + status + '</span>';
+    }
+
+    function discoveryBadge(d) {
+      var methods = (d.discoveryMethods || []).join(', ') || 'unknown';
+      if (d.reportedBy && d.reportedBy.length) {
+        return methods + ' &mdash; via ' + d.reportedBy.join(', ');
+      }
+      return methods;
+    }
+
+    function relativeTime(iso) {
+      if (!iso) return '—';
+      var seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+      if (seconds < 60) return seconds + 's ago';
+      if (seconds < 3600) return Math.round(seconds / 60) + 'm ago';
+      return Math.round(seconds / 3600) + 'h ago';
+    }
+
+    function gpsText(d) {
+      var p = d.currentLocation || d.lastKnownLocation;
+      if (!p) return '—';
+      var label = d.currentLocation ? '' : ' (last known)';
+      return p.lat.toFixed(5) + ', ' + p.lon.toFixed(5) + label;
+    }
+
+    function render(devices) {
+      if (!devices || !devices.length) {
+        $('#device-rows').html('<tr><td colspan="6" class="text-muted">No devices seen yet.</td></tr>');
+        return;
+      }
+      var rows = devices.map(function (d) {
+        var name = d.capabilities && d.capabilities.indexOf('presence-only') !== -1
+          ? d.name + ' <span class="badge bg-warning text-dark">presence-only</span>'
+          : d.name;
+        return '<tr>' +
+          '<td>' + name + '</td>' +
+          '<td>' + (d.platform || '—') + '</td>' +
+          '<td>' + statusBadge(d.status) + '</td>' +
+          '<td>' + relativeTime(d.lastSeen) + '</td>' +
+          '<td>' + gpsText(d) + '</td>' +
+          '<td>' + discoveryBadge(d) + '</td>' +
+          '</tr>';
+      });
+      $('#device-rows').html(rows.join(''));
+    }
+
+    function poll() {
+      $.getJSON('/api/devices', render).fail(function () {
+        $('#device-rows').html('<tr><td colspan="6" class="text-danger">Failed to load devices.</td></tr>');
+      });
+    }
+
+    poll();
+    setInterval(poll, 3000);
+  </script>
+</body>
+</html>

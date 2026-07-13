@@ -1,0 +1,10 @@
+# Go build artifacts (GOPATH/GOCACHE are redirected off-repo per
+# tools/go-env.sh; this just covers stray local builds)
+/server/wt-server
+/server/server
+*.exe
+*.test
+
+# macOS
+.DS_Store
+._*

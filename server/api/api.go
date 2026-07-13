@@ -1,0 +1,154 @@
+// Package api implements the server's REST surface: device registry reads,
+// device-originated writes (announce/GPS/name/peer-report), and settings.
+// See docs/2026-07-13-implementation-plan.md ("Registry + web UI").
+package api
+
+import (
+	"encoding/json"
+	"net/http"
+	"time"
+
+	"github.com/JohnDovey/WalkieTalkie/core/config"
+	"github.com/JohnDovey/WalkieTalkie/core/proto"
+	"github.com/JohnDovey/WalkieTalkie/core/registry"
+)
+
+// Handlers wires the registry store (and, for settings changes, a restart
+// hook) into HTTP handlers.
+type Handlers struct {
+	Store *registry.Store
+
+	// OnSettingsChanged is called after new settings are persisted, so
+	// main.go can restart the HTTP listener on a new port if it changed.
+	OnSettingsChanged func(config.Settings)
+}
+
+// Register attaches every route to mux.
+func (h *Handlers) Register(mux *http.ServeMux) {
+	mux.HandleFunc("GET /api/devices", h.listDevices)
+	mux.HandleFunc("GET /api/devices/{id}", h.getDevice)
+	mux.HandleFunc("POST /api/devices/announce", h.announce)
+	mux.HandleFunc("POST /api/devices/{id}/location", h.updateLocation)
+	mux.HandleFunc("PUT /api/devices/{id}/name", h.updateName)
+	mux.HandleFunc("POST /api/devices/peer-reports", h.peerReport)
+	mux.HandleFunc("GET /api/settings", h.getSettings)
+	mux.HandleFunc("PUT /api/settings", h.putSettings)
+}
+
+func writeJSON(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(v)
+}
+
+func badRequest(w http.ResponseWriter, err error) {
+	http.Error(w, err.Error(), http.StatusBadRequest)
+}
+
+func serverError(w http.ResponseWriter, err error) {
+	http.Error(w, err.Error(), http.StatusInternalServerError)
+}
+
+func (h *Handlers) listDevices(w http.ResponseWriter, r *http.Request) {
+	devices, err := h.Store.List()
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	writeJSON(w, devices)
+}
+
+func (h *Handlers) getDevice(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	d, ok, err := h.Store.Get(id)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	writeJSON(w, d)
+}
+
+func (h *Handlers) announce(w http.ResponseWriter, r *http.Request) {
+	var payload proto.AnnouncePayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		badRequest(w, err)
+		return
+	}
+	err := h.Store.UpsertFromDirectContact(
+		payload.ID, payload.Name, payload.Platform, payload.Capabilities, "direct", time.Now(),
+	)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) updateLocation(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var payload proto.GPSUpdatePayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		badRequest(w, err)
+		return
+	}
+	if err := h.Store.SetLocation(id, payload.GeoPoint); err != nil {
+		serverError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) updateName(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var payload proto.NameUpdatePayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		badRequest(w, err)
+		return
+	}
+	if err := h.Store.SetName(id, payload.Name, time.Now()); err != nil {
+		serverError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) peerReport(w http.ResponseWriter, r *http.Request) {
+	var payload proto.PeerReportPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		badRequest(w, err)
+		return
+	}
+	if err := h.Store.UpsertFromReport(payload.Reporter, payload.Peer); err != nil {
+		serverError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) getSettings(w http.ResponseWriter, r *http.Request) {
+	settings, err := h.Store.GetSettings()
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	writeJSON(w, settings)
+}
+
+func (h *Handlers) putSettings(w http.ResponseWriter, r *http.Request) {
+	var settings config.Settings
+	if err := json.NewDecoder(r.Body).Decode(&settings); err != nil {
+		badRequest(w, err)
+		return
+	}
+	if err := h.Store.SetSettings(settings); err != nil {
+		serverError(w, err)
+		return
+	}
+	if h.OnSettingsChanged != nil {
+		h.OnSettingsChanged(settings)
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
