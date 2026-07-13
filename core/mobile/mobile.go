@@ -15,6 +15,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -101,7 +102,9 @@ func StartNode(dataDir, name, platform string, source media.AudioSource, sink me
 	ctx, cancel := context.WithCancel(context.Background())
 	n.cancelBrowse = cancel
 	go func() {
-		_ = mdns.Browse(ctx, selfID, n.onPeerFound)
+		if err := mdns.Browse(ctx, selfID, n.onPeerFound); err != nil {
+			log.Printf("mobile: mdns browse: %v", err)
+		}
 	}()
 
 	return n, nil

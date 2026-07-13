@@ -249,7 +249,12 @@ func multicastInterfaces() []net.Interface {
 // explicit "peer left" events; staleness is instead expected to be handled
 // by a LastSeen-based sweep in the caller.
 func Browse(ctx context.Context, selfID string, onFound func(Peer)) error {
-	resolver, err := zeroconf.NewResolver(nil)
+	// Same Android fix as Register: zeroconf.NewResolver(nil) defaults to
+	// its own interface enumeration (net.Interfaces()), which returns
+	// nothing usable on Android — confirmed on real hardware ("failed to
+	// join any of these interfaces: []"). Supply the interface list
+	// ourselves via wlynxg/anet, same as Register does.
+	resolver, err := zeroconf.NewResolver(zeroconf.SelectIfaces(multicastInterfaces()))
 	if err != nil {
 		return fmt.Errorf("mdns: new resolver: %w", err)
 	}

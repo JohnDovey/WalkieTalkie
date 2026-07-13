@@ -47,7 +47,6 @@ numberOverride:
 <ul>
 <li>The app needs microphone, location, and Bluetooth permissions — grant all of them when asked, or nothing will work.</li>
 <li>On some phones (confirmed on a Xiaomi/HyperOS device), aggressive battery management kills the app's network activity a few seconds after connecting, even though it's a proper foreground service. If audio drops after several seconds, check your phone's battery settings and allow the app to run unrestricted / disable battery optimization for it.</li>
-<li><strong>Known issue</strong>: the phone's own device list currently only shows itself, not the Base Station it's connected to, even though the connection and audio both work correctly. This is a display bug, not a connectivity problem — it's on the list to fix.</li>
 </ul>
 <p>Not yet tested: whether a third device can detect the phone over Bluetooth and report its presence to a Base Station when the phone has no Wi-Fi — that needs a second Bluetooth-capable device to verify.</p>
 
