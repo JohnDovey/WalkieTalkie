@@ -10,6 +10,7 @@ Two scope decisions were already confirmed with the user during planning:
 1. **Off-LAN discovery**: when devices share no LAN, BLE still detects nearby devices of any platform and reports id/name/GPS/last-seen up to the registry, but **BLE never carries audio** — audio only flows over LAN or same-OS ad hoc links.
 2. **Audio topology**: P2P mesh is the default (direct WebRTC connections between reachable devices), with the Go server also acting as a **relay fallback** for pairs that can't reach each other directly (different subnets/NAT) — relaying is not a mandatory part of the audio path.
 3. **The server is itself a full participating node**, not just a registry/relay — it has its own mic/speaker via `server/audio`, joins the mesh, and can talk/listen like any other device. It auto-registers its own `Device` record with `Name` defaulting to **"Base Station: `<machine hostname>`"** (via `os.Hostname()`), following the same Name/announce rules as any other node — the web UI's Settings page (server config only, per above) doesn't rename it, but nothing stops a later local rename control from reusing the same `NameUpdate` mechanism.
+4. **Multiple Base Stations on one LAN synchronize their registries with each other, on a regular interval, with last-seen as the authoritative tiebreaker.** Added 2026-07-13. See "Multi-Base-Station synchronization" below for the mechanism — this is a distinct merge rule from the single-peer `PeerReport` forwarding in decision 1/§ Core data model: that's one device vouching for one peer it saw; this is two servers reconciling their whole device lists against each other.
 
 ## Research findings driving the design
 
@@ -82,9 +83,23 @@ Message types:
 
 ## Discovery layer
 
-**LAN (mDNS/DNS-SD)**: `grandcat/zeroconf`, service type `_walkietalkie._tcp.local.`, instance name = device ID (stable, unlike display names). TXT record: `id`, `name` (url-encoded), `ver`, `sig` (signaling port), `plat`. `core/discovery/mdns` exposes `Register`/`Browse` wired directly into `registry.UpsertFromDirectContact`. Spike needed: whether zeroconf supports in-place TXT updates on rename or needs unregister+re-register (infrequent enough that a restart-on-rename fallback is fine either way).
+**LAN (mDNS/DNS-SD)**: `grandcat/zeroconf`, service type `_walkietalkie._tcp.local.`, instance name = device ID (stable, unlike display names). TXT record: `id`, `name` (url-encoded), `ver`, `sig` (signaling port), `plat`, and optionally `lat`/`lon`/`acc` (GPS, when known) and `api` (the server REST port — set only by `server/main.go`, absent on mobile nodes; see "Multi-Base-Station synchronization" below, this is how one Base Station recognizes another). `core/discovery/mdns` exposes `Register`/`Browse` wired directly into `registry.UpsertFromDirectContact`. Confirmed: `zeroconf.Server.SetText` supports in-place TXT updates, so re-announcing on a GPS refresh or local rename doesn't need a full unregister+re-register.
 
 **BLE presence bridge (off-LAN)**: `core/discovery/ble` defines a Go interface only (`ReportPeerSeen(id, rssi, payload)`); real scanning/advertising is native — `android/.../BleDiscoveryManager.kt` (`BluetoothLeScanner`/`AdvertiseCallback`) and `ios/.../BleDiscoveryManager.swift` (`CBCentralManager`/`CBPeripheralManager`), both feeding results into gomobile-exported functions. BLE-discovered peers are presence-only stubs (`gps: null`, `capabilities: ["presence-only"]`) — reading GPS over a BLE GATT characteristic is a possible future enhancement, explicitly out of MVP scope.
+
+## Multi-Base-Station synchronization
+
+**Requirement (added 2026-07-13)**: if more than one Base Station (a `server` instance, not a phone/mobile node) is running on the same LAN, once they discover each other they must synchronize their device registries with each other on a regular, ongoing interval — not just once. **Last-seen is the authoritative tiebreaker**: for any device both Base Stations know about, whichever record has the more recent `LastSeen` timestamp wins the merge, wholesale (name, status, GPS, discovery methods — the newer record replaces the older one, not a field-by-field patch).
+
+This is deliberately a **different merge rule** from the existing `PeerReport` mechanism (see Core data model above): `PeerReport` is one ordinary device vouching for a single peer it happened to see, where direct self-reported data should always outrank secondhand hearsay. Base-Station-to-Base-Station sync is two equally-authoritative registries reconciling their *entire* device lists against each other — either side could have the more recent, equally legitimate sighting of a given device (e.g. it roamed from being in range of Base Station A to being in range of Base Station B), so pure last-seen-wins is the right rule here and would be wrong for `PeerReport`.
+
+**How Base Stations recognize each other**: only a `server` instance runs `server/api`'s REST surface (a phone/mobile node, via `core/mobile`, does not) — so the mDNS TXT record gets one more optional field, `api=<port>`, set only by `server/main.go` (never by `core/mobile`). A peer whose mDNS sighting includes a non-zero `api` field is a Base Station; a sighting without it (Android/iOS) is an ordinary node and is never a sync target.
+
+**Sync mechanism**: on discovering another Base Station via mDNS, each side independently starts a repeating ticker (interval configurable, default matching the existing GPS-update cadence — new `Settings.SyncIntervalSeconds`, default 30) that does a plain `GET http://<peer-host>:<peer-api-port>/api/devices` against the peer (reusing the *existing* endpoint — no new API surface needed on the "provider" side) and merges the returned list into its own registry. Both sides pulling independently is sufficient for full bidirectional convergence without needing a push endpoint. New `registry.Store` method: `MergeRemoteRegistry(remote []Device) (updated int, err error)` — for each incoming device, replace the local record if-and-only-if the incoming one's `LastSeen` is strictly newer (or the device is unknown locally); otherwise keep the local record untouched. This is intentionally simpler than `UpsertFromReport`'s precedence rules and should not reuse that function.
+
+**Known limitation to flag, not solve now**: last-seen comparison is wall-clock (`time.Time`) across potentially different machines with no enforced clock sync (no NTP guarantee assumed). Minor clock drift between Base Stations could make an actually-older sighting look newer. Acceptable for v1 — flagged in Risks below rather than solved (e.g. by switching to a vector-clock or hybrid-logical-clock scheme), since typical LAN machines' clocks are close enough in practice for a walkie-talkie app's purposes.
+
+**Where this lands in the phased plan**: Phase 1 already proves two desktop instances discovering each other and exchanging PTT audio, but not yet registry sync — add sync as explicit work in **Phase 3 (Desktop hardening)**, since that phase is already about multiple desktop/Base-Station instances together; extend its Verify step to also assert convergence (kill a device's direct connection to Base Station A, confirm Base Station B — which never saw it directly — nonetheless shows correct last-seen/status for it within one sync interval, purely via A→B registry sync).
 
 ## Audio layer
 
@@ -102,27 +117,29 @@ Message types:
 
 **Runtime data location**: the project's `/Volumes/JohnDovey/tmp/walkietalkie-*` convention is for *this dev machine's* build tooling (GOPATH/GOCACHE/TMPDIR) only — the **shipped app's** registry/config on any machine it runs on must use the OS-appropriate per-user app-data dir (`os.UserConfigDir()`: `~/Library/Application Support/WalkieTalkie/` macOS, `~/.config/walkietalkie/` Linux, `%APPDATA%\WalkieTalkie\` Windows), never a hardcoded `/Volumes/JohnDovey` path.
 
-**API** (`server/api`): `GET /api/devices`, `GET /api/devices/{id}`, `POST /api/devices/announce`, `POST /api/devices/{id}/location`, `PUT /api/devices/{id}/name` (device-originated only), `POST /api/devices/peer-reports`, `GET`/`PUT /api/settings` (port change restarts `http.Server` and surfaces a "reconnect at http://host:NEWPORT" notice). Start with jQuery polling (`$.getJSON` every few seconds) rather than a WS push channel — matches the plain Bootstrap+jQuery spirit of the spec; WS is a later enhancement.
+**API** (`server/api`): `GET /api/devices`, `GET /api/devices/{id}`, `POST /api/devices/announce`, `POST /api/devices/{id}/location`, `PUT /api/devices/{id}/name` (device-originated only), `POST /api/devices/peer-reports`, `GET`/`PUT /api/settings` (port change restarts `http.Server` and surfaces a "reconnect at http://host:NEWPORT" notice; settings also gains `SyncIntervalSeconds`, see Multi-Base-Station synchronization above). No dedicated sync endpoint is needed — Base-Station-to-Base-Station sync reuses `GET /api/devices` as-is. Start with jQuery polling (`$.getJSON` every few seconds) rather than a WS push channel — matches the plain Bootstrap+jQuery spirit of the spec; WS is a later enhancement.
 
 **Pages** (`server/web`, Go `html/template` + Bootstrap + jQuery, no auth): `/` device list (name, platform icon, status badge, last-seen, GPS, discovery-method badge including "via <reporter> (BLE)"); `/settings` (port, GPS interval, relay toggle).
 
 ## Phased delivery
 
-**Phase 1 — Shared core foundation** (prerequisite the Android work builds on, not a separate priority tier)
+**Phase 1 — Shared core foundation** (prerequisite the Android work builds on, not a separate priority tier) — ✅ done, verified 2026-07-13
 - Repo scaffolding: `go.work`, `core` (`registry`, `proto`, `config`, `discovery/mdns`), minimal `server` (bbolt + `GET /api/devices` + bare Bootstrap page). Protocol v0.1.0.
-- Spikes: confirm the iOS Opus binding choice, confirm `pion/mediadevices` works cleanly for desktop capture, confirm zeroconf TXT-update behavior.
 - WebRTC mesh MVP on **desktop only**, two instances on the same LAN — first end-to-end milestone. Each instance auto-registers itself as "Base Station: `<hostname>`" and participates in the mesh as a real talk/listen node, not just a registry.
-- **Verify**: two `server` processes on one LAN discover each other via mDNS within seconds, each showing up as "Base Station: `<hostname>`"; PTT (spacebar or a debug endpoint) on one is heard on the other; both web UIs show the other as Connected with correct last-seen.
+- **Verified**: two `server` processes on one LAN discover each other via mDNS within ~1s, each showing up as "Base Station: `<hostname>`"; the WebRTC connection reaches "connected" (ICE/DTLS confirmed via connection-state logging, not just signaling not-erroring); both web UIs show the other as Connected with correct last-seen. A glare bug (simultaneous mutual discovery opening two PeerConnections per pair, leaking the loser) was found and fixed during this verification.
+- Not yet implemented: multi-Base-Station registry sync (see below) — deferred to Phase 3, since Phase 1's milestone only required two instances to discover and talk, not to reconcile full device lists.
 
-**Phase 2 — Android** (top priority)
-- `gomobile bind` core → `.aar`; `android/` scaffolded per `android-build.mdc`/ClonesApp precedent.
-- PTT UI, foreground service (`microphone` type) hosting core's mesh/registry/mDNS lifecycle, `MediaCodec` Opus capture/playback, BLE presence bridge, GPS via `FusedLocationProviderClient`.
-- **Verify**: Android + one desktop instance on the same Wi-Fi discover each other and exchange PTT audio both ways; with Android Wi-Fi off, confirm a third device's BLE scan still reports the phone's presence to the server (validates offline-forwarding end to end).
+**Phase 2 — Android** (top priority) — in progress 2026-07-13
+- `gomobile bind` core → `.aar` — done; required two undocumented fixes: `-ldflags="-checklinkname=0"` (pion's `wlynxg/anet` dependency uses `//go:linkname` into `net.zoneCache`, restricted by Go 1.23+), and binding `./mobile` together with `./media` in one `gomobile bind` invocation (binding `./mobile` alone silently drops `StartNode` with no error, since gobind needs to see `media.AudioSource`/`AudioSink` explicitly to generate their Java bindings). Both captured in `tools/gomobile-bind-android.sh`.
+- `android/` scaffolded per `android-build.mdc`/ClonesApp precedent; PTT UI (Compose), foreground service (`microphone` type) hosting core's mesh/registry/mDNS lifecycle, BLE presence bridge (`BluetoothLeScanner`/`AdvertiseCallback`), GPS via `FusedLocationProviderClient` — implemented, first `assembleDebug` build in progress.
+- Real `MediaCodec` Opus capture/playback not yet implemented — the app currently uses placeholder silent `AudioSource`/`AudioSink` stubs so the rest of the pipeline (service lifecycle, discovery, mesh) could be verified independently first.
+- **Verify** (not yet done): Android + one desktop instance on the same Wi-Fi discover each other and exchange PTT audio both ways; with Android Wi-Fi off, confirm a third device's BLE scan still reports the phone's presence to the server (validates offline-forwarding end to end).
 
 **Phase 3 — Desktop hardening (Mac/Windows/Linux)** — packaging, not new architecture; core loop already proven in Phase 1
 - Windows/Linux build scripts (dev machine is macOS); confirm `pion/mediadevices` on all three OSes.
 - Settings port-change flow; optional `getlantern/systray` tray icon.
-- **Verify**: three-way mesh (Win+Mac+Linux) plus the Phase-2 Android device, group PTT.
+- **Multi-Base-Station registry synchronization** (new requirement, added 2026-07-13 — see the dedicated section above): mDNS TXT `api` field, `registry.Store.MergeRemoteRegistry`, per-peer sync ticker on discovering another Base Station, `Settings.SyncIntervalSeconds`.
+- **Verify**: three-way mesh (Win+Mac+Linux) plus the Phase-2 Android device, group PTT; plus registry-sync convergence (kill one device's direct connection to Base Station A, confirm Base Station B shows correct last-seen/status for it within one sync interval via A→B sync alone).
 
 **Phase 4 — iPhone**
 - `gomobile bind` xcframework (`ios,iossimulator`); Swift app integrating `PTChannelManager` for background PTT with system transmit UI (not hand-rolled background audio); `CoreBluetooth` BLE bridge; `CoreLocation` GPS.
@@ -140,6 +157,7 @@ Message types:
 - **gomobile/cgo cross-build complexity**: Android needs the NDK alongside `ANDROID_HOME`; iOS xcframework builds need Xcode on this Mac (no Linux/Windows CI path). Keeping `core` itself cgo-free (audio codec/capture and BLE both pushed to native platform shims) is a hard constraint to keep this tractable, not just a nicety.
 - **mDNS quirks**: `zeroconf`/`hashicorp-mdns` both have known rough edges (enumeration staleness, IPv6). Budget real time in Phase 1 to validate against actual Wi-Fi hardware, since corporate/guest networks with IGMP-snooping oddities behave differently from a typical home router.
 - **Signaling endpoints are unauthenticated** too — any device reaching a node's signaling port can POST a bogus SDP offer. Low risk on a private LAN, consistent with the app's no-auth theme, but worth documenting alongside the web-UI risk.
+- **Multi-Base-Station sync assumes reasonably close wall clocks**: last-seen-wins conflict resolution compares `time.Time` values from potentially different machines with no enforced NTP sync. Clock drift could make an actually-older sighting look newer during a merge. Accepted as a v1 limitation rather than solved with vector/hybrid-logical clocks — typical LAN machines' clocks are close enough in practice for this app's purposes.
 
 ## Verification approach
 

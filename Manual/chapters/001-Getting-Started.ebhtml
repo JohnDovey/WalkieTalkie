@@ -1,0 +1,29 @@
+---
+title: Getting Started (Desktop Base Station)
+subtitle:
+numberMode: Auto
+numberOverride:
+---
+<h1 id="getting-started">Getting Started</h1>
+<p>WalkieTalkie is a cross-platform push-to-talk (PTT) app. This chapter covers the desktop "Base Station" — the Go server app for Mac, Windows, and Linux — which is the first part of the app that's fully working. The Android app is still in development; iPhone and wearables haven't been started yet.</p>
+
+<h2 id="what-a-base-station-is">What a Base Station is</h2>
+<p>Every desktop instance of WalkieTalkie is called a <strong>Base Station</strong>. A Base Station is not just a monitoring dashboard — it's a full participant: it can talk and listen like any other device, and it also hosts a web dashboard showing every device it has seen on the network.</p>
+<p>Each Base Station names itself automatically, as <strong>"Base Station: &lt;your computer's name&gt;"</strong> — for example, "Base Station: Johns-MacBook-Air". There's currently no way to rename it from the dashboard; this is intentional (see Settings below).</p>
+
+<h2 id="running-a-base-station">Running a Base Station</h2>
+<p>From the <code>server/</code> directory of the project:</p>
+<pre><code>go run .</code></pre>
+<p>This starts the Base Station listening on port <strong>9091</strong> by default. Open <code>http://localhost:9091</code> in a browser to see the dashboard.</p>
+<p><strong>There is no login.</strong> Anyone who can reach the port — anyone on the same LAN, by default — can view the dashboard, including every device's live GPS location if it has one. Don't expose this port beyond a network you trust.</p>
+
+<h2 id="the-device-list">The device list</h2>
+<p>The dashboard's home page (<code>/</code>) lists every device the Base Station has seen: its name, platform, connection status (Connected/Disconnected), how long ago it was last seen, its GPS location if known, and how it was discovered (directly, over the LAN via mDNS, or reported by another device over Bluetooth). The list refreshes automatically every few seconds.</p>
+<p>When two Base Stations are running on the same LAN, they discover each other the same way any two devices do — automatically, with no setup — and each will list the other, including itself as a normal entry in its own list.</p>
+
+<h2 id="settings">Settings</h2>
+<p>The <strong>Settings</strong> page (<code>/settings</code>) lets you change the Base Station's own configuration: the port it listens on, how often GPS updates are expected, and whether the relay fallback is enabled. Changing the port restarts the web server on the new port — the page tells you the new address to reconnect to.</p>
+<p>Settings does <strong>not</strong> let you rename a device from the browser. Every device — including a Base Station — sets its own name locally; the dashboard only ever displays what a device has told it about itself.</p>
+
+<h2 id="running-more-than-one-instance-for-testing">Running more than one instance (for testing)</h2>
+<p>The desktop app accepts a few flags useful when testing with more than one instance on a single machine: <code>--port</code>, <code>--data-dir</code>, <code>--name</code>, and <code>--no-audio</code> (skip mic/speaker setup, so two instances on one machine don't fight over the same audio hardware). These aren't needed for normal use — on separate machines, just run <code>go run .</code> on each.</p>
