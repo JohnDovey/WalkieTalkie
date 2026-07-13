@@ -38,6 +38,7 @@ type AnnounceInfo struct {
 	ID         string // instance name — stable device ID, not the display name
 	Name       string
 	Platform   string
+	AppVersion string // the announcing app's own Major.Minor.Patch version
 	ProtoVer   int
 	Port       int // service port; == SignalPort for this app
 	SignalPort int
@@ -57,6 +58,7 @@ type Peer struct {
 	ID         string
 	Name       string
 	Platform   string
+	AppVersion string
 	ProtoVer   int
 	SignalPort int
 	APIPort    int // 0 if the peer isn't a Base Station (no server/api)
@@ -73,6 +75,7 @@ func buildTXT(info AnnounceInfo) []string {
 		"plat=" + info.Platform,
 		"ver=" + strconv.Itoa(info.ProtoVer),
 		"sig=" + strconv.Itoa(info.SignalPort),
+		"appver=" + info.AppVersion,
 	}
 	if info.GPS != nil {
 		txt = append(txt,
@@ -87,7 +90,7 @@ func buildTXT(info AnnounceInfo) []string {
 	return txt
 }
 
-func parseTXT(text []string) (id, name, plat string, ver, sig, api int, gps *proto.GeoPoint) {
+func parseTXT(text []string) (id, name, plat, appVersion string, ver, sig, api int, gps *proto.GeoPoint) {
 	var lat, lon, acc float64
 	var hasLat, hasLon bool
 	for _, kv := range text {
@@ -104,6 +107,8 @@ func parseTXT(text []string) (id, name, plat string, ver, sig, api int, gps *pro
 			}
 		case "plat":
 			plat = parts[1]
+		case "appver":
+			appVersion = parts[1]
 		case "ver":
 			ver, _ = strconv.Atoi(parts[1])
 		case "sig":
@@ -262,7 +267,7 @@ func Browse(ctx context.Context, selfID string, onFound func(Peer)) error {
 	entries := make(chan *zeroconf.ServiceEntry)
 	go func() {
 		for entry := range entries {
-			id, name, plat, ver, sig, api, gps := parseTXT(entry.Text)
+			id, name, plat, appVersion, ver, sig, api, gps := parseTXT(entry.Text)
 			if id == "" || id == selfID {
 				continue
 			}
@@ -270,6 +275,7 @@ func Browse(ctx context.Context, selfID string, onFound func(Peer)) error {
 				ID:         id,
 				Name:       name,
 				Platform:   plat,
+				AppVersion: appVersion,
 				ProtoVer:   ver,
 				SignalPort: sig,
 				APIPort:    api,

@@ -4,6 +4,10 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Single source of truth for the app version — the top-level android/VERSION
+// file (Major.Minor.Patch), bumped per the project's versioning convention.
+val appVersionName = rootProject.projectDir.resolve("VERSION").readText().trim()
+
 android {
     namespace = "com.walkietalkie"
     compileSdk = 35
@@ -17,7 +21,7 @@ android {
         minSdk = 29
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = appVersionName
     }
 
     buildTypes {
@@ -35,6 +39,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

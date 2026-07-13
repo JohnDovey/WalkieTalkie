@@ -43,6 +43,7 @@ type AnnouncePayload struct {
 	ID           string   `json:"id"`
 	Name         string   `json:"name"`
 	Platform     string   `json:"platform"`
+	AppVersion   string   `json:"appVersion"` // the announcing app's own Major.Minor.Patch version
 	Capabilities []string `json:"capabilities"`
 	SignalPort   int      `json:"signalPort"`
 }

@@ -28,9 +28,24 @@ type Handlers struct {
 	Store  *registry.Store
 	Talker Talker // the server's own PTT session; nil if audio is unavailable
 
+	// SelfID, SelfName, Platform, and Version describe this Base Station
+	// itself, for the About endpoint.
+	SelfID   string
+	SelfName string
+	Platform string
+	Version  string
+
 	// OnSettingsChanged is called after new settings are persisted, so
 	// main.go can restart the HTTP listener on a new port if it changed.
 	OnSettingsChanged func(config.Settings)
+}
+
+// AboutInfo is the response shape for GET /api/about.
+type AboutInfo struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Platform string `json:"platform"`
+	Version  string `json:"version"`
 }
 
 // Register attaches every route to mux.
@@ -43,6 +58,7 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/devices/peer-reports", h.peerReport)
 	mux.HandleFunc("GET /api/settings", h.getSettings)
 	mux.HandleFunc("PUT /api/settings", h.putSettings)
+	mux.HandleFunc("GET /api/about", h.about)
 	mux.HandleFunc("POST /api/talk/start", h.talkStart)
 	mux.HandleFunc("POST /api/talk/stop", h.talkStop)
 }
@@ -90,7 +106,7 @@ func (h *Handlers) announce(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err := h.Store.UpsertFromDirectContact(
-		payload.ID, payload.Name, payload.Platform, payload.Capabilities, "direct", time.Now(),
+		payload.ID, payload.Name, payload.Platform, payload.AppVersion, payload.Capabilities, "direct", time.Now(),
 	)
 	if err != nil {
 		serverError(w, err)
@@ -156,6 +172,10 @@ func (h *Handlers) talkStop(w http.ResponseWriter, r *http.Request) {
 	}
 	h.Talker.StopTalking()
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) about(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, AboutInfo{ID: h.SelfID, Name: h.SelfName, Platform: h.Platform, Version: h.Version})
 }
 
 func (h *Handlers) getSettings(w http.ResponseWriter, r *http.Request) {

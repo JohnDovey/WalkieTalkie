@@ -107,7 +107,7 @@ func (s *Store) List() ([]*Device, error) {
 // id — via its own announce, an mDNS sighting, a GPS/name update, or a
 // signaling connection. Direct contact always takes precedence over
 // anything a peer previously reported about this device.
-func (s *Store) UpsertFromDirectContact(id, name, platform string, capabilities []string, discoveryMethod string, now time.Time) error {
+func (s *Store) UpsertFromDirectContact(id, name, platform, appVersion string, capabilities []string, discoveryMethod string, now time.Time) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.db.Update(func(tx *bbolt.Tx) error {
@@ -121,6 +121,9 @@ func (s *Store) UpsertFromDirectContact(id, name, platform string, capabilities 
 		}
 		if platform != "" {
 			d.Platform = platform
+		}
+		if appVersion != "" {
+			d.AppVersion = appVersion
 		}
 		if len(capabilities) > 0 {
 			d.Capabilities = capabilities

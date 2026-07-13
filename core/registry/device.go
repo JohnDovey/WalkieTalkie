@@ -20,11 +20,12 @@ const (
 // Device is the canonical record for one device on the network, whether the
 // server heard from it directly or only via another device's PeerReport.
 type Device struct {
-	ID       string    `json:"id"`
-	Name     string    `json:"name"`
-	Platform string    `json:"platform"`
-	Status   Status    `json:"status"`
-	LastSeen time.Time `json:"lastSeen"`
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	Platform   string    `json:"platform"`
+	AppVersion string    `json:"appVersion"`
+	Status     Status    `json:"status"`
+	LastSeen   time.Time `json:"lastSeen"`
 
 	CurrentLocation   *proto.GeoPoint `json:"currentLocation,omitempty"`
 	LastKnownLocation *proto.GeoPoint `json:"lastKnownLocation,omitempty"`

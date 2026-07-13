@@ -107,7 +107,7 @@ func main() {
 	}
 
 	now := time.Now()
-	if err := store.UpsertFromDirectContact(selfID, selfName, platformName(), []string{"audio"}, "direct", now); err != nil {
+	if err := store.UpsertFromDirectContact(selfID, selfName, platformName(), Version, []string{"audio"}, "direct", now); err != nil {
 		log.Fatalf("register self: %v", err)
 	}
 
@@ -115,6 +115,7 @@ func main() {
 		ID:         selfID,
 		Name:       selfName,
 		Platform:   platformName(),
+		AppVersion: Version,
 		ProtoVer:   proto.Version,
 		Port:       sigPort,
 		SignalPort: sigPort,
@@ -134,7 +135,7 @@ func main() {
 		err := mdns.Browse(browseCtx, selfID, func(p mdns.Peer) {
 			discoveredAt := time.Now()
 			caps := []string{"audio"}
-			if err := store.UpsertFromDirectContact(p.ID, p.Name, p.Platform, caps, "mdns", discoveredAt); err != nil {
+			if err := store.UpsertFromDirectContact(p.ID, p.Name, p.Platform, p.AppVersion, caps, "mdns", discoveredAt); err != nil {
 				log.Printf("registry upsert for discovered peer %s: %v", p.ID, err)
 			}
 			if p.GPS != nil {
@@ -164,7 +165,7 @@ func main() {
 		}
 	}()
 
-	apiHandlers := &api.Handlers{Store: store, Talker: session}
+	apiHandlers := &api.Handlers{Store: store, Talker: session, SelfID: selfID, SelfName: selfName, Platform: platformName(), Version: Version}
 	webHandlers, err := web.New()
 	if err != nil {
 		log.Fatalf("init web UI: %v", err)
@@ -188,6 +189,7 @@ func main() {
 			ID:         selfID,
 			Name:       selfName,
 			Platform:   platformName(),
+			AppVersion: Version,
 			ProtoVer:   proto.Version,
 			Port:       sigPort,
 			SignalPort: sigPort,

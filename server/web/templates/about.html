@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WalkieTalkie — About</title>
+  <link rel="stylesheet" href="/static/vendor/bootstrap.min.css">
+</head>
+<body>
+  <nav class="navbar navbar-expand navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">WalkieTalkie</a>
+      <div class="navbar-nav">
+        <a class="nav-link" href="/">Devices</a>
+        <a class="nav-link" href="/map">Map</a>
+        <a class="nav-link" href="/settings">Settings</a>
+        <a class="nav-link active" href="/about">About</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container" style="max-width: 480px;">
+    <h1 class="h4 mb-3">About this Base Station</h1>
+    <table class="table">
+      <tbody>
+        <tr><th scope="row">Name</th><td id="about-name">&hellip;</td></tr>
+        <tr><th scope="row">Platform</th><td id="about-platform">&hellip;</td></tr>
+        <tr><th scope="row">Version</th><td id="about-version">&hellip;</td></tr>
+        <tr><th scope="row">Device ID</th><td id="about-id" class="text-break">&hellip;</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script src="/static/vendor/jquery.min.js"></script>
+  <script src="/static/vendor/bootstrap.bundle.min.js"></script>
+  <script>
+    $.getJSON('/api/about', function (info) {
+      $('#about-name').text(info.name);
+      $('#about-platform').text(info.platform);
+      $('#about-version').text(info.version);
+      $('#about-id').text(info.id);
+    });
+  </script>
+</body>
+</html>

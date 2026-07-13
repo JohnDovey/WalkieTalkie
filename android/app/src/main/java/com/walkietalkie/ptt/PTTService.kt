@@ -13,12 +13,14 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import com.walkietalkie.BuildConfig
 import com.walkietalkie.MainActivity
 import com.walkietalkie.R
 import com.walkietalkie.audio.OpusMicSource
 import com.walkietalkie.audio.OpusSpeakerSink
 import com.walkietalkie.ble.BlePresenceBridge
 import com.walkietalkie.location.LocationUpdater
+import com.walkietalkie.settings.NicknameStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import mobile.Mobile
@@ -84,7 +86,8 @@ class PTTService : LifecycleService() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             val dataDir = File(filesDir, "walkietalkie").absolutePath
-            val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
+            val nickname = NicknameStore.get(applicationContext)
+            val deviceName = nickname.ifBlank { "${Build.MANUFACTURER} ${Build.MODEL}".trim() }
             try {
                 val source = OpusMicSource()
                 val sink = OpusSpeakerSink()
@@ -95,6 +98,7 @@ class PTTService : LifecycleService() {
                     dataDir,
                     deviceName,
                     "android",
+                    BuildConfig.VERSION_NAME,
                     source,
                     sink,
                 )
@@ -127,6 +131,11 @@ class PTTService : LifecycleService() {
     fun startTalking() = node?.startTalking()
     fun stopTalking() = node?.stopTalking()
     fun listDevicesJSON(): String = node?.listDevicesJSON() ?: "[]"
+    fun selfId(): String = node?.selfID() ?: ""
+    fun updateName(name: String) {
+        NicknameStore.set(applicationContext, name)
+        node?.updateName(name)
+    }
 
     private fun createNotificationChannel() {
         val channel = NotificationChannel(

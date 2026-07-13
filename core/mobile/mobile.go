@@ -30,9 +30,10 @@ import (
 
 // Node is the handle a native app holds for its whole lifetime.
 type Node struct {
-	selfID   string
-	platform string
-	sigPort  int
+	selfID     string
+	platform   string
+	appVersion string
+	sigPort    int
 
 	store   *registry.Store
 	session *media.PTTSession
@@ -52,7 +53,7 @@ type Node struct {
 // capture+Opus encode / Opus decode+speaker playback) — see
 // core/media.AudioSource/AudioSink, implemented in Kotlin/Swift and passed
 // in via the gomobile-generated callback bindings.
-func StartNode(dataDir, name, platform string, source media.AudioSource, sink media.AudioSink) (*Node, error) {
+func StartNode(dataDir, name, platform, appVersion string, source media.AudioSource, sink media.AudioSink) (*Node, error) {
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return nil, fmt.Errorf("mobile: create data dir: %w", err)
 	}
@@ -81,15 +82,16 @@ func StartNode(dataDir, name, platform string, source media.AudioSource, sink me
 	}
 
 	n := &Node{
-		selfID:   selfID,
-		platform: platform,
-		sigPort:  sigPort,
-		store:    store,
-		session:  session,
-		name:     name,
+		selfID:     selfID,
+		platform:   platform,
+		appVersion: appVersion,
+		sigPort:    sigPort,
+		store:      store,
+		session:    session,
+		name:       name,
 	}
 
-	if err := store.UpsertFromDirectContact(selfID, name, platform, []string{"audio"}, "direct", time.Now()); err != nil {
+	if err := store.UpsertFromDirectContact(selfID, name, platform, appVersion, []string{"audio"}, "direct", time.Now()); err != nil {
 		n.Stop()
 		return nil, fmt.Errorf("mobile: register self: %w", err)
 	}
@@ -111,7 +113,7 @@ func StartNode(dataDir, name, platform string, source media.AudioSource, sink me
 }
 
 func (n *Node) onPeerFound(p mdns.Peer) {
-	_ = n.store.UpsertFromDirectContact(p.ID, p.Name, p.Platform, []string{"audio"}, "mdns", time.Now())
+	_ = n.store.UpsertFromDirectContact(p.ID, p.Name, p.Platform, p.AppVersion, []string{"audio"}, "mdns", time.Now())
 	if p.GPS != nil {
 		_ = n.store.SetLocation(p.ID, *p.GPS)
 	}
@@ -174,6 +176,7 @@ func (n *Node) reannounce(gps *proto.GeoPoint) error {
 		ID:         n.selfID,
 		Name:       n.name,
 		Platform:   n.platform,
+		AppVersion: n.appVersion,
 		ProtoVer:   proto.Version,
 		Port:       n.sigPort,
 		SignalPort: n.sigPort,

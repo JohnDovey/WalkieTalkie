@@ -12,6 +12,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,9 +21,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.walkietalkie.ptt.PTTService
+import com.walkietalkie.settings.NicknameStore
 import kotlinx.coroutines.delay
 import org.json.JSONArray
 
@@ -76,7 +81,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    PttScreen()
+                    AppScreen()
                 }
             }
         }
@@ -85,6 +90,84 @@ class MainActivity : ComponentActivity() {
     private fun startPttService() {
         val intent = Intent(this, PTTService::class.java)
         ContextCompat.startForegroundService(this, intent)
+    }
+}
+
+private enum class Screen { Devices, Settings, About }
+
+@Composable
+private fun AppScreen() {
+    var screen by remember { mutableStateOf(Screen.Devices) }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            TextButton(onClick = { screen = Screen.Devices }) { Text("Devices") }
+            TextButton(onClick = { screen = Screen.Settings }) { Text("Settings") }
+            TextButton(onClick = { screen = Screen.About }) { Text("About") }
+        }
+        when (screen) {
+            Screen.Devices -> PttScreen()
+            Screen.Settings -> SettingsScreen()
+            Screen.About -> AboutScreen()
+        }
+    }
+}
+
+@Composable
+private fun SettingsScreen() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var nickname by remember { mutableStateOf(NicknameStore.get(context)) }
+    var saved by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(text = "Settings", style = MaterialTheme.typography.titleMedium)
+        OutlinedTextField(
+            value = nickname,
+            onValueChange = { nickname = it; saved = false },
+            label = { Text("Nickname / User name") },
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+        )
+        Text(
+            text = "Leave blank to use this device's manufacturer/model as its display name.",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Button(
+            onClick = {
+                PTTService.instance?.updateName(nickname)
+                saved = true
+            },
+            modifier = Modifier.padding(top = 16.dp),
+        ) { Text("Save") }
+        if (saved) {
+            Text(text = "Saved.", modifier = Modifier.padding(top = 8.dp))
+        }
+    }
+}
+
+@Composable
+private fun AboutScreen() {
+    var selfId by remember { mutableStateOf("") }
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        while (true) {
+            selfId = PTTService.instance?.selfId() ?: ""
+            if (selfId.isNotEmpty()) break
+            delay(500)
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+        Text(text = "About WalkieTalkie", style = MaterialTheme.typography.titleMedium)
+        Text(text = "Version: ${BuildConfig.VERSION_NAME}", modifier = Modifier.padding(top = 16.dp))
+        Text(text = "Platform: android", modifier = Modifier.padding(top = 8.dp))
+        Text(text = "Device ID: $selfId", modifier = Modifier.padding(top = 8.dp))
     }
 }
 
