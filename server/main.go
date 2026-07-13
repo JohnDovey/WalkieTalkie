@@ -150,7 +150,11 @@ func main() {
 				return
 			}
 			go func() {
-				if err := session.Connect(p.IPv4[0].String(), p.SignalPort, p.ID); err != nil {
+				hosts := make([]string, len(p.IPv4))
+				for i, ip := range p.IPv4 {
+					hosts[i] = ip.String()
+				}
+				if err := session.ConnectAny(hosts, p.SignalPort, p.ID); err != nil {
 					log.Printf("connect to %s (%s): %v", p.ID, p.Name, err)
 				}
 			}()

@@ -116,7 +116,11 @@ func (n *Node) onPeerFound(p mdns.Peer) {
 		return
 	}
 	go func() {
-		_ = n.session.Connect(p.IPv4[0].String(), p.SignalPort, p.ID)
+		hosts := make([]string, len(p.IPv4))
+		for i, ip := range p.IPv4 {
+			hosts[i] = ip.String()
+		}
+		_ = n.session.ConnectAny(hosts, p.SignalPort, p.ID)
 	}()
 }
 

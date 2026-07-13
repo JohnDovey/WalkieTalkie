@@ -215,6 +215,29 @@ func (mm *MeshManager) Connect(host string, port int, peerID string) error {
 	return nil
 }
 
+// ConnectAny tries each host in order (same port) and stops at the first
+// one that connects, per docs/2026-07-13-implementation-plan.md's note on
+// picking the right advertised address: a peer can legitimately have
+// several IPv4 addresses (multiple interfaces), and blindly trusting the
+// first one in the list found the hard way, on real Android hardware, to
+// sometimes be a cellular-modem address that will never be reachable on
+// the LAN — trying every candidate is more robust than perfectly filtering
+// which interface "should" be right at discovery time.
+func (mm *MeshManager) ConnectAny(hosts []string, port int, peerID string) error {
+	var lastErr error
+	for _, host := range hosts {
+		if err := mm.Connect(host, port, peerID); err != nil {
+			lastErr = err
+			continue
+		}
+		return nil
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("media: no hosts to try for %s", peerID)
+	}
+	return lastErr
+}
+
 // storePeer atomically installs pc as the connection for peerID, closing
 // whatever connection (if any) was there before — the "glare" case where
 // both sides discover each other at once and each independently dial the

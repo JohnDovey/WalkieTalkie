@@ -7,6 +7,7 @@ import android.media.MediaCodec
 import android.media.MediaFormat
 import android.util.Log
 import media.AudioSink
+import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -75,6 +76,16 @@ class OpusSpeakerSink : AudioSink {
                 val format = MediaFormat.createAudioFormat(
                     "audio/opus", OpusMicSource.SAMPLE_RATE, OpusMicSource.CHANNEL_COUNT,
                 )
+                // Android's Opus *decoder* (unlike the encoder) requires CSD —
+                // found on real hardware: without it, configure()/start() don't
+                // throw, but the very first dequeueInputBuffer call fails with
+                // "Invalid to call at Released state," i.e. the codec silently
+                // died on init. csd-0 is the standard 19-byte OpusHead; csd-1/
+                // csd-2 (pre-skip / seek-preroll, in nanoseconds) are 0 since
+                // we're streaming raw frames with no container semantics.
+                format.setByteBuffer("csd-0", opusHead(OpusMicSource.CHANNEL_COUNT, OpusMicSource.SAMPLE_RATE))
+                format.setByteBuffer("csd-1", nanosBuffer(0))
+                format.setByteBuffer("csd-2", nanosBuffer(0))
                 configure(format, null, null, 0)
                 start()
             }
@@ -125,5 +136,26 @@ class OpusSpeakerSink : AudioSink {
         private const val TIMEOUT_US = 10_000L
         private const val MAX_DEQUEUE_ATTEMPTS = 5
         private const val SAMPLES_PER_FRAME = OpusMicSource.BYTES_PER_FRAME / 2
+
+        /** Builds the standard 19-byte OpusHead identification header. */
+        private fun opusHead(channels: Int, sampleRate: Int): ByteBuffer {
+            val buf = ByteBuffer.allocate(19).order(ByteOrder.LITTLE_ENDIAN)
+            buf.put("OpusHead".toByteArray(Charsets.US_ASCII)) // magic
+            buf.put(1) // version
+            buf.put(channels.toByte())
+            buf.putShort(0) // pre-skip
+            buf.putInt(sampleRate)
+            buf.putShort(0) // output gain
+            buf.put(0) // channel mapping family
+            buf.flip()
+            return buf
+        }
+
+        private fun nanosBuffer(value: Long): ByteBuffer {
+            val buf = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN)
+            buf.putLong(value)
+            buf.flip()
+            return buf
+        }
     }
 }

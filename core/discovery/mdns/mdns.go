@@ -16,6 +16,7 @@ import (
 
 	"github.com/JohnDovey/WalkieTalkie/core/proto"
 	"github.com/grandcat/zeroconf"
+	"github.com/wlynxg/anet"
 )
 
 const (
@@ -150,12 +151,92 @@ func (s *Server) Shutdown() {
 // Register advertises this node's presence on the LAN. Call Shutdown() on
 // the returned Server when the node goes offline, or UpdateInfo to refresh
 // GPS/name without a full teardown.
+//
+// Uses zeroconf.RegisterProxy (supplying IPs/interfaces ourselves via
+// wlynxg/anet) rather than zeroconf.Register — found the hard way, on real
+// Android hardware: zeroconf.Register's own interface/address auto-
+// detection calls the stdlib net.Interface.Addrs() per interface, which
+// returns nothing usable on Android (the same gap wlynxg/anet exists to
+// paper over for pion's ICE code — see the gomobile-bind ldflags note in
+// tools/gomobile-bind-android.sh). Without this, Register failed on-device
+// with "Could not determine host IP addresses" even though the phone had
+// a perfectly normal Wi-Fi IP.
 func Register(info AnnounceInfo) (*Server, error) {
-	zc, err := zeroconf.Register(info.ID, ServiceType, Domain, info.Port, buildTXT(info), nil)
+	ips, err := hostIPs()
+	if err != nil {
+		return nil, fmt.Errorf("mdns: register: %w", err)
+	}
+	zc, err := zeroconf.RegisterProxy(info.ID, ServiceType, Domain, info.Port, info.ID, ips, buildTXT(info), multicastInterfaces())
 	if err != nil {
 		return nil, fmt.Errorf("mdns: register: %w", err)
 	}
 	return &Server{zc: zc}, nil
+}
+
+// hostIPs returns every LAN-reachable IPv4 address this node has, via
+// wlynxg/anet (works on Android, unlike net.InterfaceAddrs/Interface.Addrs).
+//
+// Filters by *interface flags*, not just IP address range — found the hard
+// way, on real Android hardware with mobile data also enabled. The first
+// attempt filtered to RFC 1918 private ranges, which wasn't enough: on this
+// particular (MediaTek-chipset) phone, the cellular modem exposes two
+// interfaces — "ccmni0" with a public-looking carrier IP, but *also*
+// "ccmni1" with a 10.x CGNAT address indistinguishable from a real private
+// LAN address by range alone. Both are point-to-point cellular links, not
+// LAN segments — confirmed via `ip addr`: wlan0 has BROADCAST set, both
+// ccmni interfaces don't. Requiring FlagBroadcast (LAN/Wi-Fi interfaces
+// have it; point-to-point cellular links don't) reliably excludes them
+// regardless of what IP range the carrier happens to hand out. Kept the
+// private-range check too as a second, complementary filter.
+func hostIPs() ([]string, error) {
+	ifaces, err := anet.Interfaces()
+	if err != nil {
+		return nil, fmt.Errorf("enumerate interfaces: %w", err)
+	}
+
+	var ips []string
+	for _, ifi := range ifaces {
+		if ifi.Flags&net.FlagUp == 0 || ifi.Flags&net.FlagBroadcast == 0 {
+			continue
+		}
+		addrs, err := anet.InterfaceAddrsByInterface(&ifi)
+		if err != nil {
+			continue
+		}
+		for _, a := range addrs {
+			ipNet, ok := a.(*net.IPNet)
+			if !ok {
+				continue
+			}
+			v4 := ipNet.IP.To4()
+			if v4 == nil || ipNet.IP.IsLoopback() || !isPrivateIPv4(v4) {
+				continue
+			}
+			ips = append(ips, v4.String())
+		}
+	}
+	if len(ips) == 0 {
+		return nil, fmt.Errorf("no usable LAN IPv4 addresses found")
+	}
+	return ips, nil
+}
+
+// multicastInterfaces returns the up + multicast-capable interfaces, via
+// wlynxg/anet, for zeroconf to bind its multicast sockets to. Falls back to
+// zeroconf's own detection (nil) if anet can't enumerate interfaces either.
+func multicastInterfaces() []net.Interface {
+	ifaces, err := anet.Interfaces()
+	if err != nil {
+		return nil
+	}
+	var out []net.Interface
+	for _, ifi := range ifaces {
+		if ifi.Flags&net.FlagUp == 0 || ifi.Flags&net.FlagMulticast == 0 {
+			continue
+		}
+		out = append(out, ifi)
+	}
+	return out
 }
 
 // Browse watches the LAN for other WalkieTalkie nodes and calls onFound for
@@ -200,4 +281,12 @@ func Browse(ctx context.Context, selfID string, onFound func(Peer)) error {
 	}
 	<-ctx.Done()
 	return nil
+}
+
+// isPrivateIPv4 reports whether ip is in one of the RFC 1918 private
+// ranges (10/8, 172.16/12, 192.168/16) — see hostIPs for why this matters.
+func isPrivateIPv4(ip net.IP) bool {
+	return ip[0] == 10 ||
+		(ip[0] == 172 && ip[1] >= 16 && ip[1] <= 31) ||
+		(ip[0] == 192 && ip[1] == 168)
 }
