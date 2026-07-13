@@ -34,6 +34,19 @@ type Settings struct {
 	// server relay instead of attempting direct P2P (see the plan's
 	// "Audio layer" — formalizes the mesh-scaling risk).
 	RelayThreshold int `json:"relayThreshold"`
+
+	// StaleAfterSeconds: a device marked Connected that hasn't been seen
+	// (direct contact, mDNS re-sighting, or peer report) in this long is
+	// swept to Disconnected — see registry.Store.SweepStale. Without this,
+	// a device that vanishes without a graceful disconnect (killed
+	// process, phone walking out of range, stale test data) stays
+	// "connected" forever, and multi-Base-Station sync's last-seen-wins
+	// rule then keeps re-spreading that stale "connected" status to every
+	// other Base Station's registry too. grandcat/zeroconf's Browse
+	// re-queries at most every 60s once steady-state, so this must stay
+	// safely above that to avoid flapping a present device to
+	// disconnected between re-sightings.
+	StaleAfterSeconds int `json:"staleAfterSeconds"`
 }
 
 // DefaultPort is the default port the server's web UI/API listens on.
@@ -47,6 +60,7 @@ func Default() Settings {
 		RelayEnabled:        true,
 		SyncIntervalSeconds: 30,
 		RelayThreshold:      10,
+		StaleAfterSeconds:   180,
 	}
 }
 

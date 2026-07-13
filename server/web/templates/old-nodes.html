@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>WalkieTalkie</title>
+  <title>WalkieTalkie — Old Nodes</title>
   <link rel="stylesheet" href="/static/vendor/bootstrap.min.css">
 </head>
 <body>
@@ -11,9 +11,9 @@
     <div class="container-fluid">
       <a class="navbar-brand" href="/">WalkieTalkie</a>
       <div class="navbar-nav">
-        <a class="nav-link active" href="/">Devices</a>
+        <a class="nav-link" href="/">Devices</a>
         <a class="nav-link" href="/map">Map</a>
-        <a class="nav-link" href="/old-nodes">Old Nodes</a>
+        <a class="nav-link active" href="/old-nodes">Old Nodes</a>
         <a class="nav-link" href="/settings">Settings</a>
         <a class="nav-link" href="/about">About</a>
       </div>
@@ -21,12 +21,8 @@
   </nav>
 
   <div class="container">
-    <div class="d-flex justify-content-center mb-4">
-      <button id="talk-btn" type="button" class="btn btn-lg btn-success rounded-circle"
-              style="width: 140px; height: 140px;">Hold<br>to Talk</button>
-    </div>
-
-    <h1 class="h4 mb-3">Devices</h1>
+    <h1 class="h4 mb-3">Old Nodes</h1>
+    <p class="text-muted">Devices not seen in over 2 hours. A device moves back to the main Devices page automatically as soon as it's seen again.</p>
     <table class="table table-striped align-middle">
       <thead>
         <tr>
@@ -50,14 +46,12 @@
   <script src="/static/app.js"></script>
   <script>
     function render(devices) {
-      // Devices not seen in OLD_NODE_THRESHOLD_MS live on the Old Nodes
-      // page instead — see docs/2026-07-13-implementation-plan.md.
-      var current = sortByLastSeenDesc((devices || []).filter(function (d) { return !isOldNode(d); }));
-      if (!current.length) {
-        $('#device-rows').html('<tr><td colspan="7" class="text-muted">No devices seen yet.</td></tr>');
+      var old = sortByLastSeenDesc((devices || []).filter(isOldNode));
+      if (!old.length) {
+        $('#device-rows').html('<tr><td colspan="7" class="text-muted">No old nodes.</td></tr>');
         return;
       }
-      var rows = current.map(function (d) {
+      var rows = old.map(function (d) {
         return '<tr>' +
           '<td>' + deviceNameHTML(d) + '</td>' +
           '<td>' + (d.platform || '—') + '</td>' +
@@ -79,26 +73,6 @@
 
     poll();
     setInterval(poll, 3000);
-
-    // Talk control (see docs/2026-07-13-implementation-plan.md, "Web UI:
-    // Talk control") — press-and-hold drives this Base Station's own mic,
-    // same StartTalking/StopTalking used by the Android on-screen button.
-    var talking = false;
-    function startTalking() {
-      if (talking) return;
-      talking = true;
-      $('#talk-btn').removeClass('btn-success').addClass('btn-danger').html('Talking&hellip;');
-      $.post('/api/talk/start');
-    }
-    function stopTalking() {
-      if (!talking) return;
-      talking = false;
-      $('#talk-btn').removeClass('btn-danger').addClass('btn-success').html('Hold<br>to Talk');
-      $.post('/api/talk/stop');
-    }
-    $('#talk-btn')
-      .on('mousedown touchstart', function (e) { e.preventDefault(); startTalking(); })
-      .on('mouseup mouseleave touchend touchcancel', function (e) { e.preventDefault(); stopTalking(); });
   </script>
 </body>
 </html>

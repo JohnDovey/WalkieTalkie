@@ -6,6 +6,16 @@ plugins {
 
 // Single source of truth for the app version — the top-level android/VERSION
 // file (Major.Minor.Patch), bumped per the project's versioning convention.
+//
+// Observed once on real hardware: an incremental (non-clean) rebuild where
+// ONLY this VERSION file changed (no other source edits) produced an APK
+// whose merged dex files contained BOTH the old and new BuildConfig.VERSION_NAME
+// string constants split across different classesN.dex — the stale one won
+// at runtime, so the app kept announcing its old version. Root cause wasn't
+// pinned down (Gradle's own log showed it correctly invalidated the
+// configuration cache for this file), but `./android-build.sh clean
+// assembleDebug installDebug` reliably fixes it — run a clean build after
+// bumping this file with no other source changes, just to be safe.
 val appVersionName = rootProject.projectDir.resolve("VERSION").readText().trim()
 
 android {

@@ -244,16 +244,53 @@ func multicastInterfaces() []net.Interface {
 	return out
 }
 
+// browseRestartInterval bounds how long a single underlying
+// zeroconf.Resolver/Browse call runs before Browse tears it down and starts
+// a fresh one. This works around a real bug (not just a quirk) in vendored
+// github.com/grandcat/zeroconf@v1.0.0's client.go: once its mainloop has
+// delivered a ServiceEntry for a given instance name once, it's added to an
+// internal sentEntries map and never delivered again for the lifetime of
+// that resolver ("if _, ok := sentEntries[k]; ok { continue }") — found the
+// hard way, on real hardware: a phone's GPS position, name, and app version
+// all silently froze at whatever they were on first sighting, no matter how
+// many times the phone re-announced fresh TXT data, because the desktop
+// Base Station's Browse() call had already "seen" that phone once and
+// zeroconf refused to redeliver it. Periodically restarting with a brand
+// new resolver (which has an empty sentEntries map) is the pragmatic fix
+// without forking a third-party dependency — it forces every still-present
+// peer's current TXT content back through onFound at least this often.
+const browseRestartInterval = 60 * time.Second
+
 // Browse watches the LAN for other WalkieTalkie nodes and calls onFound for
-// every sighting. zeroconf periodically re-delivers already-known entries,
-// so onFound must be an idempotent upsert (see registry.UpsertFromDirectContact),
-// not treated as a one-time "device joined" event. Browse blocks until ctx
-// is cancelled.
+// every sighting. onFound must be an idempotent upsert (see
+// registry.UpsertFromDirectContact), not treated as a one-time "device
+// joined" event — both because zeroconf itself may re-deliver an entry, and
+// because Browse periodically restarts its underlying resolver (see
+// browseRestartInterval) to work around zeroconf's own never-redeliver bug.
+// Browse blocks until ctx is cancelled.
 //
 // Known gap (tracked in the plan's risks): this does not yet surface
-// explicit "peer left" events; staleness is instead expected to be handled
-// by a LastSeen-based sweep in the caller.
+// explicit "peer left" events; staleness is instead handled by a
+// LastSeen-based sweep in the caller (registry.Store.SweepStale).
 func Browse(ctx context.Context, selfID string, onFound func(Peer)) error {
+	for {
+		iterCtx, cancel := context.WithTimeout(ctx, browseRestartInterval)
+		err := browseOnce(iterCtx, selfID, onFound)
+		cancel()
+		if ctx.Err() != nil {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		// iterCtx's own timeout elapsed (not the outer ctx) — loop and start
+		// a fresh resolver.
+	}
+}
+
+// browseOnce runs a single zeroconf resolver/Browse session until ctx is
+// cancelled (by the caller, or by browseRestartInterval elapsing).
+func browseOnce(ctx context.Context, selfID string, onFound func(Peer)) error {
 	// Same Android fix as Register: zeroconf.NewResolver(nil) defaults to
 	// its own interface enumeration (net.Interfaces()), which returns
 	// nothing usable on Android — confirmed on real hardware ("failed to

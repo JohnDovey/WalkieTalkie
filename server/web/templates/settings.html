@@ -13,6 +13,7 @@
       <div class="navbar-nav">
         <a class="nav-link" href="/">Devices</a>
         <a class="nav-link" href="/map">Map</a>
+        <a class="nav-link" href="/old-nodes">Old Nodes</a>
         <a class="nav-link active" href="/settings">Settings</a>
         <a class="nav-link" href="/about">About</a>
       </div>
@@ -46,6 +47,11 @@
         <input type="checkbox" class="form-check-input" id="relayEnabled">
         <label class="form-check-label" for="relayEnabled">Enable relay fallback for unreachable peers</label>
       </div>
+      <div class="mb-3">
+        <label class="form-label" for="staleAfter">Mark disconnected after (seconds)</label>
+        <input type="number" class="form-control" id="staleAfter" min="30" required>
+        <div class="form-text">A device not seen for this long (no direct contact, mDNS re-sighting, or peer report) is marked Disconnected, even without a graceful disconnect.</div>
+      </div>
       <button type="submit" class="btn btn-primary">Save</button>
     </form>
   </div>
@@ -60,6 +66,7 @@
         $('#syncInterval').val(s.syncIntervalSeconds);
         $('#relayThreshold').val(s.relayThreshold);
         $('#relayEnabled').prop('checked', !!s.relayEnabled);
+        $('#staleAfter').val(s.staleAfterSeconds);
       });
     }
 
@@ -71,7 +78,8 @@
         gpsIntervalSeconds: parseInt($('#gpsInterval').val(), 10),
         syncIntervalSeconds: parseInt($('#syncInterval').val(), 10),
         relayThreshold: parseInt($('#relayThreshold').val(), 10),
-        relayEnabled: $('#relayEnabled').is(':checked')
+        relayEnabled: $('#relayEnabled').is(':checked'),
+        staleAfterSeconds: parseInt($('#staleAfter').val(), 10)
       };
       $.ajax({
         url: '/api/settings',

@@ -3,6 +3,7 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -85,7 +86,10 @@ func (s *Store) Get(id string) (*Device, bool, error) {
 	return d, ok, err
 }
 
-// List returns every known device, in no particular order.
+// List returns every known device, most-recently-seen first. Both the web
+// UI's device list/Old Nodes pages and the Android app's own on-device list
+// want this same ordering, so it's sorted once here rather than by every
+// caller.
 func (s *Store) List() ([]*Device, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -100,7 +104,50 @@ func (s *Store) List() ([]*Device, error) {
 			return nil
 		})
 	})
-	return out, err
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].LastSeen.After(out[j].LastSeen) })
+	return out, nil
+}
+
+// PurgeOlderThan permanently deletes every device (other than selfID) not
+// seen in timeout. Unlike SweepStale (which just flips Status to
+// Disconnected so the web UI can still show a device's history, e.g. on the
+// Old Nodes page), this actually removes the record — used by mobile nodes
+// only, which want a bounded, clutter-free on-device list rather than an
+// indefinitely-retained history. Returns how many devices were deleted.
+func (s *Store) PurgeOlderThan(selfID string, now time.Time, timeout time.Duration) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	purged := 0
+	err := s.db.Update(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(devicesBucket)
+		var staleIDs [][]byte
+		err := bucket.ForEach(func(k, raw []byte) error {
+			var d Device
+			if err := json.Unmarshal(raw, &d); err != nil {
+				return err
+			}
+			if d.ID == selfID || now.Sub(d.LastSeen) < timeout {
+				return nil
+			}
+			staleIDs = append(staleIDs, append([]byte(nil), k...))
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		for _, id := range staleIDs {
+			if err := bucket.Delete(id); err != nil {
+				return err
+			}
+			purged++
+		}
+		return nil
+	})
+	return purged, err
 }
 
 // UpsertFromDirectContact records that this node heard directly from device
@@ -191,6 +238,55 @@ func (s *Store) SetDisconnected(id string, now time.Time) error {
 		d.CurrentLocation = nil
 		return s.put(tx, d)
 	})
+}
+
+// SweepStale marks every Connected device (other than selfID) whose LastSeen
+// is older than timeout as Disconnected, freezing its location the same way
+// SetDisconnected does. This is what actually retires a device that vanished
+// without a graceful disconnect (crashed process, walked out of mDNS range,
+// leftover test/synthetic data) — without it, a device marked Connected
+// stays that way forever, and multi-Base-Station sync's last-seen-wins rule
+// then keeps re-spreading the stale status to every other Base Station's
+// registry too. Returns how many devices were swept.
+func (s *Store) SweepStale(selfID string, now time.Time, timeout time.Duration) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	swept := 0
+	err := s.db.Update(func(tx *bbolt.Tx) error {
+		// Collect first, then mutate — bbolt's ForEach docs warn that
+		// modifying the bucket (even an in-place Put) during iteration can
+		// invalidate the cursor and produce incorrect results.
+		var stale []*Device
+		err := tx.Bucket(devicesBucket).ForEach(func(_, raw []byte) error {
+			var d Device
+			if err := json.Unmarshal(raw, &d); err != nil {
+				return err
+			}
+			if d.ID == selfID || d.Status != StatusConnected {
+				return nil
+			}
+			if now.Sub(d.LastSeen) < timeout {
+				return nil
+			}
+			stale = append(stale, &d)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+
+		for _, d := range stale {
+			d.Status = StatusDisconnected
+			d.CurrentLocation = nil
+			if err := s.put(tx, d); err != nil {
+				return err
+			}
+			swept++
+		}
+		return nil
+	})
+	return swept, err
 }
 
 // UpsertFromReport applies a PeerReport: reporter has directly discovered

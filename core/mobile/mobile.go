@@ -108,8 +108,43 @@ func StartNode(dataDir, name, platform, appVersion string, source media.AudioSou
 			log.Printf("mobile: mdns browse: %v", err)
 		}
 	}()
+	go n.runStaleSweep(ctx)
 
 	return n, nil
+}
+
+// oldNodeTimeout: a device not seen in this long is permanently removed
+// from this node's own registry — see runStaleSweep. Mobile-only (unlike
+// the desktop Base Station, which keeps stale devices around forever for
+// the web UI's Old Nodes page), since a phone wants a bounded,
+// clutter-free on-device list rather than an indefinitely-retained history.
+const oldNodeTimeout = 48 * time.Hour
+
+// runStaleSweep periodically retires devices this node hasn't heard from in
+// a while — see registry.Store.SweepStale and the equivalent sweep in
+// server/main.go. Without this, a device that vanished without a graceful
+// disconnect (out of mDNS range, crashed) stays "connected" in this node's
+// own local registry forever, and (for a node that syncs with a Base
+// Station) can keep re-spreading that stale status around. Also purges
+// (deletes outright) any device not seen in oldNodeTimeout.
+func (n *Node) runStaleSweep(ctx context.Context) {
+	timeout := time.Duration(config.Default().StaleAfterSeconds) * time.Second
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			now := time.Now()
+			if _, err := n.store.SweepStale(n.selfID, now, timeout); err != nil {
+				log.Printf("mobile: stale sweep: %v", err)
+			}
+			if _, err := n.store.PurgeOlderThan(n.selfID, now, oldNodeTimeout); err != nil {
+				log.Printf("mobile: purge old nodes: %v", err)
+			}
+		}
+	}
 }
 
 func (n *Node) onPeerFound(p mdns.Peer) {

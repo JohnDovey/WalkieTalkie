@@ -38,6 +38,7 @@ func New() (*Handlers, error) {
 func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", h.index)
 	mux.HandleFunc("GET /map", h.mapPage)
+	mux.HandleFunc("GET /old-nodes", h.oldNodesPage)
 	mux.HandleFunc("GET /settings", h.settingsPage)
 	mux.HandleFunc("GET /about", h.aboutPage)
 	mux.Handle("GET /static/", http.FileServerFS(staticFS))
@@ -57,4 +58,8 @@ func (h *Handlers) settingsPage(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) aboutPage(w http.ResponseWriter, r *http.Request) {
 	h.tmpl.ExecuteTemplate(w, "about.html", nil)
+}
+
+func (h *Handlers) oldNodesPage(w http.ResponseWriter, r *http.Request) {
+	h.tmpl.ExecuteTemplate(w, "old-nodes.html", nil)
 }

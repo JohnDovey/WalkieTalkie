@@ -129,6 +129,10 @@ func main() {
 	syncer := sync.New(store, time.Duration(settings.SyncIntervalSeconds)*time.Second)
 	defer syncer.Stop()
 
+	staleCtx, cancelStaleSweep := context.WithCancel(context.Background())
+	defer cancelStaleSweep()
+	go runStaleSweep(staleCtx, store, selfID)
+
 	browseCtx, cancelBrowse := context.WithCancel(context.Background())
 	defer cancelBrowse()
 	go func() {
@@ -238,6 +242,36 @@ func updateServerLocationEstimate(store *registry.Store, selfID string) {
 	}
 	if err := store.SetLocation(selfID, mean); err != nil {
 		log.Printf("location estimate: set self location: %v", err)
+	}
+}
+
+// runStaleSweep periodically retires devices that have gone quiet without a
+// graceful disconnect — see registry.Store.SweepStale. Re-reads
+// StaleAfterSeconds from settings on every tick so a live settings change
+// takes effect without a restart.
+func runStaleSweep(ctx context.Context, store *registry.Store, selfID string) {
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			settings, err := store.GetSettings()
+			if err != nil {
+				log.Printf("stale sweep: load settings: %v", err)
+				continue
+			}
+			timeout := time.Duration(settings.StaleAfterSeconds) * time.Second
+			swept, err := store.SweepStale(selfID, time.Now(), timeout)
+			if err != nil {
+				log.Printf("stale sweep: %v", err)
+				continue
+			}
+			if swept > 0 {
+				log.Printf("stale sweep: marked %d device(s) disconnected", swept)
+			}
+		}
 	}
 }
 
