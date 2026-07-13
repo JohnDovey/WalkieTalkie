@@ -62,3 +62,6 @@ numberOverride:
 
 <h2 id="running-more-than-one-instance-for-testing">Running more than one instance (for testing)</h2>
 <p>The desktop app accepts a few flags useful when testing with more than one instance on a single machine: <code>--port</code>, <code>--data-dir</code>, <code>--name</code>, and <code>--no-audio</code> (skip mic/speaker setup, so two instances on one machine don't fight over the same audio hardware). These aren't needed for normal use — on separate machines, just run <code>go run .</code> on each.</p>
+
+<h2 id="windows-builds">Windows builds</h2>
+<p>A Windows Base Station is built by cross-compiling from the Mac dev machine — there's no need for an actual Windows machine to produce the <code>.exe</code>. Run <code>./tools/build-windows-server.sh</code> from the repo root; the first run takes a few extra minutes to set up a one-time cross-compile toolchain, after which it just rebuilds the executable. The resulting <code>.exe</code> has full mic/speaker support, not just the registry/web-UI/relay pieces. This hasn't been tested on real Windows hardware yet — only confirmed to be a valid Windows executable with sane-looking dependencies.</p>

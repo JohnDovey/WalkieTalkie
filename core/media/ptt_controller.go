@@ -39,6 +39,12 @@ func (mm *MeshManager) StopTalking() {
 }
 
 func (mm *MeshManager) talkLoop(stop chan struct{}) {
+	// Release the mic between talk sessions rather than holding it for the
+	// app's whole lifetime — see AudioSource.Stop's doc comment. Called from
+	// this same goroutine, after it's done reading, rather than directly
+	// from StopTalking, to avoid stopping the capture device from a
+	// different goroutine while a read might still be in flight.
+	defer mm.source.Stop()
 	for {
 		select {
 		case <-stop:

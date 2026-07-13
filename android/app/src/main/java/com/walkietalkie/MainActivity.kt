@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.walkietalkie.ptt.PTTService
@@ -98,6 +99,7 @@ private enum class Screen { Devices, Settings, About }
 @Composable
 private fun AppScreen() {
     var screen by remember { mutableStateOf(Screen.Devices) }
+    val context = LocalContext.current
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -107,6 +109,7 @@ private fun AppScreen() {
             TextButton(onClick = { screen = Screen.Devices }) { Text("Devices") }
             TextButton(onClick = { screen = Screen.Settings }) { Text("Settings") }
             TextButton(onClick = { screen = Screen.About }) { Text("About") }
+            TextButton(onClick = { closeApp(context) }) { Text("Close") }
         }
         when (screen) {
             Screen.Devices -> PttScreen()
@@ -116,9 +119,17 @@ private fun AppScreen() {
     }
 }
 
+// Stops the foreground service (releasing the mic/mesh/mDNS entirely,
+// not just backgrounding) and closes the app — the explicit way to fully
+// quit, rather than relying on swiping away from Recents.
+private fun closeApp(context: Context) {
+    context.stopService(Intent(context, PTTService::class.java))
+    (context as? android.app.Activity)?.finishAndRemoveTask()
+}
+
 @Composable
 private fun SettingsScreen() {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     var nickname by remember { mutableStateOf(NicknameStore.get(context)) }
     var saved by remember { mutableStateOf(false) }
 

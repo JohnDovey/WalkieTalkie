@@ -7,6 +7,10 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.util.Log
@@ -22,6 +26,8 @@ import com.walkietalkie.ble.BlePresenceBridge
 import com.walkietalkie.location.LocationUpdater
 import com.walkietalkie.settings.NicknameStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import mobile.Mobile
 import mobile.Node
@@ -43,10 +49,49 @@ class PTTService : LifecycleService() {
     private var bleBridge: BlePresenceBridge? = null
     private var micSource: OpusMicSource? = null
     private var speakerSink: OpusSpeakerSink? = null
+    private var connectivityManager: ConnectivityManager? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var restartJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        registerNetworkCallback()
+    }
+
+    // Confirmed on real hardware: after the phone loses Wi-Fi (walks out of
+    // range) and reconnects, mDNS discovery does NOT recover on its own —
+    // neither the periodic mdns.Browse resolver restart (core/discovery/mdns)
+    // nor simply waiting fixes it, even after 30+ minutes. Only a full app
+    // restart (fresh process, fresh sockets) brought discovery back
+    // immediately. Root cause wasn't pinned down further (likely the
+    // multicast lock or underlying socket binding not surviving the
+    // network change), but restarting the Go node whenever Wi-Fi becomes
+    // available again reproduces exactly what a manual app restart does,
+    // automatically.
+    private fun registerNetworkCallback() {
+        val cm = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        connectivityManager = cm
+        val request = NetworkRequest.Builder()
+            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+            .build()
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                // If we haven't done the very first start yet, let the normal
+                // onStartCommand -> startNodeIfNeeded path handle it instead
+                // of racing with it.
+                if (node == null) return
+                restartJob?.cancel()
+                restartJob = lifecycleScope.launch(Dispatchers.IO) {
+                    delay(2000) // debounce rapid connectivity flapping
+                    Log.i(TAG, "Wi-Fi available again, restarting node for fresh discovery")
+                    stopNodeOnly()
+                    startNodeIfNeeded()
+                }
+            }
+        }
+        networkCallback = callback
+        cm.registerNetworkCallback(request, callback)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -114,7 +159,18 @@ class PTTService : LifecycleService() {
     }
 
     override fun onDestroy() {
+        networkCallback?.let { connectivityManager?.unregisterNetworkCallback(it) }
+        restartJob?.cancel()
         instance = null
+        stopNodeOnly()
+        super.onDestroy()
+    }
+
+    // Tears down the current Node and its supporting pieces without
+    // stopping the service itself — used both by onDestroy and by the
+    // network-callback-triggered restart above. instance/companion state
+    // is left alone since the service itself keeps running.
+    private fun stopNodeOnly() {
         locationUpdater?.stop()
         bleBridge?.stop()
         try {
@@ -122,10 +178,13 @@ class PTTService : LifecycleService() {
         } catch (e: Exception) {
             Log.e(TAG, "error stopping node", e)
         }
+        node = null
         multicastLock?.let { if (it.isHeld) it.release() }
+        multicastLock = null
         micSource?.release()
         speakerSink?.release()
-        super.onDestroy()
+        micSource = null
+        speakerSink = null
     }
 
     fun startTalking() = node?.startTalking()

@@ -14,8 +14,16 @@ package media
 
 // AudioSource is implemented natively per platform. ReadOpusFrame blocks
 // until the next ~20ms Opus-encoded frame captured from the mic is ready.
+//
+// Stop releases the underlying mic hardware/session (called between talk
+// sessions, not just at final teardown) — found the hard way, on real
+// hardware: without this, the very first PTT press left the mic exclusively
+// captured for the rest of the app's life, since nothing ever told the
+// platform layer to actually let go of it between presses. The next
+// ReadOpusFrame call after Stop must transparently re-acquire the mic.
 type AudioSource interface {
 	ReadOpusFrame() ([]byte, error)
+	Stop() error
 }
 
 // AudioSink is implemented natively per platform. WriteOpusFrame delivers

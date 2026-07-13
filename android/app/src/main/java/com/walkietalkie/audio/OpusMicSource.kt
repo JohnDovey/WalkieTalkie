@@ -92,6 +92,21 @@ class OpusMicSource : AudioSource {
         return ByteArray(0)
     }
 
+    // Implements media.AudioSource.Stop — releases the mic between talk
+    // sessions (called from core/media's talkLoop when StopTalking fires)
+    // so other apps can use it, rather than holding it captured for the
+    // whole time this service is alive. ensureStarted() transparently
+    // re-acquires on the next PTT press. Confirmed on real hardware this
+    // was needed: without it, the mic stayed exclusively captured (blocking
+    // every other app) from the very first PTT press until the service was
+    // torn down entirely.
+    override fun stop() {
+        if (!started) return
+        started = false
+        runCatching { audioRecord.stop() }
+        runCatching { codec.stop() }
+    }
+
     fun release() {
         started = false
         runCatching { audioRecord.stop() }
