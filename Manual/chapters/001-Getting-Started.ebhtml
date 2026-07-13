@@ -41,7 +41,7 @@ numberOverride:
 <p><img src="../images/settings-page.png" alt="Settings page showing port, GPS interval, sync interval, relay threshold, and relay toggle fields" /></p>
 
 <h2 id="the-android-app">The Android app</h2>
-<p>The Android app was confirmed working on real hardware for the first time on 2026-07-13: it discovers a Base Station over Wi-Fi, connects to it, and exchanges real two-way audio (confirmed by ear on the desktop side and by non-silent decoded audio data on the phone side).</p>
+<p>The Android app was confirmed working on real hardware for the first time on 2026-07-13: it discovers a Base Station over Wi-Fi, connects to it, and exchanges real two-way audio — confirmed in both directions, including someone pressing the phone's Talk button and hearing their own voice come out of the desktop machine's speakers.</p>
 <p><img src="../images/android-app.png" alt="Android app screen showing a connected Base Station and the Hold to talk button" /></p>
 <p>A few things worth knowing if you're trying this yourself:</p>
 <ul>
