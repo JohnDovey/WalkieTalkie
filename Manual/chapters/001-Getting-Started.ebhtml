@@ -80,3 +80,6 @@ numberOverride:
 
 <h2 id="windows-builds">Windows builds</h2>
 <p>A Windows Base Station is built by cross-compiling from the Mac dev machine — there's no need for an actual Windows machine to produce the <code>.exe</code>. Run <code>./tools/build-windows-server.sh</code> from the repo root; the first run takes a few extra minutes to set up a one-time cross-compile toolchain, after which it just rebuilds the executable. The resulting <code>.exe</code> has full mic/speaker support, not just the registry/web-UI/relay pieces. This hasn't been tested on real Windows hardware yet — only confirmed to be a valid Windows executable with sane-looking dependencies.</p>
+
+<h2 id="macos-builds">macOS builds</h2>
+<p>A macOS Base Station binary for <strong>both</strong> Apple Silicon and Intel is produced by <code>./tools/build-macos-server.sh</code> from the repo root. The first run builds a per-architecture Opus toolchain (cached afterward). It writes three files under <code>/Volumes/JohnDovey/tmp</code> by default: <code>walkietalkie-server-darwin-arm64</code>, <code>walkietalkie-server-darwin-amd64</code>, and a universal <code>walkietalkie-server-darwin-universal</code> that runs on either chip. All include full mic/speaker support.</p>

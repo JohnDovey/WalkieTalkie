@@ -1,5 +1,5 @@
 ---
-description: Project build/dev scripts under tools/ — Go env, Android bind/install, Windows server cross-build
+description: Project build/dev scripts under tools/ — Go env, Android bind/install, Windows/macOS server builds
 globs: tools/**,server/**
 alwaysApply: true
 ---
@@ -14,6 +14,7 @@ Dev scripts live in `tools/`. Source `tools/go-env.sh` (or use a wrapper that do
 | `tools/gomobile-bind-android.sh` | Builds `core/mobile` + `core/media` → `android/app/libs/core.aar` |
 | `tools/rebuild-and-install-android.sh` | Bind AAR, then `assembleDebug` + `installDebug` on a connected device |
 | `tools/build-windows-server.sh` | Cross-compile `server/` to a Windows x86_64 `.exe` **with full audio** from this Mac |
+| `tools/build-macos-server.sh` | Build `server/` for macOS **arm64 + amd64** (and a universal lipo) **with full audio** |
 
 ## Windows server cross-build
 
@@ -26,3 +27,13 @@ Use `./tools/build-windows-server.sh [output-path]` when a Windows desktop binar
 - Not yet verified on real Windows hardware — treat as a Mac-side produce-and-hand-off artifact
 
 Do not invent an alternate Windows build path (e.g. plain `GOOS=windows go build` without this script): that yields a no-audio or broken-audio binary because of the cgo/opus/mingw requirements above.
+
+## macOS server build (both chipsets)
+
+Use `./tools/build-macos-server.sh [output-dir]` to produce Apple Silicon and Intel binaries (default dir: `/Volumes/JohnDovey/tmp`):
+
+- `walkietalkie-server-darwin-arm64`
+- `walkietalkie-server-darwin-amd64`
+- `walkietalkie-server-darwin-universal` (lipo of the two)
+
+Per-arch static opus/libogg/opusfile builds are cached under `/Volumes/JohnDovey/tmp/opus-darwin-{arm64,amd64}-build` so cross-arch cgo does not depend on a second Homebrew prefix. Same `-a` + static `pkg-config` pattern as the Windows script.

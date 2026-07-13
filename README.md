@@ -8,9 +8,12 @@ See [`docs/2026-07-13-implementation-plan.md`](docs/2026-07-13-implementation-pl
 
 Build priority is Android first, then desktop, then iPhone, then wearables last — see the plan doc for why.
 
-- **Phase 1 — shared Go core + desktop server**: ✅ done and verified. Two desktop instances on a LAN discover each other via mDNS and hold a real WebRTC voice connection.
-- **Phase 2 — Android**: in progress. The Go core is bound into an Android AAR via `gomobile`; the app (Kotlin/Compose), foreground service, BLE presence bridge, and GPS updates are wired up. Real mic/speaker audio (MediaCodec Opus) is not yet implemented — currently using placeholder silent audio so the rest of the pipeline could be verified independently.
-- **Phase 3 (desktop hardening + multi-Base-Station registry sync)**, **Phase 4 (iPhone)**, **Phase 5 (wearables)**: not started.
+- **Phase 1 — shared Go core + desktop server**: ✅ done and verified.
+- **Phase 2 — Android**: ✅ working on real hardware (live WebRTC Opus PTT, mDNS + BLE presence, GPS, voice notes / private channels via Base Station).
+- **Phase 3 (desktop hardening + multi-Base-Station registry sync)**: partly done (registry sync, map, Old Nodes, Windows/macOS release builds).
+- **Phase 4 (iPhone)**, **Phase 5 (wearables)**: not started.
+
+**Current release:** `v1.0.0` (Android app + Base Station server).
 
 ## Repo layout
 
@@ -18,7 +21,7 @@ Build priority is Android first, then desktop, then iPhone, then wearables last 
 core/      shared Go module (registry, discovery, WebRTC mesh, signaling) — no cgo, gomobile-bound into Android/iOS
 server/    the Go desktop app AND the "Base Station" server: bbolt registry, REST API, Bootstrap/jQuery dashboard
 android/   Kotlin/Compose Android app, consuming core/ via a gomobile-built AAR
-tools/     dev scripts: Go env setup, gomobile→Android AAR, Windows server cross-build
+tools/     dev scripts: Go env setup, gomobile→Android AAR, Windows/macOS server builds
 docs/      plans and design docs (including voice messages / private channels)
 Manual/    the end-user manual (.ebhtml format — see Manual/README.md)
 ```
@@ -36,6 +39,13 @@ go run .                 # starts the Base Station on http://localhost:9091
 ```
 
 Open `http://localhost:9091` for the device dashboard, `http://localhost:9091/settings` for server settings (port, etc — no login, by design). Useful flags for running more than one instance on one machine (development only): `--port`, `--data-dir`, `--name`, `--no-audio`.
+
+Release-style binaries (full audio):
+
+```sh
+./tools/build-macos-server.sh    # arm64 + amd64 + universal → /Volumes/JohnDovey/tmp/
+./tools/build-windows-server.sh  # Windows amd64 .exe → /Volumes/JohnDovey/tmp/
+```
 
 ## Building the Android app
 
