@@ -8,3 +8,7 @@
 # macOS
 .DS_Store
 ._*
+
+# Claude Code local session/tool state (machine- and session-specific,
+# never meant to be shared/committed)
+/.claude/
