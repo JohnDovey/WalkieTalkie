@@ -25,6 +25,7 @@ import (
 	"github.com/JohnDovey/WalkieTalkie/server/api"
 	"github.com/JohnDovey/WalkieTalkie/server/audio"
 	"github.com/JohnDovey/WalkieTalkie/server/sync"
+	"github.com/JohnDovey/WalkieTalkie/server/usage"
 	"github.com/JohnDovey/WalkieTalkie/server/voicenote"
 	"github.com/JohnDovey/WalkieTalkie/server/web"
 	"github.com/pion/webrtc/v4"
@@ -102,15 +103,31 @@ func main() {
 		log.Printf("relay threshold exceeded (%d connected peers >= %d) but core/relay isn't implemented yet — still connecting directly", count, threshold)
 	}
 
+	usageStats, err := usage.NewStore(store)
+	if err != nil {
+		log.Fatalf("init usage stats: %v", err)
+	}
+	defer usageStats.Close()
+
+	session.OnTalkStarted = func() { usageStats.PTTSession() }
+	session.OnOpusFrameSent = func(frameBytes, peerCount int) {
+		usageStats.PTTBytesSent(int64(frameBytes) * int64(peerCount))
+	}
+	session.OnOpusFrameReceived = func(_ string, frameBytes int) {
+		usageStats.PTTBytesReceived(int64(frameBytes))
+	}
+
 	sigPort, err := session.Start(0)
 	if err != nil {
 		log.Fatalf("start signaling: %v", err)
 	}
 
 	now := time.Now()
-	if err := store.UpsertFromDirectContact(selfID, selfName, platformName(), Version, []string{"audio"}, "direct", now); err != nil {
+	selfCreated, err := store.UpsertFromDirectContact(selfID, selfName, platformName(), Version, []string{"audio"}, "direct", now)
+	if err != nil {
 		log.Fatalf("register self: %v", err)
 	}
+	usageStats.DeviceSeen(selfCreated)
 
 	mdnsSrv, err := mdns.Register(mdns.AnnounceInfo{
 		ID:         selfID,
@@ -140,8 +157,11 @@ func main() {
 		err := mdns.Browse(browseCtx, selfID, func(p mdns.Peer) {
 			discoveredAt := time.Now()
 			caps := []string{"audio"}
-			if err := store.UpsertFromDirectContact(p.ID, p.Name, p.Platform, p.AppVersion, caps, "mdns", discoveredAt); err != nil {
+			created, err := store.UpsertFromDirectContact(p.ID, p.Name, p.Platform, p.AppVersion, caps, "mdns", discoveredAt)
+			if err != nil {
 				log.Printf("registry upsert for discovered peer %s: %v", p.ID, err)
+			} else if usageStats != nil {
+				usageStats.DeviceSeen(created)
 			}
 			if p.GPS != nil {
 				if err := store.SetLocation(p.ID, *p.GPS); err != nil {
@@ -174,14 +194,17 @@ func main() {
 	if err != nil {
 		log.Fatalf("init voice-note store: %v", err)
 	}
-	voiceHandlers := &voicenote.Handlers{Voice: voiceStore, Reg: store, SelfID: selfID}
+	voiceHandlers := &voicenote.Handlers{Voice: voiceStore, Reg: store, SelfID: selfID, Usage: usageStats}
 	purgeStop := make(chan struct{})
 	defer close(purgeStop)
 	go voicenote.RunPurge(purgeStop, voiceStore)
 
+	usageHandlers := &usage.Handlers{Usage: usageStats, Reg: store}
+
 	apiHandlers := &api.Handlers{
 		Store: store, Talker: session, SelfID: selfID, SelfName: selfName,
 		Platform: platformName(), Version: Version, EnrichDevices: voiceHandlers,
+		OnDeviceSeen: usageStats.DeviceSeen,
 	}
 	webHandlers, err := web.New()
 	if err != nil {
@@ -191,6 +214,7 @@ func main() {
 	mux := http.NewServeMux()
 	apiHandlers.Register(mux)
 	voiceHandlers.Register(mux)
+	usageHandlers.Register(mux)
 	webHandlers.Register(mux)
 
 	httpSrv := &http.Server{Handler: mux}

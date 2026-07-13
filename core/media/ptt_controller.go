@@ -21,6 +21,9 @@ func (mm *MeshManager) StartTalking() {
 	mm.mu.Lock()
 	mm.stopTalk = stop
 	mm.mu.Unlock()
+	if mm.OnTalkStarted != nil {
+		mm.OnTalkStarted()
+	}
 	go mm.talkLoop(stop)
 }
 

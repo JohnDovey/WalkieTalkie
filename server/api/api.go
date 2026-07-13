@@ -45,6 +45,10 @@ type Handlers struct {
 	// enriched payload (voice-note waiting counts, etc.).
 	EnrichDevices DeviceListEnricher
 
+	// OnDeviceSeen is called after a successful announce upsert with whether
+	// the device was newly created.
+	OnDeviceSeen func(created bool)
+
 	// OnSettingsChanged is called after new settings are persisted, so
 	// main.go can restart the HTTP listener on a new port if it changed.
 	OnSettingsChanged func(config.Settings)
@@ -124,12 +128,15 @@ func (h *Handlers) announce(w http.ResponseWriter, r *http.Request) {
 		badRequest(w, err)
 		return
 	}
-	err := h.Store.UpsertFromDirectContact(
+	created, err := h.Store.UpsertFromDirectContact(
 		payload.ID, payload.Name, payload.Platform, payload.AppVersion, payload.Capabilities, "direct", time.Now(),
 	)
 	if err != nil {
 		serverError(w, err)
 		return
+	}
+	if h.OnDeviceSeen != nil {
+		h.OnDeviceSeen(created)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

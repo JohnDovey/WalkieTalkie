@@ -72,6 +72,17 @@ type MeshManager struct {
 	// stay connected than refuse service), but this lets the caller warn
 	// that the setting isn't actually being honored yet.
 	OnRelayThresholdExceeded func(peerCount, threshold int)
+
+	// OnOpusFrameSent is called once per Broadcast with the frame size and
+	// how many peers it was written to (for usage accounting).
+	OnOpusFrameSent func(frameBytes, peerCount int)
+
+	// OnOpusFrameReceived is called for each remote Opus payload delivered
+	// to the local sink (for usage accounting).
+	OnOpusFrameReceived func(peerID string, frameBytes int)
+
+	// OnTalkStarted is called when a talk loop begins (PTT down).
+	OnTalkStarted func()
 }
 
 // SetRelayThreshold configures the peer count above which new connections
@@ -341,6 +352,9 @@ func (mm *MeshManager) readRemoteTrack(peerID string, remote *webrtc.TrackRemote
 		if err != nil {
 			return
 		}
+		if mm.OnOpusFrameReceived != nil {
+			mm.OnOpusFrameReceived(peerID, len(pkt.Payload))
+		}
 		if mm.sink != nil {
 			_ = mm.sink.WriteOpusFrame(peerID, pkt.Payload)
 		}
@@ -352,8 +366,14 @@ func (mm *MeshManager) Broadcast(frame []byte) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
 	sample := media.Sample{Data: frame, Duration: opusFrameDuration}
+	n := 0
 	for _, p := range mm.peers {
-		_ = p.track.WriteSample(sample)
+		if err := p.track.WriteSample(sample); err == nil {
+			n++
+		}
+	}
+	if mm.OnOpusFrameSent != nil && n > 0 {
+		mm.OnOpusFrameSent(len(frame), n)
 	}
 }
 

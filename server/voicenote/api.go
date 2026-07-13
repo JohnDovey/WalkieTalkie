@@ -18,6 +18,19 @@ type Handlers struct {
 	// SelfID is this Base Station's device id (used as default "from" for
 	// web-UI uploads when the form omits from).
 	SelfID string
+	// Usage, when set, records upload/download/channel lifecycle counters.
+	Usage UsageRecorder
+}
+
+// UsageRecorder is the narrow stats surface voicenote needs (implemented by
+// *usage.Store). Kept as an interface so voicenote doesn't import usage.
+type UsageRecorder interface {
+	VoiceNoteUploaded(bytes int64, channelID string)
+	VoiceNoteDownloaded(bytes int64)
+	VoiceNoteAcked()
+	ChannelInvite()
+	ChannelAccept()
+	ChannelClose()
 }
 
 // DeviceDTO is a registry device plus pending voice-note count for the UI.
@@ -129,6 +142,9 @@ func (h *Handlers) upload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if h.Usage != nil {
+		h.Usage.VoiceNoteUploaded(int64(len(opus)), channelID)
+	}
 	writeJSON(w, note)
 }
 
@@ -188,12 +204,18 @@ func (h *Handlers) audio(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(data)))
 	w.Header().Set("X-Voice-Note-From", note.FromID)
 	w.Write(data)
+	if h.Usage != nil {
+		h.Usage.VoiceNoteDownloaded(int64(len(data)))
+	}
 }
 
 func (h *Handlers) ack(w http.ResponseWriter, r *http.Request) {
 	if err := h.Voice.Ack(r.PathValue("id")); err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
+	}
+	if h.Usage != nil {
+		h.Usage.VoiceNoteAcked()
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -234,6 +256,9 @@ func (h *Handlers) invite(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if h.Usage != nil {
+		h.Usage.ChannelInvite()
+	}
 	writeJSON(w, ch)
 }
 
@@ -251,6 +276,9 @@ func (h *Handlers) accept(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+	if h.Usage != nil {
+		h.Usage.ChannelAccept()
 	}
 	writeJSON(w, ch)
 }
@@ -293,6 +321,9 @@ func (h *Handlers) closeChannel(w http.ResponseWriter, r *http.Request) {
 	if err := h.Voice.CloseChannel(r.PathValue("id"), body.DeviceID); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+	if h.Usage != nil {
+		h.Usage.ChannelClose()
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

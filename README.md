@@ -13,7 +13,7 @@ Build priority is Android first, then desktop, then iPhone, then wearables last 
 - **Phase 3 (desktop hardening + multi-Base-Station registry sync)**: partly done (registry sync, map, Old Nodes, Windows/macOS release builds).
 - **Phase 4 (iPhone)**, **Phase 5 (wearables)**: not started.
 
-**Current release:** `v1.0.0` (Android app + Base Station server).
+**Current release track:** server `1.1.0` (usage Stats UI), android `1.0.0`.
 
 ## Repo layout
 

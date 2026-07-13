@@ -47,6 +47,8 @@ numberOverride:
 <p>Settings does <strong>not</strong> let you rename a device from the browser. Every device — including a Base Station — sets its own name locally; the dashboard only ever displays what a device has told it about itself.</p>
 <p><img src="../images/settings-page.png" alt="Settings page showing port, GPS interval, sync interval, relay threshold, and relay toggle fields" /></p>
 
+<p>The <strong>Stats</strong> page (<code>/stats</code>) shows usage and traffic for this Base Station: nodes newly seen, private-channel invites/accepts, voice notes and channel clips (counts and bytes), and live group-PTT bytes sent/received by this machine. Ranges: today, week, month, or all time. Peer-to-peer audio that never passes through this Base Station is not included.</p>
+
 <h2 id="about">About</h2>
 <p>The <strong>About</strong> page (<code>/about</code>) shows this Base Station's own name, platform, version, and device ID. The device list on the home page also shows the app version each connected device announced itself with, so a mismatched-version device is easy to spot at a glance.</p>
 

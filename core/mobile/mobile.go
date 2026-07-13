@@ -94,7 +94,7 @@ func StartNode(dataDir, name, platform, appVersion string, source media.AudioSou
 		name:       name,
 	}
 
-	if err := store.UpsertFromDirectContact(selfID, name, platform, appVersion, []string{"audio"}, "direct", time.Now()); err != nil {
+	if _, err := store.UpsertFromDirectContact(selfID, name, platform, appVersion, []string{"audio"}, "direct", time.Now()); err != nil {
 		n.Stop()
 		return nil, fmt.Errorf("mobile: register self: %w", err)
 	}
@@ -151,7 +151,7 @@ func (n *Node) runStaleSweep(ctx context.Context) {
 }
 
 func (n *Node) onPeerFound(p mdns.Peer) {
-	_ = n.store.UpsertFromDirectContact(p.ID, p.Name, p.Platform, p.AppVersion, []string{"audio"}, "mdns", time.Now())
+	_, _ = n.store.UpsertFromDirectContact(p.ID, p.Name, p.Platform, p.AppVersion, []string{"audio"}, "mdns", time.Now())
 	if p.GPS != nil {
 		_ = n.store.SetLocation(p.ID, *p.GPS)
 	}

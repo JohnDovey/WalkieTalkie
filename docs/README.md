@@ -6,4 +6,5 @@ Plans, design docs, and other project documentation live here. Keep filenames de
 |-----|---------|
 | [2026-07-13-implementation-plan.md](2026-07-13-implementation-plan.md) | Cross-platform PTT: discovery, WebRTC mesh, Base Station registry/UI, phased delivery |
 | [2026-07-13-voice-message-and-private-channels.md](2026-07-13-voice-message-and-private-channels.md) | Server-relayed voice notes + invite-only private channels |
+| [2026-07-13-usage-stats.md](2026-07-13-usage-stats.md) | Base Station usage/traffic counters and Stats web UI |
 | [TODO-p2p-voice-and-private-relay.md](TODO-p2p-voice-and-private-relay.md) | Deferred: P2P voice notes, live private WebRTC/SFU, multi-Base blob sync |

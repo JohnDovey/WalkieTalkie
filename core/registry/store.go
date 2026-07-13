@@ -13,11 +13,12 @@ import (
 )
 
 var (
-	devicesBucket  = []byte("devices")
-	configBucket   = []byte("config")
-	settingsKey    = []byte("settings")
+	devicesBucket    = []byte("devices")
+	configBucket     = []byte("config")
+	settingsKey      = []byte("settings")
 	voiceNotesBucket = []byte("voice_notes")
 	channelsBucket   = []byte("private_channels")
+	usageStatsBucket = []byte("usage_stats")
 )
 
 // Store is a bbolt-backed registry of every device this node has seen,
@@ -37,7 +38,7 @@ func Open(path string) (*Store, error) {
 		return nil, fmt.Errorf("registry: open %s: %w", path, err)
 	}
 	err = db.Update(func(tx *bbolt.Tx) error {
-		for _, name := range [][]byte{devicesBucket, configBucket, voiceNotesBucket, channelsBucket} {
+		for _, name := range [][]byte{devicesBucket, configBucket, voiceNotesBucket, channelsBucket, usageStatsBucket} {
 			if _, err := tx.CreateBucketIfNotExists(name); err != nil {
 				return err
 			}
@@ -62,6 +63,9 @@ func VoiceNotesBucket() []byte { return voiceNotesBucket }
 
 // ChannelsBucket is the bbolt bucket name for private-channel metadata.
 func ChannelsBucket() []byte { return channelsBucket }
+
+// UsageStatsBucket is the bbolt bucket name for hourly usage counters.
+func UsageStatsBucket() []byte { return usageStatsBucket }
 
 // Close closes the underlying database.
 func (s *Store) Close() error {
@@ -169,12 +173,14 @@ func (s *Store) PurgeOlderThan(selfID string, now time.Time, timeout time.Durati
 // id — via its own announce, an mDNS sighting, a GPS/name update, or a
 // signaling connection. Direct contact always takes precedence over
 // anything a peer previously reported about this device.
-func (s *Store) UpsertFromDirectContact(id, name, platform, appVersion string, capabilities []string, discoveryMethod string, now time.Time) error {
+// created is true when this was the first time this id was stored.
+func (s *Store) UpsertFromDirectContact(id, name, platform, appVersion string, capabilities []string, discoveryMethod string, now time.Time) (created bool, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.db.Update(func(tx *bbolt.Tx) error {
+	err = s.db.Update(func(tx *bbolt.Tx) error {
 		d, ok := s.get(tx, id)
 		if !ok {
+			created = true
 			d = &Device{ID: id, ProtocolVersion: proto.Version}
 		}
 		d.directSeen = true
@@ -197,6 +203,7 @@ func (s *Store) UpsertFromDirectContact(id, name, platform, appVersion string, c
 		}
 		return s.put(tx, d)
 	})
+	return created, err
 }
 
 // SetName records a name change self-reported directly by device id (the

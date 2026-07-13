@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WalkieTalkie — Stats</title>
+  <link rel="stylesheet" href="/static/vendor/bootstrap.min.css">
+  <style>
+    .stat-card { min-height: 5.5rem; }
+    .stat-value { font-size: 1.6rem; font-weight: 600; }
+    .chart-wrap { position: relative; height: 220px; }
+    canvas.bar-chart { width: 100% !important; height: 220px !important; }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">WalkieTalkie</a>
+      <div class="navbar-nav">
+        <a class="nav-link" href="/">Devices</a>
+        <a class="nav-link" href="/map">Map</a>
+        <a class="nav-link" href="/old-nodes">Old Nodes</a>
+        <a class="nav-link active" href="/stats">Stats</a>
+        <a class="nav-link" href="/settings">Settings</a>
+        <a class="nav-link" href="/about">About</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <h1 class="h4 mb-0">Usage &amp; traffic</h1>
+      <div class="btn-group" role="group" aria-label="Range">
+        <button type="button" class="btn btn-outline-primary range-btn active" data-range="today">Today</button>
+        <button type="button" class="btn btn-outline-primary range-btn" data-range="week">Week</button>
+        <button type="button" class="btn btn-outline-primary range-btn" data-range="month">Month</button>
+        <button type="button" class="btn btn-outline-primary range-btn" data-range="all">All time</button>
+      </div>
+    </div>
+    <p id="stats-note" class="text-muted small"></p>
+
+    <div class="row g-3 mb-4" id="summary-cards"></div>
+
+    <div class="row g-4 mb-4">
+      <div class="col-lg-6">
+        <h2 class="h6">Nodes newly seen</h2>
+        <div class="chart-wrap border rounded p-2 bg-white"><canvas id="chart-nodes" class="bar-chart"></canvas></div>
+      </div>
+      <div class="col-lg-6">
+        <h2 class="h6">Private channel activity</h2>
+        <div class="chart-wrap border rounded p-2 bg-white"><canvas id="chart-channels" class="bar-chart"></canvas></div>
+      </div>
+      <div class="col-lg-6">
+        <h2 class="h6">Voice notes &amp; channel clips (count)</h2>
+        <div class="chart-wrap border rounded p-2 bg-white"><canvas id="chart-messages" class="bar-chart"></canvas></div>
+      </div>
+      <div class="col-lg-6">
+        <h2 class="h6">Data sent / received (bytes)</h2>
+        <div class="chart-wrap border rounded p-2 bg-white"><canvas id="chart-bytes" class="bar-chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/vendor/jquery.min.js"></script>
+  <script src="/static/vendor/bootstrap.bundle.min.js"></script>
+  <script>
+    function fmtBytes(n) {
+      n = Number(n) || 0;
+      if (n < 1024) return n + ' B';
+      if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+      if (n < 1073741824) return (n / 1048576).toFixed(2) + ' MB';
+      return (n / 1073741824).toFixed(2) + ' GB';
+    }
+
+    function card(label, value, sub) {
+      return '<div class="col-6 col-md-4 col-xl-3"><div class="card stat-card h-100">' +
+        '<div class="card-body py-3">' +
+        '<div class="text-muted small">' + label + '</div>' +
+        '<div class="stat-value">' + value + '</div>' +
+        (sub ? '<div class="text-muted small">' + sub + '</div>' : '') +
+        '</div></div></div>';
+    }
+
+    // Minimal multi-series bar chart (no CDN) — LAN-first like the rest of the UI.
+    function drawBars(canvas, labels, series) {
+      var ctx = canvas.getContext('2d');
+      var dpr = window.devicePixelRatio || 1;
+      var cssW = canvas.clientWidth || 400;
+      var cssH = canvas.clientHeight || 220;
+      canvas.width = cssW * dpr;
+      canvas.height = cssH * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, cssW, cssH);
+      var pad = { t: 16, r: 12, b: 36, l: 44 };
+      var plotW = cssW - pad.l - pad.r;
+      var plotH = cssH - pad.t - pad.b;
+      var max = 1;
+      series.forEach(function (s) {
+        s.values.forEach(function (v) { if (v > max) max = v; });
+      });
+      ctx.strokeStyle = '#dee2e6';
+      ctx.beginPath();
+      ctx.moveTo(pad.l, pad.t);
+      ctx.lineTo(pad.l, pad.t + plotH);
+      ctx.lineTo(pad.l + plotW, pad.t + plotH);
+      ctx.stroke();
+      ctx.fillStyle = '#6c757d';
+      ctx.font = '11px system-ui,sans-serif';
+      ctx.textAlign = 'right';
+      for (var i = 0; i <= 4; i++) {
+        var y = pad.t + plotH - (plotH * i / 4);
+        var val = Math.round(max * i / 4);
+        ctx.fillText(String(val), pad.l - 6, y + 3);
+        ctx.strokeStyle = '#f1f3f5';
+        ctx.beginPath();
+        ctx.moveTo(pad.l, y);
+        ctx.lineTo(pad.l + plotW, y);
+        ctx.stroke();
+      }
+      var n = Math.max(labels.length, 1);
+      var groupW = plotW / n;
+      var barW = Math.max(4, (groupW - 8) / Math.max(series.length, 1));
+      labels.forEach(function (lab, i) {
+        series.forEach(function (s, si) {
+          var v = s.values[i] || 0;
+          var h = (v / max) * plotH;
+          var x = pad.l + i * groupW + 4 + si * barW;
+          var y = pad.t + plotH - h;
+          ctx.fillStyle = s.color;
+          ctx.fillRect(x, y, barW - 1, h);
+        });
+        ctx.fillStyle = '#6c757d';
+        ctx.textAlign = 'center';
+        var short = lab.length > 10 ? lab.slice(5) : lab; // show MM-DD or hour
+        ctx.fillText(short, pad.l + i * groupW + groupW / 2, cssH - 10);
+      });
+      var lx = pad.l;
+      series.forEach(function (s) {
+        ctx.fillStyle = s.color;
+        ctx.fillRect(lx, 4, 10, 10);
+        ctx.fillStyle = '#212529';
+        ctx.textAlign = 'left';
+        ctx.fillText(s.label, lx + 14, 13);
+        lx += ctx.measureText(s.label).width + 32;
+      });
+    }
+
+    function seriesFrom(days, pickers) {
+      var labels = days.map(function (d) { return d.hour; });
+      return pickers.map(function (p) {
+        return {
+          label: p.label,
+          color: p.color,
+          values: days.map(function (d) { return Number(d[p.key] || 0); })
+        };
+      });
+    }
+
+    var currentRange = 'today';
+
+    function render(data) {
+      var t = data.totals || {};
+      $('#stats-note').text(data.note || '');
+      var html = '';
+      html += card('Devices known now', data.devicesKnownNow || 0);
+      html += card('New nodes (range)', t.devicesSeenNew || 0, 'touches: ' + (t.devicesSeenTouch || 0));
+      html += card('Voice notes sent', t.voiceNotesUploaded || 0, fmtBytes(t.voiceNotesUploadBytes));
+      html += card('Voice notes downloaded', t.voiceNotesDownloaded || 0, fmtBytes(t.voiceNotesDownloadBytes));
+      html += card('Channel clips', t.channelClipsUploaded || 0, fmtBytes(t.channelClipsUploadBytes));
+      html += card('Private invites', t.channelInvites || 0, 'accepts: ' + (t.channelAccepts || 0));
+      html += card('PTT sessions (this BS)', t.pttTalkSessions || 0);
+      html += card('PTT bytes sent', fmtBytes(t.pttBytesSent), 'recv: ' + fmtBytes(t.pttBytesReceived));
+      $('#summary-cards').html(html);
+
+      var days = data.series && data.series.length ? data.series : [{
+        hour: data.range || 'total',
+        devicesSeenNew: t.devicesSeenNew,
+        channelInvites: t.channelInvites,
+        channelAccepts: t.channelAccepts,
+        channelCloses: t.channelCloses,
+        voiceNotesUploaded: t.voiceNotesUploaded,
+        channelClipsUploaded: t.channelClipsUploaded,
+        voiceNotesUploadBytes: t.voiceNotesUploadBytes,
+        channelClipsUploadBytes: t.channelClipsUploadBytes,
+        voiceNotesDownloadBytes: t.voiceNotesDownloadBytes,
+        pttBytesSent: t.pttBytesSent,
+        pttBytesReceived: t.pttBytesReceived
+      }];
+
+      drawBars(document.getElementById('chart-nodes'), days.map(function (d) { return d.hour; }),
+        seriesFrom(days, [{ key: 'devicesSeenNew', label: 'New nodes', color: '#0d6efd' }]));
+      drawBars(document.getElementById('chart-channels'), days.map(function (d) { return d.hour; }),
+        seriesFrom(days, [
+          { key: 'channelInvites', label: 'Invites', color: '#198754' },
+          { key: 'channelAccepts', label: 'Accepts', color: '#20c997' },
+          { key: 'channelCloses', label: 'Closes', color: '#6c757d' }
+        ]));
+      drawBars(document.getElementById('chart-messages'), days.map(function (d) { return d.hour; }),
+        seriesFrom(days, [
+          { key: 'voiceNotesUploaded', label: 'Voice notes', color: '#0d6efd' },
+          { key: 'channelClipsUploaded', label: 'Channel clips', color: '#6610f2' }
+        ]));
+      drawBars(document.getElementById('chart-bytes'), days.map(function (d) { return d.hour; }),
+        seriesFrom(days, [
+          { key: 'voiceNotesUploadBytes', label: 'VN upload', color: '#0d6efd' },
+          { key: 'channelClipsUploadBytes', label: 'Clip upload', color: '#6610f2' },
+          { key: 'voiceNotesDownloadBytes', label: 'VN download', color: '#fd7e14' },
+          { key: 'pttBytesSent', label: 'PTT sent', color: '#dc3545' },
+          { key: 'pttBytesReceived', label: 'PTT recv', color: '#d63384' }
+        ]));
+    }
+
+    function load(range) {
+      currentRange = range;
+      $.getJSON('/api/stats?range=' + encodeURIComponent(range), render)
+        .fail(function () { $('#stats-note').text('Failed to load stats.'); });
+    }
+
+    $('.range-btn').on('click', function () {
+      $('.range-btn').removeClass('active');
+      $(this).addClass('active');
+      load($(this).data('range'));
+    });
+
+    load('today');
+    setInterval(function () { load(currentRange); }, 15000);
+    $(window).on('resize', function () { load(currentRange); });
+  </script>
+</body>
+</html>
