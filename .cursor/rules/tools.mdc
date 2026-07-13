@@ -1,0 +1,28 @@
+---
+description: Project build/dev scripts under tools/ — Go env, Android bind/install, Windows server cross-build
+globs: tools/**,server/**
+alwaysApply: true
+---
+
+# Tools scripts
+
+Dev scripts live in `tools/`. Source `tools/go-env.sh` (or use a wrapper that does) before any `go`/`gomobile` work so GOPATH/GOCACHE/TMPDIR stay on `/Volumes/JohnDovey` — see `volume-storage.mdc`.
+
+| Script | Purpose |
+|--------|---------|
+| `tools/go-env.sh` | Source before Go tooling; sets volume-scoped `GOPATH`/`GOCACHE`/`GOMODCACHE`/`TMPDIR` |
+| `tools/gomobile-bind-android.sh` | Builds `core/mobile` + `core/media` → `android/app/libs/core.aar` |
+| `tools/rebuild-and-install-android.sh` | Bind AAR, then `assembleDebug` + `installDebug` on a connected device |
+| `tools/build-windows-server.sh` | Cross-compile `server/` to a Windows x86_64 `.exe` **with full audio** from this Mac |
+
+## Windows server cross-build
+
+Use `./tools/build-windows-server.sh [output-path]` when a Windows desktop binary is needed.
+
+- Default output: `/Volumes/JohnDovey/tmp/walkietalkie-server-windows-amd64.exe`
+- Requires `mingw-w64` (`x86_64-w64-mingw32-gcc`); the script installs it via Homebrew if missing
+- One-time cross-builds of opus/libogg/opusfile for mingw are cached under `/Volumes/JohnDovey/tmp/opus-mingw-build` (Homebrew's macOS `opus` cannot link a Windows binary)
+- Uses `GOOS=windows GOARCH=amd64 CGO_ENABLED=1` with a static `pkg-config` wrapper so cgo picks up transitive libogg/libopus flags
+- Not yet verified on real Windows hardware — treat as a Mac-side produce-and-hand-off artifact
+
+Do not invent an alternate Windows build path (e.g. plain `GOOS=windows go build` without this script): that yields a no-audio or broken-audio binary because of the cgo/opus/mingw requirements above.
