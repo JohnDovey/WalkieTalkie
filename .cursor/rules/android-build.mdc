@@ -1,0 +1,25 @@
+---
+description: Android Gradle build conventions to duplicate from the sibling ClonesApp project
+globs: *.gradle.kts,gradle.properties,local.properties,*.gradle
+alwaysApply: false
+---
+
+# Android build setup
+
+`/Volumes/JohnDovey/Projects/ClonesApp` is a working Android (Kotlin + Compose) project on the JohnDovey drive. When this project's Android module is scaffolded, duplicate its setup:
+
+- **`local.properties`**: `sdk.dir=/Volumes/JohnDovey/Android/Sdk` (gitignored, machine-specific — regenerate, don't commit).
+- **`gradle.properties`**:
+  ```
+  org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+  android.useAndroidX=true
+  kotlin.code.style=official
+  android.nonTransitiveRClass=true
+  org.gradle.configuration-cache=true
+  org.gradle.configuration-cache.problems=warn
+  ```
+- **`android-build.sh`**: a wrapper script that sources `~/source-john-dovey.sh --quiet`, cds to the script's own directory, chmods `gradlew` executable, defaults to `assembleDebug` when no args are given, and forwards all args/flags to `./gradlew`.
+- **`.gitignore`**: excludes `*.iml`, `.gradle`, `/local.properties`, `/.idea`, `.DS_Store`, `/build`, `/captures`, `.externalNativeBuild`, `.cxx`, plus macOS cruft (`._*`).
+- **`settings.gradle.kts`**: enables `STABLE_CONFIGURATION_CACHE` feature preview; uses `google()`/`mavenCentral()`/`gradlePluginPortal()` repos with `FAIL_ON_PROJECT_REPOS` mode.
+
+Apply this once the actual Android module/package structure is decided — don't invent `build.gradle.kts`/app module contents speculatively before the package name, min/target SDK, and UI toolkit are chosen.

@@ -1,0 +1,16 @@
+---
+description: JohnDovey external-drive shell/dev environment (Android SDK, Java, Gradle)
+globs:
+alwaysApply: true
+---
+
+# Dev environment
+
+This project lives on the `/Volumes/JohnDovey` external drive. Environment variables are set by `/Volumes/JohnDovey/source-john-dovey.sh`, auto-sourced from the shell rc whenever the drive is mounted:
+
+- `ANDROID_HOME=/Volumes/JohnDovey/Android/Sdk`
+- `GRADLE_USER_HOME=/Volumes/JohnDovey/.gradle`
+- `JAVA_HOME=/usr/local/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home` (Homebrew openjdk@17)
+- PATH additions: Android `tools`/`platform-tools`, `$JAVA_HOME/bin`, plus the OpenCode and OpenClaw CLI tools (also homed on the volume).
+
+Any build or run script added to this project should `source ~/source-john-dovey.sh --quiet` at the top before invoking Gradle/Android tooling, rather than hardcoding SDK/Java paths. See also `android-build.mdc` and `volume-storage.mdc`.
