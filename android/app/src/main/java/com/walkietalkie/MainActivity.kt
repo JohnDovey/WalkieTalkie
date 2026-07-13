@@ -190,12 +190,17 @@ private fun PttScreen() {
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(text = "Devices", style = MaterialTheme.typography.titleMedium)
-            val names = parseDeviceNames(devicesJson)
-            if (names.isEmpty()) {
+            val devices = parseDevices(devicesJson)
+            if (devices.isEmpty()) {
                 Text(text = "No devices seen yet.", modifier = Modifier.padding(top = 8.dp))
             } else {
                 LazyColumn(modifier = Modifier.padding(top = 8.dp)) {
-                    items(names) { name -> Text(text = name) }
+                    items(devices) { d ->
+                        Row {
+                            Text(text = d.name, color = statusColor(d.status))
+                            Text(text = " (${d.status})")
+                        }
+                    }
                 }
             }
         }
@@ -231,16 +236,21 @@ private fun PttScreen() {
     }
 }
 
-private fun parseDeviceNames(json: String): List<String> {
+private data class DeviceRow(val name: String, val status: String)
+
+private fun parseDevices(json: String): List<DeviceRow> {
     return try {
         val arr = JSONArray(json)
         (0 until arr.length()).map { i ->
             val obj = arr.getJSONObject(i)
-            val name = obj.optString("name", "unknown")
-            val status = obj.optString("status", "")
-            "$name ($status)"
+            DeviceRow(obj.optString("name", "unknown"), obj.optString("status", ""))
         }
     } catch (e: Exception) {
         emptyList()
     }
 }
+
+// Matches the web UI's name coloring (server/web/static/app.js: nameColorClass) —
+// Bootstrap's text-success/text-secondary colors.
+private fun statusColor(status: String): Color =
+    if (status == "connected") Color(0xFF198754) else Color(0xFF6C757D)
