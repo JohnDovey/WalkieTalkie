@@ -13,10 +13,20 @@ import (
 	"github.com/JohnDovey/WalkieTalkie/core/registry"
 )
 
+// Talker is the narrow interface the Talk control (see
+// docs/2026-07-13-implementation-plan.md, "Web UI: Talk control") needs —
+// satisfied by *media.PTTSession, kept as an interface here so api doesn't
+// need to import core/media just for two method names.
+type Talker interface {
+	StartTalking()
+	StopTalking()
+}
+
 // Handlers wires the registry store (and, for settings changes, a restart
 // hook) into HTTP handlers.
 type Handlers struct {
-	Store *registry.Store
+	Store  *registry.Store
+	Talker Talker // the server's own PTT session; nil if audio is unavailable
 
 	// OnSettingsChanged is called after new settings are persisted, so
 	// main.go can restart the HTTP listener on a new port if it changed.
@@ -33,6 +43,8 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/devices/peer-reports", h.peerReport)
 	mux.HandleFunc("GET /api/settings", h.getSettings)
 	mux.HandleFunc("PUT /api/settings", h.putSettings)
+	mux.HandleFunc("POST /api/talk/start", h.talkStart)
+	mux.HandleFunc("POST /api/talk/stop", h.talkStop)
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -125,6 +137,24 @@ func (h *Handlers) peerReport(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) talkStart(w http.ResponseWriter, r *http.Request) {
+	if h.Talker == nil {
+		http.Error(w, "audio unavailable on this Base Station", http.StatusServiceUnavailable)
+		return
+	}
+	h.Talker.StartTalking()
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) talkStop(w http.ResponseWriter, r *http.Request) {
+	if h.Talker == nil {
+		http.Error(w, "audio unavailable on this Base Station", http.StatusServiceUnavailable)
+		return
+	}
+	h.Talker.StopTalking()
 	w.WriteHeader(http.StatusNoContent)
 }
 

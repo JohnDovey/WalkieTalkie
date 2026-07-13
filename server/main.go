@@ -24,6 +24,7 @@ import (
 	"github.com/JohnDovey/WalkieTalkie/core/registry"
 	"github.com/JohnDovey/WalkieTalkie/server/api"
 	"github.com/JohnDovey/WalkieTalkie/server/audio"
+	"github.com/JohnDovey/WalkieTalkie/server/sync"
 	"github.com/JohnDovey/WalkieTalkie/server/web"
 	"github.com/pion/webrtc/v4"
 )
@@ -95,6 +96,10 @@ func main() {
 	session.OnConnectionStateChange = func(peerID string, state webrtc.PeerConnectionState) {
 		log.Printf("peer %s connection state: %s", peerID, state)
 	}
+	session.SetRelayThreshold(settings.RelayThreshold)
+	session.OnRelayThresholdExceeded = func(count, threshold int) {
+		log.Printf("relay threshold exceeded (%d connected peers >= %d) but core/relay isn't implemented yet — still connecting directly", count, threshold)
+	}
 
 	sigPort, err := session.Start(0)
 	if err != nil {
@@ -113,11 +118,15 @@ func main() {
 		ProtoVer:   proto.Version,
 		Port:       sigPort,
 		SignalPort: sigPort,
+		APIPort:    settings.Port, // marks this node as a Base Station for peer sync — see server/sync
 	})
 	if err != nil {
 		log.Fatalf("mdns register: %v", err)
 	}
 	defer mdnsSrv.Shutdown()
+
+	syncer := sync.New(store, time.Duration(settings.SyncIntervalSeconds)*time.Second)
+	defer syncer.Stop()
 
 	browseCtx, cancelBrowse := context.WithCancel(context.Background())
 	defer cancelBrowse()
@@ -132,6 +141,10 @@ func main() {
 				if err := store.SetLocation(p.ID, *p.GPS); err != nil {
 					log.Printf("registry location update for %s: %v", p.ID, err)
 				}
+				updateServerLocationEstimate(store, selfID)
+			}
+			if p.APIPort != 0 && len(p.IPv4) > 0 {
+				syncer.EnsureSyncing(p.ID, p.IPv4[0].String(), p.APIPort)
 			}
 			if len(p.IPv4) == 0 || p.SignalPort == 0 {
 				return
@@ -147,7 +160,7 @@ func main() {
 		}
 	}()
 
-	apiHandlers := &api.Handlers{Store: store}
+	apiHandlers := &api.Handlers{Store: store, Talker: session}
 	webHandlers, err := web.New()
 	if err != nil {
 		log.Fatalf("init web UI: %v", err)
@@ -160,15 +173,66 @@ func main() {
 	httpSrv := &http.Server{Handler: mux}
 	apiHandlers.OnSettingsChanged = func(newSettings config.Settings) {
 		log.Printf("settings changed, restarting web server on port %d", newSettings.Port)
+		session.SetRelayThreshold(newSettings.RelayThreshold)
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		httpSrv.Shutdown(shutdownCtx)
 		httpSrv = &http.Server{Handler: mux}
 		go serve(httpSrv, newSettings.Port)
+
+		mdnsSrv.UpdateInfo(mdns.AnnounceInfo{
+			ID:         selfID,
+			Name:       selfName,
+			Platform:   platformName(),
+			ProtoVer:   proto.Version,
+			Port:       sigPort,
+			SignalPort: sigPort,
+			APIPort:    newSettings.Port,
+		})
 	}
 
 	log.Printf("%s starting — device id %s", selfName, selfID)
 	serve(httpSrv, settings.Port)
+}
+
+// updateServerLocationEstimate recomputes this Base Station's own GPS
+// position as the arithmetic mean of every currently-connected device's
+// location, per docs/2026-07-13-implementation-plan.md ("Server GPS
+// estimation") — most server machines have no GPS hardware of their own.
+// If no connected device currently reports a location, the server's
+// existing estimate (if any) is left alone rather than blanked out; it
+// just becomes stale, which Device.LastKnownLocation already models.
+func updateServerLocationEstimate(store *registry.Store, selfID string) {
+	devices, err := store.List()
+	if err != nil {
+		log.Printf("location estimate: list devices: %v", err)
+		return
+	}
+
+	var sumLat, sumLon, sumAcc float64
+	var n int
+	for _, d := range devices {
+		if d.ID == selfID || d.Status != registry.StatusConnected || d.CurrentLocation == nil {
+			continue
+		}
+		sumLat += d.CurrentLocation.Lat
+		sumLon += d.CurrentLocation.Lon
+		sumAcc += d.CurrentLocation.Accuracy
+		n++
+	}
+	if n == 0 {
+		return
+	}
+
+	mean := proto.GeoPoint{
+		Lat:       sumLat / float64(n),
+		Lon:       sumLon / float64(n),
+		Accuracy:  sumAcc / float64(n),
+		Timestamp: time.Now(),
+	}
+	if err := store.SetLocation(selfID, mean); err != nil {
+		log.Printf("location estimate: set self location: %v", err)
+	}
 }
 
 func serve(srv *http.Server, port int) {

@@ -12,6 +12,7 @@
       <a class="navbar-brand" href="/">WalkieTalkie</a>
       <div class="navbar-nav">
         <a class="nav-link" href="/">Devices</a>
+        <a class="nav-link" href="/map">Map</a>
         <a class="nav-link active" href="/settings">Settings</a>
       </div>
     </div>
@@ -30,6 +31,16 @@
         <label class="form-label" for="gpsInterval">GPS update interval (seconds)</label>
         <input type="number" class="form-control" id="gpsInterval" min="5" required>
       </div>
+      <div class="mb-3">
+        <label class="form-label" for="syncInterval">Base Station sync interval (seconds)</label>
+        <input type="number" class="form-control" id="syncInterval" min="5" required>
+        <div class="form-text">How often this Base Station re-syncs its device list with other Base Stations it finds on the LAN.</div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="relayThreshold">Relay threshold (connected peers)</label>
+        <input type="number" class="form-control" id="relayThreshold" min="2" required>
+        <div class="form-text">Once this many peers are connected at once, route all audio through the relay instead of direct connections.</div>
+      </div>
       <div class="mb-3 form-check">
         <input type="checkbox" class="form-check-input" id="relayEnabled">
         <label class="form-check-label" for="relayEnabled">Enable relay fallback for unreachable peers</label>
@@ -45,6 +56,8 @@
       $.getJSON('/api/settings', function (s) {
         $('#port').val(s.port);
         $('#gpsInterval').val(s.gpsIntervalSeconds);
+        $('#syncInterval').val(s.syncIntervalSeconds);
+        $('#relayThreshold').val(s.relayThreshold);
         $('#relayEnabled').prop('checked', !!s.relayEnabled);
       });
     }
@@ -55,6 +68,8 @@
       var payload = {
         port: newPort,
         gpsIntervalSeconds: parseInt($('#gpsInterval').val(), 10),
+        syncIntervalSeconds: parseInt($('#syncInterval').val(), 10),
+        relayThreshold: parseInt($('#relayThreshold').val(), 10),
         relayEnabled: $('#relayEnabled').is(':checked')
       };
       $.ajax({

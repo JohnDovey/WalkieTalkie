@@ -21,6 +21,19 @@ type Settings struct {
 	Port               int  `json:"port"`
 	GPSIntervalSeconds int  `json:"gpsIntervalSeconds"`
 	RelayEnabled       bool `json:"relayEnabled"`
+
+	// SyncIntervalSeconds controls how often this Base Station re-pulls
+	// another Base Station's full registry once discovered (see
+	// docs/2026-07-13-implementation-plan.md, "Multi-Base-Station
+	// synchronization"). Not used by mobile nodes, which never run the
+	// server's REST API and so are never sync targets.
+	SyncIntervalSeconds int `json:"syncIntervalSeconds"`
+
+	// RelayThreshold: once the number of simultaneously connected mesh
+	// peers exceeds this count, all new connections route through the
+	// server relay instead of attempting direct P2P (see the plan's
+	// "Audio layer" — formalizes the mesh-scaling risk).
+	RelayThreshold int `json:"relayThreshold"`
 }
 
 // DefaultPort is the default port the server's web UI/API listens on.
@@ -29,9 +42,11 @@ const DefaultPort = 9091
 // Default returns the out-of-the-box settings.
 func Default() Settings {
 	return Settings{
-		Port:               DefaultPort,
-		GPSIntervalSeconds: 30,
-		RelayEnabled:       true,
+		Port:                DefaultPort,
+		GPSIntervalSeconds:  30,
+		RelayEnabled:        true,
+		SyncIntervalSeconds: 30,
+		RelayThreshold:      10,
 	}
 }
 

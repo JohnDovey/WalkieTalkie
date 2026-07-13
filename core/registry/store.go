@@ -275,3 +275,36 @@ func (s *Store) SetSettings(settings config.Settings) error {
 		return tx.Bucket(configBucket).Put(settingsKey, raw)
 	})
 }
+
+// MergeRemoteRegistry reconciles this Base Station's registry against
+// another Base Station's full device list, per
+// docs/2026-07-13-implementation-plan.md ("Multi-Base-Station
+// synchronization"). Unlike UpsertFromReport (one device vouching for a
+// single peer, where direct contact always outranks secondhand reports),
+// this is two equally-authoritative registries reconciling their entire
+// device lists against each other — so the rule here is simply
+// last-seen-wins, wholesale: for each incoming device, replace the local
+// record if the incoming one is unknown locally or has a strictly newer
+// LastSeen; otherwise leave the local record untouched. Returns how many
+// local records were updated.
+func (s *Store) MergeRemoteRegistry(remote []Device) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	updated := 0
+	err := s.db.Update(func(tx *bbolt.Tx) error {
+		for _, incoming := range remote {
+			local, ok := s.get(tx, incoming.ID)
+			if ok && !incoming.LastSeen.After(local.LastSeen) {
+				continue
+			}
+			d := incoming
+			if err := s.put(tx, &d); err != nil {
+				return err
+			}
+			updated++
+		}
+		return nil
+	})
+	return updated, err
+}

@@ -1,8 +1,11 @@
 // Package web serves the server's Bootstrap+jQuery dashboard: the device
-// list and the settings page. No authentication, per the spec. Bootstrap
-// and jQuery are vendored under static/vendor (not loaded from a CDN) so
-// the dashboard works with no internet access — the whole point of a
-// LAN-first app.
+// list, the network map, and the settings page. No authentication, per the
+// spec. Bootstrap, jQuery, and Leaflet are vendored under static/vendor
+// (not loaded from a CDN) so the dashboard works with no internet access —
+// the whole point of a LAN-first app. The one deliberate exception is the
+// map page's basemap tile imagery (OpenStreetMap), which can't be
+// meaningfully vendored for arbitrary real-world locations — see
+// docs/2026-07-13-implementation-plan.md ("Web UI: network map").
 package web
 
 import (
@@ -34,12 +37,17 @@ func New() (*Handlers, error) {
 // Register attaches every route to mux.
 func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", h.index)
+	mux.HandleFunc("GET /map", h.mapPage)
 	mux.HandleFunc("GET /settings", h.settingsPage)
 	mux.Handle("GET /static/", http.FileServerFS(staticFS))
 }
 
 func (h *Handlers) index(w http.ResponseWriter, r *http.Request) {
 	h.tmpl.ExecuteTemplate(w, "index.html", nil)
+}
+
+func (h *Handlers) mapPage(w http.ResponseWriter, r *http.Request) {
+	h.tmpl.ExecuteTemplate(w, "map.html", nil)
 }
 
 func (h *Handlers) settingsPage(w http.ResponseWriter, r *http.Request) {

@@ -41,6 +41,14 @@ type AnnounceInfo struct {
 	Port       int // service port; == SignalPort for this app
 	SignalPort int
 	GPS        *proto.GeoPoint
+
+	// APIPort is the server REST API port (server/api), set only by
+	// server/main.go — never by core/mobile, since mobile nodes don't run
+	// that API. A peer's APIPort being non-zero is how one Base Station
+	// recognizes another for registry sync (see the plan's
+	// "Multi-Base-Station synchronization" section). Zero means "not a
+	// Base Station" and is omitted from the TXT record entirely.
+	APIPort int
 }
 
 // Peer is a sighting of another node, decoded from its TXT record.
@@ -50,6 +58,7 @@ type Peer struct {
 	Platform   string
 	ProtoVer   int
 	SignalPort int
+	APIPort    int // 0 if the peer isn't a Base Station (no server/api)
 	Host       string
 	IPv4       []net.IP
 	IPv6       []net.IP
@@ -71,10 +80,13 @@ func buildTXT(info AnnounceInfo) []string {
 			"acc="+strconv.FormatFloat(info.GPS.Accuracy, 'f', -1, 64),
 		)
 	}
+	if info.APIPort != 0 {
+		txt = append(txt, "api="+strconv.Itoa(info.APIPort))
+	}
 	return txt
 }
 
-func parseTXT(text []string) (id, name, plat string, ver, sig int, gps *proto.GeoPoint) {
+func parseTXT(text []string) (id, name, plat string, ver, sig, api int, gps *proto.GeoPoint) {
 	var lat, lon, acc float64
 	var hasLat, hasLon bool
 	for _, kv := range text {
@@ -95,6 +107,8 @@ func parseTXT(text []string) (id, name, plat string, ver, sig int, gps *proto.Ge
 			ver, _ = strconv.Atoi(parts[1])
 		case "sig":
 			sig, _ = strconv.Atoi(parts[1])
+		case "api":
+			api, _ = strconv.Atoi(parts[1])
 		case "lat":
 			lat, hasLat = parseFloat(parts[1])
 		case "lon":
@@ -162,7 +176,7 @@ func Browse(ctx context.Context, selfID string, onFound func(Peer)) error {
 	entries := make(chan *zeroconf.ServiceEntry)
 	go func() {
 		for entry := range entries {
-			id, name, plat, ver, sig, gps := parseTXT(entry.Text)
+			id, name, plat, ver, sig, api, gps := parseTXT(entry.Text)
 			if id == "" || id == selfID {
 				continue
 			}
@@ -172,6 +186,7 @@ func Browse(ctx context.Context, selfID string, onFound func(Peer)) error {
 				Platform:   plat,
 				ProtoVer:   ver,
 				SignalPort: sig,
+				APIPort:    api,
 				Host:       entry.HostName,
 				IPv4:       entry.AddrIPv4,
 				IPv6:       entry.AddrIPv6,

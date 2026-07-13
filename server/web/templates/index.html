@@ -12,12 +12,18 @@
       <a class="navbar-brand" href="/">WalkieTalkie</a>
       <div class="navbar-nav">
         <a class="nav-link active" href="/">Devices</a>
+        <a class="nav-link" href="/map">Map</a>
         <a class="nav-link" href="/settings">Settings</a>
       </div>
     </div>
   </nav>
 
   <div class="container">
+    <div class="d-flex justify-content-center mb-4">
+      <button id="talk-btn" type="button" class="btn btn-lg btn-success rounded-circle"
+              style="width: 140px; height: 140px;">Hold<br>to Talk</button>
+    </div>
+
     <h1 class="h4 mb-3">Devices</h1>
     <table class="table table-striped align-middle">
       <thead>
@@ -96,6 +102,26 @@
 
     poll();
     setInterval(poll, 3000);
+
+    // Talk control (see docs/2026-07-13-implementation-plan.md, "Web UI:
+    // Talk control") — press-and-hold drives this Base Station's own mic,
+    // same StartTalking/StopTalking used by the Android on-screen button.
+    var talking = false;
+    function startTalking() {
+      if (talking) return;
+      talking = true;
+      $('#talk-btn').removeClass('btn-success').addClass('btn-danger').html('Talking&hellip;');
+      $.post('/api/talk/start');
+    }
+    function stopTalking() {
+      if (!talking) return;
+      talking = false;
+      $('#talk-btn').removeClass('btn-danger').addClass('btn-success').html('Hold<br>to Talk');
+      $.post('/api/talk/stop');
+    }
+    $('#talk-btn')
+      .on('mousedown touchstart', function (e) { e.preventDefault(); startTalking(); })
+      .on('mouseup mouseleave touchend touchcancel', function (e) { e.preventDefault(); stopTalking(); });
   </script>
 </body>
 </html>

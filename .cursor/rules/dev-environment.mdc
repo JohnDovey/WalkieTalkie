@@ -1,5 +1,5 @@
 ---
-description: JohnDovey external-drive shell/dev environment (Android SDK, Java, Gradle)
+description: JohnDovey external-drive shell/dev environment (Android SDK, Xcode, Java, Gradle)
 globs:
 alwaysApply: true
 ---
@@ -8,9 +8,13 @@ alwaysApply: true
 
 This project lives on the `/Volumes/JohnDovey` external drive. Environment variables are set by `/Volumes/JohnDovey/source-john-dovey.sh`, auto-sourced from the shell rc whenever the drive is mounted:
 
-- `ANDROID_HOME=/Volumes/JohnDovey/Android/Sdk`
+- `ANDROID_HOME`/`ANDROID_SDK_ROOT=/Volumes/JohnDovey/Android/Sdk`
 - `GRADLE_USER_HOME=/Volumes/JohnDovey/.gradle`
 - `JAVA_HOME=/usr/local/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home` (Homebrew openjdk@17)
-- PATH additions: Android `tools`/`platform-tools`, `$JAVA_HOME/bin`, plus the OpenCode and OpenClaw CLI tools (also homed on the volume).
+- `ANDROID_NDK_HOME`/`NDK_HOME`: prefers NDK `26.1.10909125`, falls back to the newest installed NDK otherwise
+- **Xcode**: full Xcode lives at `$JOHN_DOVEY/Applications/Xcode.app`. `DEVELOPER_DIR` points at its `Contents/Developer` (no `sudo xcode-select` needed), with DerivedData/Archives redirected onto the volume too. This is what `gomobile bind -target=ios` will use for the iOS phase — no extra Xcode setup should be needed beyond sourcing this script.
+- PATH additions: Android `platform-tools`/`emulator`/`tools`/`cmdline-tools/latest/bin`, `$JAVA_HOME/bin`, `$DEVELOPER_DIR/usr/bin`, plus the OpenCode and Kimi Code CLI tools (also homed on the volume — OpenClaw is no longer part of this script, don't assume it).
 
-Any build or run script added to this project should `source ~/source-john-dovey.sh --quiet` at the top before invoking Gradle/Android tooling, rather than hardcoding SDK/Java paths. See also `android-build.mdc` and `volume-storage.mdc`.
+**Xcode license gotcha**: a freshly-installed Xcode needs its license accepted (`sudo xcodebuild -license`, run by the user themselves — not something to do automatically) before `xcodebuild`/`xcrun` work. Since `DEVELOPER_DIR` now points here whenever this script is sourced, an unaccepted license can make `git` and other tools fail intermittently with an Xcode license error in any shell that sources it. If `git`/builds start failing strangely on this machine, check this first before assuming load/resource issues.
+
+Any build or run script added to this project should `source ~/source-john-dovey.sh --quiet` at the top before invoking Gradle/Android/Xcode tooling, rather than hardcoding SDK/Java/Xcode paths. See also `android-build.mdc` and `volume-storage.mdc`.

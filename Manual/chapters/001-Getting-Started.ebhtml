@@ -17,12 +17,23 @@ numberOverride:
 <p>This starts the Base Station listening on port <strong>9091</strong> by default. Open <code>http://localhost:9091</code> in a browser to see the dashboard.</p>
 <p><strong>There is no login.</strong> Anyone who can reach the port — anyone on the same LAN, by default — can view the dashboard, including every device's live GPS location if it has one. Don't expose this port beyond a network you trust.</p>
 
+<h2 id="talking-from-a-base-station">Talking from a Base Station</h2>
+<p>The big green <strong>Hold to Talk</strong> button at the top of the dashboard's home page lets a person sitting at (or on the same LAN as) the Base Station machine actually use its mic and speaker — press and hold to transmit, release to stop, exactly like the on-screen button in the Android app.</p>
+
 <h2 id="the-device-list">The device list</h2>
 <p>The dashboard's home page (<code>/</code>) lists every device the Base Station has seen: its name, platform, connection status (Connected/Disconnected), how long ago it was last seen, its GPS location if known, and how it was discovered (directly, over the LAN via mDNS, or reported by another device over Bluetooth). The list refreshes automatically every few seconds.</p>
-<p>When two Base Stations are running on the same LAN, they discover each other the same way any two devices do — automatically, with no setup — and each will list the other, including itself as a normal entry in its own list.</p>
+<p>When two Base Stations are running on the same LAN, they discover each other the same way any two devices do — automatically, with no setup — and each will list the other, including itself as a normal entry in its own list. They also keep their device lists in sync with each other continuously in the background (see "Multiple Base Stations" below).</p>
+
+<h2 id="the-map">The map</h2>
+<p>The <strong>Map</strong> page (<code>/map</code>) plots every device with a known GPS position. It needs internet access to load the map imagery itself (from OpenStreetMap) — this is the one page in the app that isn't fully offline; everything else, including the device list and Talk button, works with no internet connection at all.</p>
+<p>A Base Station machine usually has no GPS hardware of its own. Instead, its position on the map is <em>estimated</em> as the average location of every device currently connected to it that has a GPS fix — so it'll only show up once at least one connected device is reporting its location.</p>
+
+<h2 id="multiple-base-stations">Multiple Base Stations</h2>
+<p>If you run more than one Base Station on the same LAN, they don't just discover each other — they continuously synchronize their device lists with each other in the background, so a device seen by only one Base Station still shows up correctly on the others within a few seconds. If the two Base Stations ever disagree about a device (e.g. its last-seen time or GPS), whichever one saw it most recently wins.</p>
 
 <h2 id="settings">Settings</h2>
-<p>The <strong>Settings</strong> page (<code>/settings</code>) lets you change the Base Station's own configuration: the port it listens on, how often GPS updates are expected, and whether the relay fallback is enabled. Changing the port restarts the web server on the new port — the page tells you the new address to reconnect to.</p>
+<p>The <strong>Settings</strong> page (<code>/settings</code>) lets you change the Base Station's own configuration: the port it listens on, how often GPS updates are expected, how often it re-syncs with other Base Stations, the relay threshold, and whether the relay fallback is enabled. Changing the port restarts the web server on the new port — the page tells you the new address to reconnect to.</p>
+<p>The <strong>relay threshold</strong> (10 by default) is meant to control when audio switches from direct device-to-device connections to routing through the Base Station instead, since direct connections get slower as more devices join at once. As of this writing the setting exists and is tracked, but the actual relay routing it's supposed to trigger hasn't been built yet — for now, exceeding the threshold just logs a note that the setting isn't being enforced, and everyone keeps talking directly.</p>
 <p>Settings does <strong>not</strong> let you rename a device from the browser. Every device — including a Base Station — sets its own name locally; the dashboard only ever displays what a device has told it about itself.</p>
 
 <h2 id="running-more-than-one-instance-for-testing">Running more than one instance (for testing)</h2>

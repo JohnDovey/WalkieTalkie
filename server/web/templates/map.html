@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WalkieTalkie — Map</title>
+  <link rel="stylesheet" href="/static/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/vendor/leaflet.css">
+  <style>
+    #map { height: calc(100vh - 120px); width: 100%; }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand navbar-dark bg-dark mb-3">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">WalkieTalkie</a>
+      <div class="navbar-nav">
+        <a class="nav-link" href="/">Devices</a>
+        <a class="nav-link active" href="/map">Map</a>
+        <a class="nav-link" href="/settings">Settings</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid">
+    <p class="text-muted small mb-2">
+      Map tiles load from OpenStreetMap and need internet access — everything else in this app works fully offline.
+      Devices with no GPS fix at all aren't shown.
+    </p>
+    <div id="map"></div>
+  </div>
+
+  <script src="/static/vendor/jquery.min.js"></script>
+  <script src="/static/vendor/leaflet.js"></script>
+  <script>
+    // Leaflet's default marker icon URLs assume a CDN layout; point them at
+    // our vendored copies instead.
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: '/static/vendor/images/marker-icon-2x.png',
+      iconUrl: '/static/vendor/images/marker-icon.png',
+      shadowUrl: '/static/vendor/images/marker-shadow.png'
+    });
+
+    var map = L.map('map').setView([0, 0], 2);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    var markers = {};
+
+    function pointFor(d) {
+      return d.currentLocation || d.lastKnownLocation || null;
+    }
+
+    function popupText(d, p) {
+      var label = d.currentLocation ? 'current' : 'last known';
+      return '<strong>' + d.name + '</strong><br>' + d.status + ' (' + label + ')<br>' +
+        p.lat.toFixed(5) + ', ' + p.lon.toFixed(5);
+    }
+
+    function render(devices) {
+      var seen = {};
+      var bounds = [];
+      (devices || []).forEach(function (d) {
+        var p = pointFor(d);
+        if (!p) return;
+        seen[d.id] = true;
+        bounds.push([p.lat, p.lon]);
+        if (markers[d.id]) {
+          markers[d.id].setLatLng([p.lat, p.lon]).setPopupContent(popupText(d, p));
+        } else {
+          markers[d.id] = L.marker([p.lat, p.lon]).addTo(map).bindPopup(popupText(d, p));
+        }
+      });
+      Object.keys(markers).forEach(function (id) {
+        if (!seen[id]) {
+          map.removeLayer(markers[id]);
+          delete markers[id];
+        }
+      });
+      if (bounds.length && !render.fitted) {
+        map.fitBounds(bounds, { maxZoom: 14, padding: [20, 20] });
+        render.fitted = true;
+      }
+    }
+
+    function poll() {
+      $.getJSON('/api/devices', render);
+    }
+
+    poll();
+    setInterval(poll, 5000);
+  </script>
+</body>
+</html>

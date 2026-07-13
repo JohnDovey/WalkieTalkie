@@ -58,10 +58,51 @@ type MeshManager struct {
 	talking  int32
 	stopTalk chan struct{}
 
+	relayThreshold int // 0 = disabled; see SetRelayThreshold
+
 	// OnConnectionStateChange, if set, is called whenever a peer
 	// connection's ICE/DTLS state changes — useful for logging/UI, e.g.
 	// distinguishing "signaling succeeded" from "media path actually up."
 	OnConnectionStateChange func(peerID string, state webrtc.PeerConnectionState)
+
+	// OnRelayThresholdExceeded, if set, is called when a new connection is
+	// about to be made while the peer count is already at or past
+	// RelayThreshold but no RelayDialer is configured (see core/relay,
+	// still a TODO) — the connection proceeds directly anyway (better to
+	// stay connected than refuse service), but this lets the caller warn
+	// that the setting isn't actually being honored yet.
+	OnRelayThresholdExceeded func(peerCount, threshold int)
+}
+
+// SetRelayThreshold configures the peer count above which new connections
+// should prefer the relay over direct P2P (see docs/2026-07-13-implementation-plan.md,
+// "Audio layer"). 0 disables the check.
+func (mm *MeshManager) SetRelayThreshold(n int) {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+	mm.relayThreshold = n
+}
+
+// PeerCount returns the number of currently connected peers.
+func (mm *MeshManager) PeerCount() int {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+	return len(mm.peers)
+}
+
+// checkRelayThreshold warns (via OnRelayThresholdExceeded) if a new
+// connection would push the peer count at/past the configured threshold
+// with no relay available. See the RelayThreshold field doc.
+func (mm *MeshManager) checkRelayThreshold() {
+	mm.mu.Lock()
+	threshold := mm.relayThreshold
+	count := len(mm.peers)
+	hasRelay := mm.relay != nil
+	mm.mu.Unlock()
+
+	if threshold > 0 && count >= threshold && !hasRelay && mm.OnRelayThresholdExceeded != nil {
+		mm.OnRelayThresholdExceeded(count, threshold)
+	}
 }
 
 // NewMeshManager builds a MeshManager for the local device selfID. source
@@ -129,6 +170,7 @@ func (mm *MeshManager) Connect(host string, port int, peerID string) error {
 	if mm.Connected(peerID) {
 		return nil
 	}
+	mm.checkRelayThreshold()
 
 	ctx, cancel := context.WithTimeout(context.Background(), connectTimeout)
 	defer cancel()
@@ -203,6 +245,7 @@ func (mm *MeshManager) Disconnect(peerID string) {
 // handleIncomingOffer answers an offer from senderID, arriving via this
 // node's own signaling.Server.
 func (mm *MeshManager) handleIncomingOffer(senderID, offerSDP string) (string, error) {
+	mm.checkRelayThreshold()
 	pc, track, err := mm.newPeerConnection(senderID)
 	if err != nil {
 		return "", err
