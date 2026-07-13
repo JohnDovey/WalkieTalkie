@@ -22,6 +22,8 @@ numberOverride:
 
 <h2 id="the-device-list">The device list</h2>
 <p>The dashboard's home page (<code>/</code>) lists every device the Base Station has seen recently: its name, platform, connection status (Connected/Disconnected), how long ago it was last seen, its GPS location if known, and how it was discovered (directly, over the LAN via mDNS, or reported by another device over Bluetooth). The list refreshes automatically every few seconds, sorted most-recently-seen first, and each device's name is colored green if it's currently connected or gray if it's disconnected.</p>
+<p>Next to each device are two small action icons: <strong>Voice Message</strong> (always available) opens a recorder so you can send an async voice note that the Base Station holds until that device connects again (notes are kept for at least 21 days, then deleted). <strong>Invite to Chat</strong> appears only for connected devices and starts a private 1:1 channel. If a device has voice notes waiting for it, the list shows how many.</p>
+<p>The <strong>Chats</strong> button on the left of the nav opens a drawer with active private channels (and unread counts) and a list of senders who have new voice messages for you. Opening a voice-message entry shows the thread — play, reply, or delete. Opening a private channel switches the Talk control to that pair only; while you are not focused on the channel, clips from the other party queue as voice notes until you return.</p>
 <p>When two Base Stations are running on the same LAN, they discover each other the same way any two devices do — automatically, with no setup — and each will list the other, including itself as a normal entry in its own list. They also keep their device lists in sync with each other continuously in the background (see "Multiple Base Stations" below).</p>
 <p><img src="../images/base-station-dashboard.png" alt="Base Station dashboard showing an Android phone and the Base Station itself, both connected, with real GPS coordinates" /></p>
 <p>This is a real screenshot from an actual test session: a Base Station running on a Mac, talking to a real Android phone over Wi-Fi.</p>
@@ -48,6 +50,18 @@ numberOverride:
 <h2 id="about">About</h2>
 <p>The <strong>About</strong> page (<code>/about</code>) shows this Base Station's own name, platform, version, and device ID. The device list on the home page also shows the app version each connected device announced itself with, so a mismatched-version device is easy to spot at a glance.</p>
 
+
+<h2 id="voice-messages-and-private-channels">Voice messages and private channels</h2>
+<p>Both the Base Station dashboard and the Android app support <strong>async voice messages</strong> and <strong>invite-only private channels</strong>. Clips are stored on a Base Station on the LAN (not sent peer-to-peer yet — that is a planned follow-up).</p>
+<ul>
+<li>On each device row, a microphone icon sends a <strong>Voice Message</strong> to that node (works even if they are offline — the note is held until they return, for at least 21 days, then deleted). A chat icon <strong>Invite to Chat</strong> appears only while the peer is connected.</li>
+<li>A left-hand drawer lists active private channels and nodes with new voice messages waiting, with count badges.</li>
+<li>Opening a voice-message badge shows the thread for that sender: play, reply, or delete notes.</li>
+<li>Recording uses Start / Stop &amp; Send / Cancel. Private-channel talk uses the same Hold-to-talk gesture as the main screen, but clips are scoped to that pair and queue with a badge when the recipient is not focused on the channel.</li>
+<li>The device list shows how many voice notes are waiting for each node.</li>
+</ul>
+<p>Voice notes require a reachable Base Station. If none is discovered on the LAN, send fails with a clear error rather than dropping silently.</p>
+
 <h2 id="the-android-app">The Android app</h2>
 <p>The Android app was confirmed working on real hardware for the first time on 2026-07-13: it discovers a Base Station over Wi-Fi, connects to it, and exchanges real two-way audio — confirmed in both directions, including someone pressing the phone's Talk button and hearing their own voice come out of the desktop machine's speakers.</p>
 <p><img src="../images/android-app.png" alt="Android app screen showing a connected Base Station and the Hold to talk button" /></p>
@@ -56,7 +70,8 @@ numberOverride:
 <li>The app needs microphone, location, and Bluetooth permissions — grant all of them when asked, or nothing will work.</li>
 <li>On some phones (confirmed on a Xiaomi/HyperOS device), aggressive battery management kills the app's network activity a few seconds after connecting, even though it's a proper foreground service. If audio drops after several seconds, check your phone's battery settings and allow the app to run unrestricted / disable battery optimization for it.</li>
 </ul>
-<p>The app has three screens, switched via the links at the top: <strong>Devices</strong> (the list of other devices seen, and the Hold to talk button), <strong>Settings</strong> (set a Nickname/User-name for this device — leave it blank to fall back to the phone's manufacturer and model), and <strong>About</strong> (this app's own version and device ID).</p>
+<p>The app has a left <strong>Chats</strong> drawer plus screens switched via the top links: <strong>Devices</strong> (the list of other devices, per-device <strong>VM</strong> / <strong>Chat</strong> actions, and the Hold to talk button), <strong>Settings</strong> (set a Nickname/User-name for this device — leave it blank to fall back to the phone's manufacturer and model), and <strong>About</strong> (this app's own version, device ID, and discovered Base Station URL).</p>
+<p>Voice messages and private channels need a Base Station on the LAN; without one, group Hold-to-talk still works, but VM/Chat will fail until a Base Station appears.</p>
 <p>The Devices list is sorted most-recently-seen first, and — unlike the desktop Base Station, which keeps every device it's ever seen — the phone automatically forgets (deletes) any device it hasn't seen in over 48 hours, to keep the on-device list from accumulating clutter over time.</p>
 <p>Not yet tested: whether a third device can detect the phone over Bluetooth and report its presence to a Base Station when the phone has no Wi-Fi — that needs a second Bluetooth-capable device to verify.</p>
 

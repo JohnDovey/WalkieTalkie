@@ -26,6 +26,7 @@ import (
 	"github.com/JohnDovey/WalkieTalkie/core/media"
 	"github.com/JohnDovey/WalkieTalkie/core/proto"
 	"github.com/JohnDovey/WalkieTalkie/core/registry"
+	"github.com/JohnDovey/WalkieTalkie/core/voicenote"
 )
 
 // Node is the handle a native app holds for its whole lifetime.
@@ -40,10 +41,12 @@ type Node struct {
 
 	cancelBrowse context.CancelFunc
 
-	mu      sync.Mutex
-	name    string
-	lastGPS *proto.GeoPoint
-	mdnsSrv *mdns.Server
+	mu           sync.Mutex
+	name         string
+	lastGPS      *proto.GeoPoint
+	mdnsSrv      *mdns.Server
+	baseURL      string // last seen Base Station http://host:apiPort
+	voiceClient  *voicenote.Client
 }
 
 // StartNode boots the shared core for one local device: opens the
@@ -152,6 +155,9 @@ func (n *Node) onPeerFound(p mdns.Peer) {
 	if p.GPS != nil {
 		_ = n.store.SetLocation(p.ID, *p.GPS)
 	}
+	if p.APIPort != 0 && len(p.IPv4) > 0 {
+		n.setBaseStation(fmt.Sprintf("http://%s:%d", p.IPv4[0].String(), p.APIPort))
+	}
 	if len(p.IPv4) == 0 || p.SignalPort == 0 {
 		return
 	}
@@ -162,6 +168,172 @@ func (n *Node) onPeerFound(p mdns.Peer) {
 		}
 		_ = n.session.ConnectAny(hosts, p.SignalPort, p.ID)
 	}()
+}
+
+func (n *Node) setBaseStation(baseURL string) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.baseURL = baseURL
+	if n.voiceClient == nil {
+		n.voiceClient = &voicenote.Client{DeviceID: n.selfID}
+	}
+	n.voiceClient.BaseURL = baseURL
+	n.voiceClient.DeviceID = n.selfID
+}
+
+func (n *Node) client() (*voicenote.Client, error) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.voiceClient == nil || n.voiceClient.BaseURL == "" {
+		return nil, fmt.Errorf("no Base Station reachable (need a LAN Base Station for voice notes)")
+	}
+	return n.voiceClient, nil
+}
+
+// BaseStationURL returns the discovered Base Station API root, or empty.
+func (n *Node) BaseStationURL() string {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.baseURL
+}
+
+// SendVoiceNote uploads an async clip to toDeviceID via the Base Station.
+func (n *Node) SendVoiceNote(toDeviceID string, audio []byte) error {
+	c, err := n.client()
+	if err != nil {
+		return err
+	}
+	_, err = c.Upload(toDeviceID, "", audio, "note.webm")
+	return err
+}
+
+// SendChannelClip uploads a private-channel clip via the Base Station.
+func (n *Node) SendChannelClip(channelID string, audio []byte) error {
+	c, err := n.client()
+	if err != nil {
+		return err
+	}
+	_, err = c.Upload("", channelID, audio, "note.webm")
+	return err
+}
+
+// ListVoiceNotesJSON returns inbox notes, or the thread with withPeerID when set.
+func (n *Node) ListVoiceNotesJSON(withPeerID string) (string, error) {
+	c, err := n.client()
+	if err != nil {
+		return "[]", err
+	}
+	notes, err := c.Inbox(withPeerID, "")
+	if err != nil {
+		return "", err
+	}
+	raw, err := json.Marshal(notes)
+	return string(raw), err
+}
+
+// ListChannelNotesJSON returns clips for a private channel.
+func (n *Node) ListChannelNotesJSON(channelID string) (string, error) {
+	c, err := n.client()
+	if err != nil {
+		return "[]", err
+	}
+	notes, err := c.Inbox("", channelID)
+	if err != nil {
+		return "", err
+	}
+	raw, err := json.Marshal(notes)
+	return string(raw), err
+}
+
+// DownloadVoiceNote returns the audio bytes for a note.
+func (n *Node) DownloadVoiceNote(noteID string) ([]byte, error) {
+	c, err := n.client()
+	if err != nil {
+		return nil, err
+	}
+	return c.DownloadAudio(noteID)
+}
+
+// AckVoiceNote marks a note as played.
+func (n *Node) AckVoiceNote(noteID string) error {
+	c, err := n.client()
+	if err != nil {
+		return err
+	}
+	return c.Ack(noteID)
+}
+
+// DeleteVoiceNote soft-deletes a note on the Base Station.
+func (n *Node) DeleteVoiceNote(noteID string) error {
+	c, err := n.client()
+	if err != nil {
+		return err
+	}
+	return c.Delete(noteID)
+}
+
+// InviteChannel invites a connected peer to a private channel; returns channel JSON.
+func (n *Node) InviteChannel(toDeviceID string) (string, error) {
+	c, err := n.client()
+	if err != nil {
+		return "", err
+	}
+	ch, err := c.Invite(toDeviceID)
+	if err != nil {
+		return "", err
+	}
+	raw, err := json.Marshal(ch)
+	return string(raw), err
+}
+
+// AcceptChannel accepts a pending private-channel invite.
+func (n *Node) AcceptChannel(channelID string) error {
+	c, err := n.client()
+	if err != nil {
+		return err
+	}
+	return c.Accept(channelID)
+}
+
+// ListChannelsJSON returns private channels + unread counts for this device.
+func (n *Node) ListChannelsJSON() (string, error) {
+	c, err := n.client()
+	if err != nil {
+		return "[]", err
+	}
+	ch, err := c.ListChannels()
+	if err != nil {
+		return "", err
+	}
+	raw, err := json.Marshal(ch)
+	return string(raw), err
+}
+
+// CloseChannel leaves/closes a private channel.
+func (n *Node) CloseChannel(channelID string) error {
+	c, err := n.client()
+	if err != nil {
+		return err
+	}
+	return c.Close(channelID)
+}
+
+// FocusChannel marks a channel as currently viewed (auto-play vs queue).
+func (n *Node) FocusChannel(channelID string) error {
+	c, err := n.client()
+	if err != nil {
+		return err
+	}
+	return c.Focus(channelID)
+}
+
+// BlurChannel clears channel focus.
+func (n *Node) BlurChannel(channelID string) error {
+	c, err := n.client()
+	if err != nil {
+		return err
+	}
+	return c.Blur(channelID)
 }
 
 // StartTalking begins transmitting mic audio to every reachable peer

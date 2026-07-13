@@ -25,6 +25,7 @@ import (
 	"github.com/JohnDovey/WalkieTalkie/server/api"
 	"github.com/JohnDovey/WalkieTalkie/server/audio"
 	"github.com/JohnDovey/WalkieTalkie/server/sync"
+	"github.com/JohnDovey/WalkieTalkie/server/voicenote"
 	"github.com/JohnDovey/WalkieTalkie/server/web"
 	"github.com/pion/webrtc/v4"
 )
@@ -169,7 +170,19 @@ func main() {
 		}
 	}()
 
-	apiHandlers := &api.Handlers{Store: store, Talker: session, SelfID: selfID, SelfName: selfName, Platform: platformName(), Version: Version}
+	voiceStore, err := voicenote.NewStore(store, dataDir)
+	if err != nil {
+		log.Fatalf("init voice-note store: %v", err)
+	}
+	voiceHandlers := &voicenote.Handlers{Voice: voiceStore, Reg: store, SelfID: selfID}
+	purgeStop := make(chan struct{})
+	defer close(purgeStop)
+	go voicenote.RunPurge(purgeStop, voiceStore)
+
+	apiHandlers := &api.Handlers{
+		Store: store, Talker: session, SelfID: selfID, SelfName: selfName,
+		Platform: platformName(), Version: Version, EnrichDevices: voiceHandlers,
+	}
 	webHandlers, err := web.New()
 	if err != nil {
 		log.Fatalf("init web UI: %v", err)
@@ -177,6 +190,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	apiHandlers.Register(mux)
+	voiceHandlers.Register(mux)
 	webHandlers.Register(mux)
 
 	httpSrv := &http.Server{Handler: mux}

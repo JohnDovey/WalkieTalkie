@@ -22,6 +22,12 @@ type Talker interface {
 	StopTalking()
 }
 
+// DeviceListEnricher optionally wraps GET /api/devices with extra fields
+// (e.g. pendingVoiceNotes). Implemented by server/voicenote.Handlers.
+type DeviceListEnricher interface {
+	EnrichDevices(devices []*registry.Device) (any, error)
+}
+
 // Handlers wires the registry store (and, for settings changes, a restart
 // hook) into HTTP handlers.
 type Handlers struct {
@@ -34,6 +40,10 @@ type Handlers struct {
 	SelfName string
 	Platform string
 	Version  string
+
+	// EnrichDevices, when set, replaces the raw device list JSON with an
+	// enriched payload (voice-note waiting counts, etc.).
+	EnrichDevices DeviceListEnricher
 
 	// OnSettingsChanged is called after new settings are persisted, so
 	// main.go can restart the HTTP listener on a new port if it changed.
@@ -80,6 +90,15 @@ func (h *Handlers) listDevices(w http.ResponseWriter, r *http.Request) {
 	devices, err := h.Store.List()
 	if err != nil {
 		serverError(w, err)
+		return
+	}
+	if h.EnrichDevices != nil {
+		enriched, err := h.EnrichDevices.EnrichDevices(devices)
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		writeJSON(w, enriched)
 		return
 	}
 	writeJSON(w, devices)

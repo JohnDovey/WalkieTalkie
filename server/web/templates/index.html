@@ -5,10 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>WalkieTalkie</title>
   <link rel="stylesheet" href="/static/vendor/bootstrap.min.css">
+  <style>
+    .icon-btn { border: none; background: transparent; padding: 0.15rem 0.35rem; line-height: 1; cursor: pointer; }
+    .icon-btn:hover { opacity: 0.75; }
+    .icon-btn svg { width: 1.1rem; height: 1.1rem; vertical-align: -0.15em; }
+    #drawer-badge { font-size: 0.7rem; }
+    .unread-pill { font-size: 0.7rem; }
+    #private-panel { display: none; }
+    #private-panel.active { display: block; }
+    #main-talk-wrap.hidden { display: none; }
+  </style>
 </head>
 <body>
   <nav class="navbar navbar-expand navbar-dark bg-dark mb-4">
     <div class="container-fluid">
+      <button class="btn btn-outline-light btn-sm me-2" type="button" data-bs-toggle="offcanvas"
+              data-bs-target="#chatsDrawer" title="Chats" aria-label="Open chats drawer">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4.414A2 2 0 0 0 3 11.586l-2 2V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12.793a.5.5 0 0 0 .854.353l2.853-2.853A1 1 0 0 1 4.414 12H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+        </svg>
+        <span id="drawer-badge" class="badge bg-danger rounded-pill d-none">0</span>
+      </button>
       <a class="navbar-brand" href="/">WalkieTalkie</a>
       <div class="navbar-nav">
         <a class="nav-link active" href="/">Devices</a>
@@ -20,10 +37,36 @@
     </div>
   </nav>
 
+  <div class="offcanvas offcanvas-start" tabindex="-1" id="chatsDrawer" aria-labelledby="chatsDrawerLabel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="chatsDrawerLabel">Chats</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <h6 class="text-muted">Private channels</h6>
+      <ul id="channel-list" class="list-group mb-4"></ul>
+      <h6 class="text-muted">Voice messages</h6>
+      <ul id="voice-inbox-list" class="list-group"></ul>
+    </div>
+  </div>
+
   <div class="container">
-    <div class="d-flex justify-content-center mb-4">
+    <div id="main-talk-wrap" class="d-flex justify-content-center mb-4">
       <button id="talk-btn" type="button" class="btn btn-lg btn-success rounded-circle"
               style="width: 140px; height: 140px;">Hold<br>to Talk</button>
+    </div>
+
+    <div id="private-panel" class="mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h5 mb-0">Private: <span id="private-peer-name"></span></h2>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="private-back">Back to group</button>
+      </div>
+      <div class="d-flex justify-content-center mb-3">
+        <button id="private-talk-btn" type="button" class="btn btn-lg btn-success rounded-circle"
+                style="width: 140px; height: 140px;">Hold<br>to Talk</button>
+      </div>
+      <ul id="private-note-list" class="list-group mb-2"></ul>
+      <p class="text-muted small">Clips in this channel queue when the other party is not focused here.</p>
     </div>
 
     <h1 class="h4 mb-3">Devices</h1>
@@ -37,52 +80,361 @@
           <th>GPS</th>
           <th>Discovery</th>
           <th>App Version</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody id="device-rows">
-        <tr><td colspan="7" class="text-muted">Loading&hellip;</td></tr>
+        <tr><td colspan="8" class="text-muted">Loading&hellip;</td></tr>
       </tbody>
     </table>
+  </div>
+
+  <!-- Record voice message modal -->
+  <div class="modal fade" id="recordModal" tabindex="-1" aria-labelledby="recordModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="recordModalLabel">Voice Message</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p>Recording for <strong id="record-target-name"></strong></p>
+          <p id="record-status" class="text-muted">Press Start to record.</p>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-danger" id="record-start">Start</button>
+            <button type="button" class="btn btn-primary" id="record-stop-send" disabled>Stop &amp; Send</button>
+            <button type="button" class="btn btn-outline-secondary" id="record-cancel" data-bs-dismiss="modal">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Voice thread modal -->
+  <div class="modal fade" id="threadModal" tabindex="-1" aria-labelledby="threadModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="threadModalLabel">Voice notes</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <ul id="thread-list" class="list-group mb-3"></ul>
+          <button type="button" class="btn btn-sm btn-outline-primary" id="thread-reply">Reply</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="/static/vendor/jquery.min.js"></script>
   <script src="/static/vendor/bootstrap.bundle.min.js"></script>
   <script src="/static/app.js"></script>
   <script>
+    var selfInfo = { id: '', name: '' };
+    var activeChannelId = null;
+    var activeChannelPeer = null;
+    var recordTarget = { id: '', name: '', channelId: '' };
+    var mediaRecorder = null;
+    var recordedChunks = [];
+    var threadPeerId = null;
+    var threadPeerName = null;
+
+    var micIcon = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16"><path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/><path d="M10 8a2 2 0 1 1-4 0V3a2 2 0 1 1 4 0v5zM8 0a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V3a3 3 0 0 0-3-3z"/></svg>';
+    var chatIcon = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16"><path d="M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4.414A2 2 0 0 0 3 11.586l-2 2V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12.793a.5.5 0 0 0 .854.353l2.853-2.853A1 1 0 0 1 4.414 12H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/></svg>';
+
+    function actionButtons(d) {
+      var html = '<button type="button" class="icon-btn text-primary btn-voice-msg" title="Voice Message" ' +
+        'data-id="' + d.id + '" data-name="' + $('<div>').text(d.name || d.id).html() + '">' + micIcon + '</button>';
+      if (d.status === 'connected') {
+        html += '<button type="button" class="icon-btn text-success btn-invite-chat" title="Invite to Chat" ' +
+          'data-id="' + d.id + '" data-name="' + $('<div>').text(d.name || d.id).html() + '">' + chatIcon + '</button>';
+      }
+      return html;
+    }
+
+    function waitingText(d) {
+      var n = d.pendingVoiceNotes || 0;
+      if (n <= 0) return '';
+      return ' <span class="badge bg-info text-dark unread-pill">' + n + ' voice note' + (n === 1 ? '' : 's') + ' waiting</span>';
+    }
+
     function render(devices) {
-      // Devices not seen in OLD_NODE_THRESHOLD_MS live on the Old Nodes
-      // page instead — see docs/2026-07-13-implementation-plan.md.
       var current = sortByLastSeenDesc((devices || []).filter(function (d) { return !isOldNode(d); }));
       if (!current.length) {
-        $('#device-rows').html('<tr><td colspan="7" class="text-muted">No devices seen yet.</td></tr>');
+        $('#device-rows').html('<tr><td colspan="8" class="text-muted">No devices seen yet.</td></tr>');
         return;
       }
       var rows = current.map(function (d) {
         return '<tr>' +
-          '<td>' + deviceNameHTML(d) + '</td>' +
+          '<td>' + deviceNameHTML(d) + waitingText(d) + '</td>' +
           '<td>' + (d.platform || '—') + '</td>' +
           '<td>' + statusBadge(d.status) + '</td>' +
           '<td>' + relativeTime(d.lastSeen) + '</td>' +
           '<td>' + gpsText(d) + '</td>' +
           '<td>' + discoveryBadge(d) + '</td>' +
           '<td>' + (d.appVersion || '—') + '</td>' +
+          '<td class="text-nowrap">' + actionButtons(d) + '</td>' +
           '</tr>';
       });
       $('#device-rows').html(rows.join(''));
     }
 
-    function poll() {
+    function pollDevices() {
       $.getJSON('/api/devices', render).fail(function () {
-        $('#device-rows').html('<tr><td colspan="7" class="text-danger">Failed to load devices.</td></tr>');
+        $('#device-rows').html('<tr><td colspan="8" class="text-danger">Failed to load devices.</td></tr>');
       });
     }
 
-    poll();
-    setInterval(poll, 3000);
+    function refreshDrawer() {
+      if (!selfInfo.id) return;
+      $.getJSON('/api/channels?for=' + encodeURIComponent(selfInfo.id), function (channels) {
+        var html = '';
+        var totalUnread = 0;
+        (channels || []).forEach(function (c) {
+          totalUnread += c.unreadFor || 0;
+          var label = c.peerName || c.peerId;
+          var badge = (c.unreadFor > 0)
+            ? ' <span class="badge bg-danger rounded-pill">' + c.unreadFor + '</span>' : '';
+          var status = c.status === 'pending' ? ' <span class="badge bg-warning text-dark">pending</span>' : '';
+          html += '<li class="list-group-item list-group-item-action channel-item" data-id="' + c.id +
+            '" data-peer="' + c.peerId + '" data-name="' + $('<div>').text(label).html() +
+            '" data-status="' + c.status + '">' + label + status + badge + '</li>';
+        });
+        $('#channel-list').html(html || '<li class="list-group-item text-muted">No private channels</li>');
+        updateDrawerBadge(totalUnread);
+      });
+      $.getJSON('/api/voice-notes?for=' + encodeURIComponent(selfInfo.id), function (notes) {
+        var byFrom = {};
+        (notes || []).forEach(function (n) {
+          if (n.channelId || n.status !== 'queued') return;
+          if (n.toId !== selfInfo.id) return;
+          byFrom[n.fromId] = (byFrom[n.fromId] || 0) + 1;
+        });
+        $.getJSON('/api/devices', function (devices) {
+          var nameById = {};
+          (devices || []).forEach(function (d) { nameById[d.id] = d.name; });
+          var html = '';
+          var extra = 0;
+          Object.keys(byFrom).forEach(function (fromId) {
+            extra += byFrom[fromId];
+            var name = nameById[fromId] || fromId;
+            html += '<li class="list-group-item list-group-item-action voice-inbox-item" data-id="' + fromId +
+              '" data-name="' + $('<div>').text(name).html() + '">' + name +
+              ' <span class="badge bg-danger rounded-pill">' + byFrom[fromId] + '</span></li>';
+          });
+          $('#voice-inbox-list').html(html || '<li class="list-group-item text-muted">No new voice messages</li>');
+          var cur = parseInt($('#drawer-badge').data('channels') || '0', 10);
+          updateDrawerBadge(cur + extra, cur);
+        });
+      });
+    }
 
-    // Talk control (see docs/2026-07-13-implementation-plan.md, "Web UI:
-    // Talk control") — press-and-hold drives this Base Station's own mic,
-    // same StartTalking/StopTalking used by the Android on-screen button.
+    function updateDrawerBadge(total, channelPart) {
+      if (typeof channelPart === 'number') {
+        $('#drawer-badge').data('channels', channelPart);
+      } else {
+        $('#drawer-badge').data('channels', total);
+      }
+      if (total > 0) {
+        $('#drawer-badge').text(total).removeClass('d-none');
+      } else {
+        $('#drawer-badge').addClass('d-none');
+      }
+    }
+
+    function openRecord(id, name, channelId) {
+      recordTarget = { id: id, name: name, channelId: channelId || '' };
+      $('#record-target-name').text(name);
+      $('#record-status').text('Press Start to record.');
+      $('#record-start').prop('disabled', false);
+      $('#record-stop-send').prop('disabled', true);
+      recordedChunks = [];
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('recordModal')).show();
+    }
+
+    function openThread(peerId, peerName) {
+      threadPeerId = peerId;
+      threadPeerName = peerName;
+      $('#threadModalLabel').text('Voice notes with ' + peerName);
+      $.getJSON('/api/voice-notes?for=' + encodeURIComponent(selfInfo.id) + '&with=' + encodeURIComponent(peerId), function (notes) {
+        var html = '';
+        (notes || []).forEach(function (n) {
+          var dir = n.fromId === selfInfo.id ? 'You' : peerName;
+          html += '<li class="list-group-item d-flex justify-content-between align-items-center">' +
+            '<span>' + dir + ' · ' + relativeTime(n.createdAt) + ' · ' + n.status + '</span>' +
+            '<span class="btn-group btn-group-sm">' +
+            '<button type="button" class="btn btn-outline-primary btn-play-note" data-id="' + n.id + '">Play</button>' +
+            '<button type="button" class="btn btn-outline-danger btn-del-note" data-id="' + n.id + '">Delete</button>' +
+            '</span></li>';
+        });
+        $('#thread-list').html(html || '<li class="list-group-item text-muted">No voice notes yet.</li>');
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('threadModal')).show();
+      });
+    }
+
+    function enterPrivateChannel(channelId, peerId, peerName, status) {
+      if (status === 'pending' && peerId) {
+        // If we were invited, accept; inviting self already created pending.
+        $.ajax({
+          url: '/api/channels/' + channelId + '/accept',
+          method: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify({ deviceId: selfInfo.id })
+        });
+      }
+      if (activeChannelId) {
+        $.ajax({
+          url: '/api/channels/' + activeChannelId + '/blur',
+          method: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify({ deviceId: selfInfo.id })
+        });
+      }
+      activeChannelId = channelId;
+      activeChannelPeer = { id: peerId, name: peerName };
+      $('#private-peer-name').text(peerName);
+      $('#main-talk-wrap').addClass('hidden');
+      $('#private-panel').addClass('active');
+      $.ajax({
+        url: '/api/channels/' + channelId + '/focus',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ deviceId: selfInfo.id })
+      });
+      refreshPrivateNotes();
+      bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('chatsDrawer')).hide();
+    }
+
+    function leavePrivateChannel() {
+      if (activeChannelId) {
+        $.ajax({
+          url: '/api/channels/' + activeChannelId + '/blur',
+          method: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify({ deviceId: selfInfo.id })
+        });
+      }
+      activeChannelId = null;
+      activeChannelPeer = null;
+      $('#private-panel').removeClass('active');
+      $('#main-talk-wrap').removeClass('hidden');
+    }
+
+    function refreshPrivateNotes() {
+      if (!activeChannelId) return;
+      $.getJSON('/api/voice-notes?for=' + encodeURIComponent(selfInfo.id) +
+        '&channelId=' + encodeURIComponent(activeChannelId), function (notes) {
+        var html = '';
+        (notes || []).forEach(function (n) {
+          var dir = n.fromId === selfInfo.id ? 'You' : (activeChannelPeer && activeChannelPeer.name) || n.fromId;
+          html += '<li class="list-group-item d-flex justify-content-between">' +
+            '<span>' + dir + ' · ' + relativeTime(n.createdAt) + '</span>' +
+            '<button type="button" class="btn btn-sm btn-outline-primary btn-play-note" data-id="' + n.id + '">Play</button></li>';
+          if (n.toId === selfInfo.id && n.status === 'queued') {
+            $.post('/api/voice-notes/' + n.id + '/ack');
+          }
+        });
+        $('#private-note-list').html(html || '<li class="list-group-item text-muted">No clips yet — hold to talk.</li>');
+      });
+    }
+
+    function uploadBlob(blob, toId, channelId) {
+      var fd = new FormData();
+      fd.append('from', selfInfo.id);
+      if (toId) fd.append('to', toId);
+      if (channelId) fd.append('channelId', channelId);
+      fd.append('audio', blob, 'note.webm');
+      return $.ajax({ url: '/api/voice-notes', method: 'POST', data: fd, processData: false, contentType: false });
+    }
+
+    $('#device-rows').on('click', '.btn-voice-msg', function () {
+      openRecord($(this).data('id'), $(this).data('name'), '');
+    });
+    $('#device-rows').on('click', '.btn-invite-chat', function () {
+      var to = $(this).data('id');
+      var name = $(this).data('name');
+      $.ajax({
+        url: '/api/channels/invite',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ from: selfInfo.id, to: to }),
+        success: function (ch) {
+          enterPrivateChannel(ch.id, to, name, ch.status);
+          refreshDrawer();
+        },
+        error: function (xhr) {
+          alert(xhr.responseText || 'Invite failed');
+        }
+      });
+    });
+
+    $('#channel-list').on('click', '.channel-item', function () {
+      enterPrivateChannel($(this).data('id'), $(this).data('peer'), $(this).data('name'), $(this).data('status'));
+    });
+    $('#voice-inbox-list').on('click', '.voice-inbox-item', function () {
+      openThread($(this).data('id'), $(this).data('name'));
+      bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('chatsDrawer')).hide();
+    });
+    $('#private-back').on('click', leavePrivateChannel);
+    $('#thread-reply').on('click', function () {
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('threadModal')).hide();
+      openRecord(threadPeerId, threadPeerName, '');
+    });
+
+    $(document).on('click', '.btn-play-note', function () {
+      var id = $(this).data('id');
+      var audio = new Audio('/api/voice-notes/' + id + '/audio');
+      audio.play();
+      $.post('/api/voice-notes/' + id + '/ack');
+    });
+    $(document).on('click', '.btn-del-note', function () {
+      var id = $(this).data('id');
+      $.ajax({ url: '/api/voice-notes/' + id, method: 'DELETE', success: function () {
+        openThread(threadPeerId, threadPeerName);
+      }});
+    });
+
+    $('#record-start').on('click', function () {
+      recordedChunks = [];
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = function (e) { if (e.data.size) recordedChunks.push(e.data); };
+        mediaRecorder.start();
+        $('#record-status').text('Recording…');
+        $('#record-start').prop('disabled', true);
+        $('#record-stop-send').prop('disabled', false);
+      }).catch(function (err) {
+        $('#record-status').text('Mic error: ' + err.message);
+      });
+    });
+    $('#record-stop-send').on('click', function () {
+      if (!mediaRecorder) return;
+      mediaRecorder.onstop = function () {
+        mediaRecorder.stream.getTracks().forEach(function (t) { t.stop(); });
+        var blob = new Blob(recordedChunks, { type: 'audio/webm' });
+        $('#record-status').text('Sending…');
+        uploadBlob(blob, recordTarget.id, recordTarget.channelId).done(function () {
+          $('#record-status').text('Sent.');
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('recordModal')).hide();
+          refreshDrawer();
+          if (activeChannelId) refreshPrivateNotes();
+        }).fail(function (xhr) {
+          $('#record-status').text('Send failed: ' + (xhr.responseText || xhr.status));
+        });
+      };
+      mediaRecorder.stop();
+      $('#record-stop-send').prop('disabled', true);
+    });
+    $('#record-cancel').on('click', function () {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(function (t) { t.stop(); });
+      }
+      mediaRecorder = null;
+      recordedChunks = [];
+    });
+
+    // Group talk (live mesh)
     var talking = false;
     function startTalking() {
       if (talking) return;
@@ -99,6 +451,54 @@
     $('#talk-btn')
       .on('mousedown touchstart', function (e) { e.preventDefault(); startTalking(); })
       .on('mouseup mouseleave touchend touchcancel', function (e) { e.preventDefault(); stopTalking(); });
+
+    // Private channel: record clip on press-release (store-and-forward)
+    var privateChunks = [];
+    var privateRecorder = null;
+    var privateHolding = false;
+    function privateStart() {
+      if (privateHolding || !activeChannelId) return;
+      privateHolding = true;
+      privateChunks = [];
+      $('#private-talk-btn').removeClass('btn-success').addClass('btn-danger').html('Talking&hellip;');
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+        privateRecorder = new MediaRecorder(stream);
+        privateRecorder.ondataavailable = function (e) { if (e.data.size) privateChunks.push(e.data); };
+        privateRecorder.start();
+      }).catch(function () {
+        privateHolding = false;
+        $('#private-talk-btn').removeClass('btn-danger').addClass('btn-success').html('Hold<br>to Talk');
+      });
+    }
+    function privateStop() {
+      if (!privateHolding) return;
+      privateHolding = false;
+      $('#private-talk-btn').removeClass('btn-danger').addClass('btn-success').html('Hold<br>to Talk');
+      if (!privateRecorder) return;
+      privateRecorder.onstop = function () {
+        privateRecorder.stream.getTracks().forEach(function (t) { t.stop(); });
+        var blob = new Blob(privateChunks, { type: 'audio/webm' });
+        uploadBlob(blob, activeChannelPeer && activeChannelPeer.id, activeChannelId).always(function () {
+          refreshPrivateNotes();
+          refreshDrawer();
+        });
+        privateRecorder = null;
+      };
+      if (privateRecorder.state !== 'inactive') privateRecorder.stop();
+    }
+    $('#private-talk-btn')
+      .on('mousedown touchstart', function (e) { e.preventDefault(); privateStart(); })
+      .on('mouseup mouseleave touchend touchcancel', function (e) { e.preventDefault(); privateStop(); });
+
+    $.getJSON('/api/about', function (info) {
+      selfInfo.id = info.id;
+      selfInfo.name = info.name;
+      pollDevices();
+      refreshDrawer();
+      setInterval(pollDevices, 3000);
+      setInterval(refreshDrawer, 3000);
+      setInterval(function () { if (activeChannelId) refreshPrivateNotes(); }, 2000);
+    });
   </script>
 </body>
 </html>

@@ -1,0 +1,271 @@
+// Package voicenote is the shared HTTP client for Base Station
+// store-and-forward voice notes and private channels. See
+// docs/2026-07-13-voice-message-and-private-channels.md.
+package voicenote
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"net/url"
+	"time"
+)
+
+// Note mirrors the server metadata JSON.
+type Note struct {
+	ID        string    `json:"id"`
+	FromID    string    `json:"fromId"`
+	ToID      string    `json:"toId"`
+	ChannelID string    `json:"channelId,omitempty"`
+	CreatedAt time.Time `json:"createdAt"`
+	ExpiresAt time.Time `json:"expiresAt"`
+	Size      int64     `json:"size"`
+	Status    string    `json:"status"`
+}
+
+// Channel mirrors the server channel list entry.
+type Channel struct {
+	ID           string    `json:"id"`
+	ParticipantA string    `json:"participantA"`
+	ParticipantB string    `json:"participantB"`
+	CreatedAt    time.Time `json:"createdAt"`
+	Status       string    `json:"status"`
+	PeerID       string    `json:"peerId"`
+	PeerName     string    `json:"peerName"`
+	UnreadFor    int       `json:"unreadFor"`
+}
+
+// Client talks to one Base Station's REST API.
+type Client struct {
+	BaseURL    string
+	DeviceID   string
+	HTTPClient *http.Client
+}
+
+func (c *Client) http() *http.Client {
+	if c.HTTPClient != nil {
+		return c.HTTPClient
+	}
+	return &http.Client{Timeout: 30 * time.Second}
+}
+
+func (c *Client) requireBase() error {
+	if c.BaseURL == "" {
+		return fmt.Errorf("voicenote: no Base Station reachable (need a LAN Base Station for voice notes)")
+	}
+	return nil
+}
+
+// Upload sends an Opus/WebM clip to toID (or channelID).
+func (c *Client) Upload(toID, channelID string, audio []byte, filename string) (*Note, error) {
+	if err := c.requireBase(); err != nil {
+		return nil, err
+	}
+	if filename == "" {
+		filename = "note.opus"
+	}
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	_ = w.WriteField("from", c.DeviceID)
+	if toID != "" {
+		_ = w.WriteField("to", toID)
+	}
+	if channelID != "" {
+		_ = w.WriteField("channelId", channelID)
+	}
+	part, err := w.CreateFormFile("audio", filename)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := part.Write(audio); err != nil {
+		return nil, err
+	}
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest(http.MethodPost, c.BaseURL+"/api/voice-notes", &buf)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	req.Header.Set("X-Device-Id", c.DeviceID)
+	resp, err := c.http().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("voicenote: upload %s: %s", resp.Status, string(body))
+	}
+	var note Note
+	if err := json.Unmarshal(body, &note); err != nil {
+		return nil, err
+	}
+	return &note, nil
+}
+
+// Inbox lists notes for this device (optionally threaded with a peer or channel).
+func (c *Client) Inbox(withPeerID, channelID string) ([]Note, error) {
+	if err := c.requireBase(); err != nil {
+		return nil, err
+	}
+	q := url.Values{}
+	q.Set("for", c.DeviceID)
+	if withPeerID != "" {
+		q.Set("with", withPeerID)
+	}
+	if channelID != "" {
+		q.Set("channelId", channelID)
+	}
+	resp, err := c.http().Get(c.BaseURL + "/api/voice-notes?" + q.Encode())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("voicenote: list %s: %s", resp.Status, string(body))
+	}
+	var notes []Note
+	if err := json.Unmarshal(body, &notes); err != nil {
+		return nil, err
+	}
+	return notes, nil
+}
+
+// DownloadAudio fetches the clip bytes.
+func (c *Client) DownloadAudio(noteID string) ([]byte, error) {
+	if err := c.requireBase(); err != nil {
+		return nil, err
+	}
+	resp, err := c.http().Get(c.BaseURL + "/api/voice-notes/" + url.PathEscape(noteID) + "/audio")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("voicenote: audio %s: %s", resp.Status, string(body))
+	}
+	return body, nil
+}
+
+// Ack marks a note played.
+func (c *Client) Ack(noteID string) error {
+	return c.postEmpty("/api/voice-notes/" + url.PathEscape(noteID) + "/ack", nil)
+}
+
+// Delete soft-deletes a note.
+func (c *Client) Delete(noteID string) error {
+	if err := c.requireBase(); err != nil {
+		return err
+	}
+	req, err := http.NewRequest(http.MethodDelete, c.BaseURL+"/api/voice-notes/"+url.PathEscape(noteID), nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.http().Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("voicenote: delete %s: %s", resp.Status, string(body))
+	}
+	return nil
+}
+
+// Invite opens a private channel invite to toID.
+func (c *Client) Invite(toID string) (*Channel, error) {
+	if err := c.requireBase(); err != nil {
+		return nil, err
+	}
+	payload, _ := json.Marshal(map[string]string{"from": c.DeviceID, "to": toID})
+	resp, err := c.http().Post(c.BaseURL+"/api/channels/invite", "application/json", bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("voicenote: invite %s: %s", resp.Status, string(body))
+	}
+	var ch Channel
+	if err := json.Unmarshal(body, &ch); err != nil {
+		return nil, err
+	}
+	return &ch, nil
+}
+
+// Accept accepts a pending channel.
+func (c *Client) Accept(channelID string) error {
+	payload, _ := json.Marshal(map[string]string{"deviceId": c.DeviceID})
+	return c.postEmpty("/api/channels/"+url.PathEscape(channelID)+"/accept", payload)
+}
+
+// ListChannels returns this device's channels.
+func (c *Client) ListChannels() ([]Channel, error) {
+	if err := c.requireBase(); err != nil {
+		return nil, err
+	}
+	resp, err := c.http().Get(c.BaseURL + "/api/channels?for=" + url.QueryEscape(c.DeviceID))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("voicenote: channels %s: %s", resp.Status, string(body))
+	}
+	var ch []Channel
+	if err := json.Unmarshal(body, &ch); err != nil {
+		return nil, err
+	}
+	return ch, nil
+}
+
+// Close leaves a channel.
+func (c *Client) Close(channelID string) error {
+	payload, _ := json.Marshal(map[string]string{"deviceId": c.DeviceID})
+	return c.postEmpty("/api/channels/"+url.PathEscape(channelID)+"/close", payload)
+}
+
+// Focus marks the channel as currently viewed.
+func (c *Client) Focus(channelID string) error {
+	payload, _ := json.Marshal(map[string]string{"deviceId": c.DeviceID})
+	return c.postEmpty("/api/channels/"+url.PathEscape(channelID)+"/focus", payload)
+}
+
+// Blur clears channel focus.
+func (c *Client) Blur(channelID string) error {
+	payload, _ := json.Marshal(map[string]string{"deviceId": c.DeviceID})
+	return c.postEmpty("/api/channels/"+url.PathEscape(channelID)+"/blur", payload)
+}
+
+func (c *Client) postEmpty(path string, payload []byte) error {
+	if err := c.requireBase(); err != nil {
+		return err
+	}
+	var body io.Reader
+	if payload != nil {
+		body = bytes.NewReader(payload)
+	}
+	resp, err := c.http().Post(c.BaseURL+path, "application/json", body)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("voicenote: %s %s: %s", path, resp.Status, string(b))
+	}
+	return nil
+}

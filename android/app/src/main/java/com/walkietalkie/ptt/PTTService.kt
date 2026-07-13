@@ -191,9 +191,105 @@ class PTTService : LifecycleService() {
     fun stopTalking() = node?.stopTalking()
     fun listDevicesJSON(): String = node?.listDevicesJSON() ?: "[]"
     fun selfId(): String = node?.selfID() ?: ""
+    fun baseStationURL(): String = node?.baseStationURL() ?: ""
     fun updateName(name: String) {
         NicknameStore.set(applicationContext, name)
         node?.updateName(name)
+    }
+
+    // --- Base Station store-and-forward voice notes / private channels ---
+
+    fun sendVoiceNote(toDeviceID: String, audio: ByteArray): String? =
+        try {
+            node?.sendVoiceNote(toDeviceID, audio)
+            null
+        } catch (e: Exception) {
+            e.message ?: "send failed"
+        }
+
+    fun sendChannelClip(channelID: String, audio: ByteArray): String? =
+        try {
+            node?.sendChannelClip(channelID, audio)
+            null
+        } catch (e: Exception) {
+            e.message ?: "send failed"
+        }
+
+    fun listVoiceNotesJSON(withPeerID: String = ""): String =
+        try {
+            node?.listVoiceNotesJSON(withPeerID) ?: "[]"
+        } catch (_: Exception) {
+            "[]"
+        }
+
+    fun listChannelNotesJSON(channelID: String): String =
+        try {
+            node?.listChannelNotesJSON(channelID) ?: "[]"
+        } catch (_: Exception) {
+            "[]"
+        }
+
+    fun downloadVoiceNote(noteID: String): ByteArray? =
+        try {
+            node?.downloadVoiceNote(noteID)
+        } catch (_: Exception) {
+            null
+        }
+
+    fun ackVoiceNote(noteID: String) {
+        try {
+            node?.ackVoiceNote(noteID)
+        } catch (_: Exception) {
+        }
+    }
+
+    fun deleteVoiceNote(noteID: String) {
+        try {
+            node?.deleteVoiceNote(noteID)
+        } catch (_: Exception) {
+        }
+    }
+
+    fun inviteChannel(toDeviceID: String): String? =
+        try {
+            node?.inviteChannel(toDeviceID)
+        } catch (e: Exception) {
+            null.also { Log.w(TAG, "invite failed: ${e.message}") }
+        }
+
+    fun acceptChannel(channelID: String) {
+        try {
+            node?.acceptChannel(channelID)
+        } catch (_: Exception) {
+        }
+    }
+
+    fun listChannelsJSON(): String =
+        try {
+            node?.listChannelsJSON() ?: "[]"
+        } catch (_: Exception) {
+            "[]"
+        }
+
+    fun closeChannel(channelID: String) {
+        try {
+            node?.closeChannel(channelID)
+        } catch (_: Exception) {
+        }
+    }
+
+    fun focusChannel(channelID: String) {
+        try {
+            node?.focusChannel(channelID)
+        } catch (_: Exception) {
+        }
+    }
+
+    fun blurChannel(channelID: String) {
+        try {
+            node?.blurChannel(channelID)
+        } catch (_: Exception) {
+        }
     }
 
     private fun createNotificationChannel() {

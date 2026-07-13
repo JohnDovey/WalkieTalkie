@@ -18,10 +18,14 @@ Build priority is Android first, then desktop, then iPhone, then wearables last 
 core/      shared Go module (registry, discovery, WebRTC mesh, signaling) — no cgo, gomobile-bound into Android/iOS
 server/    the Go desktop app AND the "Base Station" server: bbolt registry, REST API, Bootstrap/jQuery dashboard
 android/   Kotlin/Compose Android app, consuming core/ via a gomobile-built AAR
-tools/     dev scripts: Go env setup, the gomobile→Android AAR build wrapper
-docs/      plans and design docs
+tools/     dev scripts: Go env setup, gomobile→Android AAR, Windows server cross-build
+docs/      plans and design docs (including voice messages / private channels)
 Manual/    the end-user manual (.ebhtml format — see Manual/README.md)
 ```
+
+## Voice messages and private channels
+
+Async voice notes and invite-only private channels are relayed through a LAN Base Station (store-and-forward Opus/WebM clips, 21-day retention). See [`docs/2026-07-13-voice-message-and-private-channels.md`](docs/2026-07-13-voice-message-and-private-channels.md). Peer-to-peer delivery and live private WebRTC are deferred ([`docs/TODO-p2p-voice-and-private-relay.md`](docs/TODO-p2p-voice-and-private-relay.md)).
 
 ## Running the desktop server
 

@@ -13,9 +13,11 @@ import (
 )
 
 var (
-	devicesBucket = []byte("devices")
-	configBucket  = []byte("config")
-	settingsKey   = []byte("settings")
+	devicesBucket  = []byte("devices")
+	configBucket   = []byte("config")
+	settingsKey    = []byte("settings")
+	voiceNotesBucket = []byte("voice_notes")
+	channelsBucket   = []byte("private_channels")
 )
 
 // Store is a bbolt-backed registry of every device this node has seen,
@@ -35,11 +37,12 @@ func Open(path string) (*Store, error) {
 		return nil, fmt.Errorf("registry: open %s: %w", path, err)
 	}
 	err = db.Update(func(tx *bbolt.Tx) error {
-		if _, err := tx.CreateBucketIfNotExists(devicesBucket); err != nil {
-			return err
+		for _, name := range [][]byte{devicesBucket, configBucket, voiceNotesBucket, channelsBucket} {
+			if _, err := tx.CreateBucketIfNotExists(name); err != nil {
+				return err
+			}
 		}
-		_, err := tx.CreateBucketIfNotExists(configBucket)
-		return err
+		return nil
 	})
 	if err != nil {
 		db.Close()
@@ -47,6 +50,18 @@ func Open(path string) (*Store, error) {
 	}
 	return &Store{db: db}, nil
 }
+
+// Bolt returns the underlying bbolt DB so sibling packages (e.g. voice-note
+// storage) can share the same file without opening it twice.
+func (s *Store) Bolt() *bbolt.DB {
+	return s.db
+}
+
+// VoiceNotesBucket is the bbolt bucket name for voice-note metadata.
+func VoiceNotesBucket() []byte { return voiceNotesBucket }
+
+// ChannelsBucket is the bbolt bucket name for private-channel metadata.
+func ChannelsBucket() []byte { return channelsBucket }
 
 // Close closes the underlying database.
 func (s *Store) Close() error {
