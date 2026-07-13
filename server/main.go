@@ -25,27 +25,11 @@ import (
 	"github.com/JohnDovey/WalkieTalkie/server/api"
 	"github.com/JohnDovey/WalkieTalkie/server/audio"
 	"github.com/JohnDovey/WalkieTalkie/server/web"
-	"github.com/google/uuid"
 	"github.com/pion/webrtc/v4"
 )
 
 func platformName() string {
 	return "desktop-" + runtime.GOOS
-}
-
-// loadOrCreateDeviceID persists a UUID for this install so the device's
-// identity survives restarts (see the plan: ID is generated once per
-// install, not MAC-derived).
-func loadOrCreateDeviceID(dataDir string) (string, error) {
-	path := filepath.Join(dataDir, "device-id")
-	if raw, err := os.ReadFile(path); err == nil {
-		return string(raw), nil
-	}
-	id := uuid.NewString()
-	if err := os.WriteFile(path, []byte(id), 0o600); err != nil {
-		return "", err
-	}
-	return id, nil
 }
 
 func main() {
@@ -80,7 +64,7 @@ func main() {
 		settings.Port = *portFlag
 	}
 
-	selfID, err := loadOrCreateDeviceID(dataDir)
+	selfID, err := config.LoadOrCreateDeviceID(dataDir)
 	if err != nil {
 		log.Fatalf("load device id: %v", err)
 	}
@@ -143,6 +127,11 @@ func main() {
 			caps := []string{"audio"}
 			if err := store.UpsertFromDirectContact(p.ID, p.Name, p.Platform, caps, "mdns", discoveredAt); err != nil {
 				log.Printf("registry upsert for discovered peer %s: %v", p.ID, err)
+			}
+			if p.GPS != nil {
+				if err := store.SetLocation(p.ID, *p.GPS); err != nil {
+					log.Printf("registry location update for %s: %v", p.ID, err)
+				}
 			}
 			if len(p.IPv4) == 0 || p.SignalPort == 0 {
 				return

@@ -24,8 +24,14 @@ const connectTimeout = 3 * time.Second
 // direct connection can't be established (different subnets/NAT). Not yet
 // implemented (see core/relay, a later phase) — MeshManager works fully
 // P2P without one, which is sufficient for same-subnet Phase 1 use.
+//
+// Deliberately avoids context.Context in its signature — gomobile bind
+// can't generate a working proxy for interface methods that take one (a
+// broken proxy silently missing the method is the failure mode), and this
+// interface needs to stay gomobile-bindable since a mobile client may
+// eventually implement it too.
 type RelayDialer interface {
-	DialViaRelay(ctx context.Context, peerID string) error
+	DialViaRelay(peerID string) error
 }
 
 type peerConn struct {

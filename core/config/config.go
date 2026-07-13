@@ -11,6 +11,8 @@ package config
 import (
 	"os"
 	"path/filepath"
+
+	"github.com/google/uuid"
 )
 
 // Settings are the user-editable server settings (see the web UI's
@@ -47,4 +49,21 @@ func AppDataDir() (string, error) {
 		return "", err
 	}
 	return dir, nil
+}
+
+// LoadOrCreateDeviceID persists a UUID for this install in dataDir so the
+// device's identity survives restarts (the ID is generated once per
+// install, not derived from hardware like a MAC address, for privacy and
+// because hardware identifiers aren't available equally on every
+// platform). Shared by every app (desktop, and via gomobile, mobile).
+func LoadOrCreateDeviceID(dataDir string) (string, error) {
+	path := filepath.Join(dataDir, "device-id")
+	if raw, err := os.ReadFile(path); err == nil {
+		return string(raw), nil
+	}
+	id := uuid.NewString()
+	if err := os.WriteFile(path, []byte(id), 0o600); err != nil {
+		return "", err
+	}
+	return id, nil
 }

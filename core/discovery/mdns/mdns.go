@@ -12,7 +12,9 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/JohnDovey/WalkieTalkie/core/proto"
 	"github.com/grandcat/zeroconf"
 )
 
@@ -24,6 +26,13 @@ const (
 )
 
 // AnnounceInfo is what this node advertises about itself.
+//
+// GPS is optional (nil if this node has no fix yet). Including it in the
+// TXT record lets GPS propagate to peers through the same discovery
+// mechanism they already use to find this node — no separate gossip/push
+// API needed on nodes (like a phone) that don't run the full server/api.
+// Re-announcing (Register again) after a GPS update is the accepted way to
+// refresh it, per the plan's GPS-update-interval requirement.
 type AnnounceInfo struct {
 	ID         string // instance name — stable device ID, not the display name
 	Name       string
@@ -31,6 +40,7 @@ type AnnounceInfo struct {
 	ProtoVer   int
 	Port       int // service port; == SignalPort for this app
 	SignalPort int
+	GPS        *proto.GeoPoint
 }
 
 // Peer is a sighting of another node, decoded from its TXT record.
@@ -43,19 +53,30 @@ type Peer struct {
 	Host       string
 	IPv4       []net.IP
 	IPv6       []net.IP
+	GPS        *proto.GeoPoint
 }
 
 func buildTXT(info AnnounceInfo) []string {
-	return []string{
+	txt := []string{
 		"id=" + info.ID,
 		"name=" + url.QueryEscape(info.Name),
 		"plat=" + info.Platform,
 		"ver=" + strconv.Itoa(info.ProtoVer),
 		"sig=" + strconv.Itoa(info.SignalPort),
 	}
+	if info.GPS != nil {
+		txt = append(txt,
+			"lat="+strconv.FormatFloat(info.GPS.Lat, 'f', -1, 64),
+			"lon="+strconv.FormatFloat(info.GPS.Lon, 'f', -1, 64),
+			"acc="+strconv.FormatFloat(info.GPS.Accuracy, 'f', -1, 64),
+		)
+	}
+	return txt
 }
 
-func parseTXT(text []string) (id, name, plat string, ver, sig int) {
+func parseTXT(text []string) (id, name, plat string, ver, sig int, gps *proto.GeoPoint) {
+	var lat, lon, acc float64
+	var hasLat, hasLon bool
 	for _, kv := range text {
 		parts := strings.SplitN(kv, "=", 2)
 		if len(parts) != 2 {
@@ -74,23 +95,53 @@ func parseTXT(text []string) (id, name, plat string, ver, sig int) {
 			ver, _ = strconv.Atoi(parts[1])
 		case "sig":
 			sig, _ = strconv.Atoi(parts[1])
+		case "lat":
+			lat, hasLat = parseFloat(parts[1])
+		case "lon":
+			lon, hasLon = parseFloat(parts[1])
+		case "acc":
+			acc, _ = parseFloat(parts[1])
 		}
+	}
+	if hasLat && hasLon {
+		gps = &proto.GeoPoint{Lat: lat, Lon: lon, Accuracy: acc, Timestamp: time.Now()}
 	}
 	return
 }
 
+func parseFloat(s string) (float64, bool) {
+	v, err := strconv.ParseFloat(s, 64)
+	return v, err == nil
+}
+
+// Server is this node's mDNS advertisement, wrapping zeroconf so callers
+// never need to import it directly.
+type Server struct {
+	zc *zeroconf.Server
+}
+
+// UpdateInfo updates the advertised TXT record in place — confirmed via
+// zeroconf.Server.SetText, resolving what was an open question in the plan
+// (whether a full Shutdown()+Register() would be needed instead). Use this
+// after a GPS fix or a local rename rather than re-registering.
+func (s *Server) UpdateInfo(info AnnounceInfo) {
+	s.zc.SetText(buildTXT(info))
+}
+
+// Shutdown stops advertising this node.
+func (s *Server) Shutdown() {
+	s.zc.Shutdown()
+}
+
 // Register advertises this node's presence on the LAN. Call Shutdown() on
-// the returned server when the node goes offline.
-//
-// Open question flagged in the plan: whether zeroconf supports updating an
-// already-registered TXT record in place (e.g. on a local rename) or needs
-// Shutdown()+Register() again — assume the latter until verified.
-func Register(info AnnounceInfo) (*zeroconf.Server, error) {
-	srv, err := zeroconf.Register(info.ID, ServiceType, Domain, info.Port, buildTXT(info), nil)
+// the returned Server when the node goes offline, or UpdateInfo to refresh
+// GPS/name without a full teardown.
+func Register(info AnnounceInfo) (*Server, error) {
+	zc, err := zeroconf.Register(info.ID, ServiceType, Domain, info.Port, buildTXT(info), nil)
 	if err != nil {
 		return nil, fmt.Errorf("mdns: register: %w", err)
 	}
-	return srv, nil
+	return &Server{zc: zc}, nil
 }
 
 // Browse watches the LAN for other WalkieTalkie nodes and calls onFound for
@@ -111,7 +162,7 @@ func Browse(ctx context.Context, selfID string, onFound func(Peer)) error {
 	entries := make(chan *zeroconf.ServiceEntry)
 	go func() {
 		for entry := range entries {
-			id, name, plat, ver, sig := parseTXT(entry.Text)
+			id, name, plat, ver, sig, gps := parseTXT(entry.Text)
 			if id == "" || id == selfID {
 				continue
 			}
@@ -124,6 +175,7 @@ func Browse(ctx context.Context, selfID string, onFound func(Peer)) error {
 				Host:       entry.HostName,
 				IPv4:       entry.AddrIPv4,
 				IPv6:       entry.AddrIPv6,
+				GPS:        gps,
 			})
 		}
 	}()
