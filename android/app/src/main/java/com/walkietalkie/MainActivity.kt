@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -100,7 +101,10 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+                // Keep the top nav and bottom Talk button clear of the status
+                // bar / notch and the system navigation gesture bar — without
+                // this the menu is unselectable and the Talk button is clipped.
+                Surface(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
                     AppScreen()
                 }
             }
@@ -155,7 +159,7 @@ private fun AppScreen() {
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet(modifier = Modifier.width(300.dp)) {
+            ModalDrawerSheet(modifier = Modifier.width(300.dp).safeDrawingPadding()) {
                 Text(
                     "Chats",
                     style = MaterialTheme.typography.titleMedium,
