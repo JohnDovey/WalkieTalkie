@@ -1,12 +1,12 @@
-package com.walkietalkie
+package com.walkietalkie.wear
 
 import android.app.Application
 import com.walkietalkie.mesh.MeshIdentity
 
-class WalkieTalkieApplication : Application() {
+class WearApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        MeshIdentity.platform = "android"
+        MeshIdentity.platform = "wear"
         MeshIdentity.appVersion = BuildConfig.VERSION_NAME
     }
 }

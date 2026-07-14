@@ -4,6 +4,7 @@ via the app rather than editing this file's links directly.</em></p>
 <h2>Front Matter</h2>
 <ul>
 <li><a href="frontmatter/title-page.ebhtml">Title Page</a></li>
+<li><a href="frontmatter/copyright.ebhtml">Imprint</a></li>
 <li><a href="frontmatter/toc.ebhtml">Table of Contents</a></li>
 </ul>
 <h2>Chapters</h2>
@@ -15,8 +16,10 @@ via the app rather than editing this file's links directly.</em></p>
 <li><a href="chapters/005-Android-Client.ebhtml">Chapter 5: Android Client</a></li>
 <li><a href="chapters/006-The-iPhone-app.ebhtml">Chapter 6: The iPhone app</a></li>
 <li><a href="chapters/007-The-Base-Station.ebhtml">Chapter 7: The Base Station</a></li>
+<li><a href="chapters/008-Wearables.ebhtml">Chapter 8: Wearables</a></li>
 </ul>
 <h2>Back Matter</h2>
 <ul>
+<li><a href="backmatter/about-the-author.ebhtml">About the Author</a></li>
 <li><a href="backmatter/new-back-matter-page-7b0c5c30.ebhtml">Notes</a></li>
 </ul>

@@ -27,7 +27,7 @@ android {
         // 29 (not 26, unlike the ClonesApp precedent): MediaCodec's Opus
         // *encoder* (audio/opus, CONFIGURE_FLAG_ENCODE) was only added in
         // Android 10 — the decoder is older, but encode is what mic capture
-        // needs. See audio/OpusMicSource.kt.
+        // needs. See mesh audio/OpusMicSource.kt.
         minSdk = 29
         targetSdk = 35
         versionCode = 1
@@ -54,15 +54,13 @@ android {
 }
 
 dependencies {
-    // core/mobile + core/media bound to Android via gomobile — see
-    // tools/gomobile-bind-android.sh. Rebuild that before building this app
-    // whenever core/ changes.
-    implementation(files("libs/core.aar"))
+    implementation(project(":mesh"))
+    // Runtime JNI/bindings for Go core (compileOnly on :mesh — see mesh/build.gradle.kts)
+    implementation(files("../mesh/libs/core.aar"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.lifecycle.service)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
@@ -70,7 +68,6 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.play.services.location)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }

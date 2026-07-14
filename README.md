@@ -12,17 +12,17 @@ Build priority is Android first, then desktop, then iPhone, then wearables last 
 - **Phase 2 — Android**: ✅ working on real hardware (live WebRTC Opus PTT, mDNS + BLE presence, GPS, voice notes / private channels via Base Station).
 - **Phase 3 (desktop hardening + multi-Base-Station registry sync)**: ✅ done (registry sync, map, Old Nodes, Windows/macOS/Linux packaging scripts, system tray, Base Station mesh SFU / relay threshold). Three-OS hardware mesh not run on this Mac-only setup.
 - **Phase 4 (iPhone)**: 🟡 in progress — SwiftUI shell + bind/Opus + voice notes/private channels (`0.2.0`); `iphoneos` build verified. Device mesh / locked-screen PTT needs Team ID + hardware. See `docs/2026-07-14-ios-phase4.md`.
-- **Phase 5 (wearables)**: not started.
+- **Phase 5 (wearables)**: 🟡 in progress — Wear OS standalone Hold-to-Talk (`0.1.0`) + watchOS WatchConnectivity relay stub. See `docs/2026-07-14-phase5-wearables.md`.
 
-**Current release track:** server `1.2.0` (mesh SFU + tray + Linux script), android `1.0.0`, ios `0.2.0` (Phase 4 voice/chats parity).
+**Current release track:** server `1.2.0` (mesh SFU + tray + Linux script), android `1.0.0`, wear `0.1.0`, ios `0.2.0` (Phase 4 voice/chats parity).
 
 ## Repo layout
 
 ```
 core/      shared Go module (registry, discovery, WebRTC mesh, signaling) — no cgo, gomobile-bound into Android/iOS
 server/    the Go desktop app AND the "Base Station" server: bbolt registry, REST API, Bootstrap/jQuery dashboard
-android/   Kotlin/Compose Android app, consuming core/ via a gomobile-built AAR
-ios/       SwiftUI iPhone app, consuming core/ via a gomobile-built XCFramework (see docs/2026-07-14-ios-phase4.md)
+android/   Kotlin/Compose phone + Wear OS apps; shared `:mesh` library consumes core via gomobile AAR
+ios/       SwiftUI iPhone app (+ WatchConnectivity watch stub); Core XCFramework (see docs/2026-07-14-ios-phase4.md)
 tools/     dev scripts: Go env setup, gomobile→Android AAR / iOS XCFramework, Opus iOS, Windows/macOS/Linux server builds
 docs/      plans and design docs (including voice messages / private channels)
 Manual/    the end-user manual (.ebhtml format — see Manual/README.md)
@@ -64,13 +64,14 @@ Release-style binaries (full audio):
 ## Building the Android app
 
 ```sh
-tools/gomobile-bind-android.sh   # builds core/ -> android/app/libs/core.aar
+tools/gomobile-bind-android.sh   # → android/mesh/libs/core.aar
 cd android
-./android-build.sh assembleDebug
+./android-build.sh :app:assembleDebug    # phone
+./android-build.sh :wear:assembleDebug   # Wear OS Hold-to-Talk (0.1.0)
 ```
 
 Requires the Android SDK/NDK at `$ANDROID_HOME` (see `.cursor/rules/dev-environment.mdc`) and `libopus`/`libopusfile` installed on the build machine (`brew install opus opusfile` on macOS) for the desktop server's audio codec.
 
 ## Versioning
 
-Each app is versioned independently via a `VERSION` file in its own directory (`server/VERSION`, and later `android/VERSION`, `ios/VERSION`, ...) using Major.Minor.Patch: patch for a bug fix, minor for a new feature (including completing a plan phase), major reserved for actual releases.
+Each app is versioned independently via a `VERSION` file in its own directory (`server/VERSION`, `android/VERSION`, `android/wear/VERSION`, `ios/VERSION`, …) using Major.Minor.Patch: patch for a bug fix, minor for a new feature (including completing a plan phase), major reserved for actual releases.

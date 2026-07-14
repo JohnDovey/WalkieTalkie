@@ -1,8 +1,5 @@
 <resources>
     <string name="app_name">WalkieTalkie</string>
-    <string name="ptt_service_channel_name">WalkieTalkie</string>
-    <string name="ptt_service_notification_title">WalkieTalkie is active</string>
-    <string name="ptt_service_notification_text">Listening for other devices</string>
     <string name="ptt_button_idle">Hold to talk</string>
     <string name="ptt_button_talking">Talking…</string>
 </resources>

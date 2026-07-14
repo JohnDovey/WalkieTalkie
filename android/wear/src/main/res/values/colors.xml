@@ -1,0 +1,5 @@
+<resources>
+    <color name="ptt_idle">#1F6F43</color>
+    <color name="ptt_talking">#C0392B</color>
+    <color name="launcher_background">#1F6F43</color>
+</resources>

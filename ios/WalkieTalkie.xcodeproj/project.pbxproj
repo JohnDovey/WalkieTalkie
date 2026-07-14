@@ -15,23 +15,41 @@
 		2B250360671E0CFDE8EE24C2 /* OggOpus.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFAB71957E28E9A117125D1D /* OggOpus.swift */; };
 		45A8BB8432F301604E3450E6 /* VoiceNotePlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC9010E8C94F0805304936A /* VoiceNotePlayer.swift */; };
 		4A05B38457FB61DC44BCDC37 /* Core.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 228F3F2ED7CCF14FD97290EB /* Core.xcframework */; };
+		593BA114A4B13ACA8D344827 /* WatchConnectivityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32871475D7AD53B63A1DE159 /* WatchConnectivityBridge.swift */; };
 		5C951772159E6D6E2A96F2F8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 005B032509FBED25ABA57A6F /* Assets.xcassets */; };
 		62C5DA4E22B2A712116C4528 /* OpusMicSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC75BD800A18B5075B02C917 /* OpusMicSource.swift */; };
 		76E23CE58C74E907608CBD34 /* BlePresenceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E436238F4F034BA584F743CE /* BlePresenceBridge.swift */; };
+		779A3B6523109E156175ECC8 /* WatchConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6E59DF7012D97E51286572E9 /* WatchConnectivity.framework */; };
 		77E98811FEC1B21CA535A3A3 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3EE9D96904AF093AD5702DA7 /* AVFoundation.framework */; };
+		77EF7508A678BC04BC9383FB /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF3F246C4E706C28BC28D872 /* WatchContentView.swift */; };
 		7818D272AC5621C236C796E1 /* ClipRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D0B5629FFE7A88F32D0057 /* ClipRecorder.swift */; };
 		86B78A36EDD581ACFA5361AD /* Core.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 228F3F2ED7CCF14FD97290EB /* Core.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		941535D5BF67B2D45AAFDD65 /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 34CF2C254199D6B38A98284A /* CoreBluetooth.framework */; };
+		9DA16DA48BC07F1CE73D3EF1 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 69427A7CDADD0409DB9BD1CC /* SwiftUI.framework */; };
 		9F88A900ACDEEEE8E273E924 /* PermissionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 226CE5F5FEF84EE068841B72 /* PermissionCoordinator.swift */; };
 		A3AC970EC8725E1F53A16A73 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A9E4E0BB562E3B99FCB3C353 /* Network.framework */; };
 		ADF7D9F983FF994E24E61307 /* CoreLocation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 75D7AF424BC922511D2F2A01 /* CoreLocation.framework */; };
+		C5FA8783E5E548F8948E21CC /* WalkieTalkieWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34FBCA06D0BBE177B4C10CBE /* WalkieTalkieWatchApp.swift */; };
 		C8D939DD8D14F5FF56134149 /* PushToTalk.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9765062B1DE76CDA4976446F /* PushToTalk.framework */; };
 		CB2250F1DC0128BE6D69E2A4 /* PushToTalkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CF5F28FC97A48891381B975 /* PushToTalkController.swift */; };
+		D55924CD8E9B466782102A4A /* WatchConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6E59DF7012D97E51286572E9 /* WatchConnectivity.framework */; };
 		DCC7C78792DFBD3B15819C02 /* OpusCodec.c in Sources */ = {isa = PBXBuildFile; fileRef = 3261B016FF6F385DB88AA927 /* OpusCodec.c */; };
+		E61593B441574B8A0017E486 /* WatchTalkSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43FA4FF9403A3A18F7C69038 /* WatchTalkSession.swift */; };
 		F189947259B685818E7D24F3 /* WalkieTalkieApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F65E0DED9D718EBCDD874AEF /* WalkieTalkieApp.swift */; };
+		F3FE0025D08869E6508D2AD6 /* WalkieTalkieWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 0B8EBDBF0B9BAB879BF16012 /* WalkieTalkieWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		FE9C73127F1539C4D88E8337 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81F12F87CCB54BFBF5C0A1B3 /* Models.swift */; };
 		FECBD0D8C11AEF715D389D20 /* Opus.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 695B370F601B37A319C86DFD /* Opus.xcframework */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		E236F38A6F9D63F74E204FB5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4273CD2A2BB9A47B32F8515A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 69B1E1A7B52884F8C496905E;
+			remoteInfo = WalkieTalkieWatch;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		21928ADA24D8D7F57D162164 /* Embed Frameworks */ = {
@@ -45,20 +63,37 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		2DCB90651EBEC15C2610ABB0 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				F3FE0025D08869E6508D2AD6 /* WalkieTalkieWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		005B032509FBED25ABA57A6F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		0B8EBDBF0B9BAB879BF16012 /* WalkieTalkieWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WalkieTalkieWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1806065C8BDFE474C2BBD032 /* WalkieTalkie.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WalkieTalkie.entitlements; sourceTree = "<group>"; };
 		182E9538832D563456C2CAD6 /* WalkieTalkie-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "WalkieTalkie-Bridging-Header.h"; sourceTree = "<group>"; };
 		226CE5F5FEF84EE068841B72 /* PermissionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionCoordinator.swift; sourceTree = "<group>"; };
 		228F3F2ED7CCF14FD97290EB /* Core.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = Core.xcframework; path = Frameworks/Core.xcframework; sourceTree = "<group>"; };
 		3261B016FF6F385DB88AA927 /* OpusCodec.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = OpusCodec.c; sourceTree = "<group>"; };
+		32871475D7AD53B63A1DE159 /* WatchConnectivityBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityBridge.swift; sourceTree = "<group>"; };
 		34CF2C254199D6B38A98284A /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
+		34FBCA06D0BBE177B4C10CBE /* WalkieTalkieWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkieTalkieWatchApp.swift; sourceTree = "<group>"; };
 		3EE9D96904AF093AD5702DA7 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		43FA4FF9403A3A18F7C69038 /* WatchTalkSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTalkSession.swift; sourceTree = "<group>"; };
 		68F9E1B07A96CBB1748BE271 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		69427A7CDADD0409DB9BD1CC /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		695B370F601B37A319C86DFD /* Opus.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = Opus.xcframework; path = ThirdParty/Opus.xcframework; sourceTree = "<group>"; };
 		6CF5F28FC97A48891381B975 /* PushToTalkController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushToTalkController.swift; sourceTree = "<group>"; };
+		6E59DF7012D97E51286572E9 /* WatchConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WatchConnectivity.framework; path = System/Library/Frameworks/WatchConnectivity.framework; sourceTree = SDKROOT; };
 		72D0B5629FFE7A88F32D0057 /* ClipRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipRecorder.swift; sourceTree = "<group>"; };
 		75D7AF424BC922511D2F2A01 /* CoreLocation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreLocation.framework; path = System/Library/Frameworks/CoreLocation.framework; sourceTree = SDKROOT; };
 		78D0419213DF456B635ED7CB /* OpusCodec.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OpusCodec.h; sourceTree = "<group>"; };
@@ -67,9 +102,11 @@
 		9BC9010E8C94F0805304936A /* VoiceNotePlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceNotePlayer.swift; sourceTree = "<group>"; };
 		9EE734BB99D0930E75238284 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		A9E4E0BB562E3B99FCB3C353 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
+		AF3F246C4E706C28BC28D872 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchContentView.swift; sourceTree = "<group>"; };
 		B8FF6056EDA8ED070B4DC91D /* NodeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeController.swift; sourceTree = "<group>"; };
 		B91DFF39328489C29F760028 /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Shared.xcconfig; sourceTree = "<group>"; };
 		BF0DE777DA37C2930A5E95D8 /* WalkieTalkie.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = WalkieTalkie.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA9F22CC519D45F835E836AF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		DC75BD800A18B5075B02C917 /* OpusMicSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusMicSource.swift; sourceTree = "<group>"; };
 		E436238F4F034BA584F743CE /* BlePresenceBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlePresenceBridge.swift; sourceTree = "<group>"; };
 		EFAB71957E28E9A117125D1D /* OggOpus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OggOpus.swift; sourceTree = "<group>"; };
@@ -80,6 +117,15 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		528BE32815EC13E3A13FE051 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				779A3B6523109E156175ECC8 /* WatchConnectivity.framework in Frameworks */,
+				9DA16DA48BC07F1CE73D3EF1 /* SwiftUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		61FADD0618313D2FE0CACD70 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -92,6 +138,7 @@
 				77E98811FEC1B21CA535A3A3 /* AVFoundation.framework in Frameworks */,
 				016AFB75F5BCF972561FFD28 /* UIKit.framework in Frameworks */,
 				A3AC970EC8725E1F53A16A73 /* Network.framework in Frameworks */,
+				D55924CD8E9B466782102A4A /* WatchConnectivity.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -102,6 +149,7 @@
 			isa = PBXGroup;
 			children = (
 				BF0DE777DA37C2930A5E95D8 /* WalkieTalkie.app */,
+				0B8EBDBF0B9BAB879BF16012 /* WalkieTalkieWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -126,6 +174,7 @@
 				16D98307951BC41A35C74A4E /* OpusBridge */,
 				5117E4A9364746FAF91C978F /* PTT */,
 				C247D236B0D4A072BE83C5F1 /* UI */,
+				6DCDA69C56C801BA8B3681AF /* Watch */,
 				005B032509FBED25ABA57A6F /* Assets.xcassets */,
 				68F9E1B07A96CBB1748BE271 /* Info.plist */,
 				1806065C8BDFE474C2BBD032 /* WalkieTalkie.entitlements */,
@@ -138,6 +187,7 @@
 			children = (
 				7FD4022A993FA0305D5D2335 /* Config */,
 				285B4F3502198F7E776DA2D7 /* WalkieTalkie */,
+				F85984EB238229A14D7F7E61 /* WalkieTalkieWatch */,
 				CA693DA4D68386E5C24ED6BA /* Frameworks */,
 				11446427E3B338A855356FAD /* Products */,
 			);
@@ -171,6 +221,14 @@
 				F65E0DED9D718EBCDD874AEF /* WalkieTalkieApp.swift */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		6DCDA69C56C801BA8B3681AF /* Watch */ = {
+			isa = PBXGroup;
+			children = (
+				32871475D7AD53B63A1DE159 /* WatchConnectivityBridge.swift */,
+			);
+			path = Watch;
 			sourceTree = "<group>";
 		};
 		7FD4022A993FA0305D5D2335 /* Config */ = {
@@ -216,14 +274,45 @@
 				A9E4E0BB562E3B99FCB3C353 /* Network.framework */,
 				695B370F601B37A319C86DFD /* Opus.xcframework */,
 				9765062B1DE76CDA4976446F /* PushToTalk.framework */,
+				69427A7CDADD0409DB9BD1CC /* SwiftUI.framework */,
 				9EE734BB99D0930E75238284 /* UIKit.framework */,
+				6E59DF7012D97E51286572E9 /* WatchConnectivity.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		F85984EB238229A14D7F7E61 /* WalkieTalkieWatch */ = {
+			isa = PBXGroup;
+			children = (
+				CA9F22CC519D45F835E836AF /* Info.plist */,
+				34FBCA06D0BBE177B4C10CBE /* WalkieTalkieWatchApp.swift */,
+				AF3F246C4E706C28BC28D872 /* WatchContentView.swift */,
+				43FA4FF9403A3A18F7C69038 /* WatchTalkSession.swift */,
+			);
+			path = WalkieTalkieWatch;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		69B1E1A7B52884F8C496905E /* WalkieTalkieWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 307F27D8DE71833A8A99C48F /* Build configuration list for PBXNativeTarget "WalkieTalkieWatch" */;
+			buildPhases = (
+				D0D0552538CB0247485A9AAF /* Sources */,
+				528BE32815EC13E3A13FE051 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = WalkieTalkieWatch;
+			packageProductDependencies = (
+			);
+			productName = WalkieTalkieWatch;
+			productReference = 0B8EBDBF0B9BAB879BF16012 /* WalkieTalkieWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 		8485C165DB930684087755A9 /* WalkieTalkie */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FEB3D40BA813ED70B91D72B6 /* Build configuration list for PBXNativeTarget "WalkieTalkie" */;
@@ -232,10 +321,12 @@
 				78EC04CD54C49D056FD656D1 /* Resources */,
 				61FADD0618313D2FE0CACD70 /* Frameworks */,
 				21928ADA24D8D7F57D162164 /* Embed Frameworks */,
+				2DCB90651EBEC15C2610ABB0 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				B60E5551D1249549EA5B25D9 /* PBXTargetDependency */,
 			);
 			name = WalkieTalkie;
 			packageProductDependencies = (
@@ -253,6 +344,10 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					69B1E1A7B52884F8C496905E = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
 					8485C165DB930684087755A9 = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
@@ -274,6 +369,7 @@
 			projectRoot = "";
 			targets = (
 				8485C165DB930684087755A9 /* WalkieTalkie */,
+				69B1E1A7B52884F8C496905E /* WalkieTalkieWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -290,6 +386,16 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		D0D0552538CB0247485A9AAF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C5FA8783E5E548F8948E21CC /* WalkieTalkieWatchApp.swift in Sources */,
+				77EF7508A678BC04BC9383FB /* WatchContentView.swift in Sources */,
+				E61593B441574B8A0017E486 /* WatchTalkSession.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FACA2C56D75B30E739AFF4CE /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -308,12 +414,37 @@
 				CB2250F1DC0128BE6D69E2A4 /* PushToTalkController.swift in Sources */,
 				45A8BB8432F301604E3450E6 /* VoiceNotePlayer.swift in Sources */,
 				F189947259B685818E7D24F3 /* WalkieTalkieApp.swift in Sources */,
+				593BA114A4B13ACA8D344827 /* WatchConnectivityBridge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		B60E5551D1249549EA5B25D9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 69B1E1A7B52884F8C496905E /* WalkieTalkieWatch */;
+			targetProxy = E236F38A6F9D63F74E204FB5 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		064EA9120183A9F8C7F7D698 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = WalkieTalkieWatch/Info.plist;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.walkietalkie.watchkitapp;
+				PRODUCT_NAME = "WalkieTalkie Watch";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Debug;
+		};
 		3BCA7584C4328AC052A9B6FA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = B91DFF39328489C29F760028 /* Shared.xcconfig */;
@@ -368,17 +499,14 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.walkietalkie;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
 			};
 			name = Debug;
 		};
@@ -403,6 +531,7 @@
 					"$(SRCROOT)/ThirdParty/include",
 				);
 				INFOPLIST_FILE = WalkieTalkie/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -415,9 +544,25 @@
 				PRODUCT_NAME = WalkieTalkie;
 				SDKROOT = iphoneos;
 				SWIFT_OBJC_BRIDGING_HEADER = "WalkieTalkie/OpusBridge/WalkieTalkie-Bridging-Header.h";
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
+		};
+		AF8BCE2C35EF147032B572CA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = WalkieTalkieWatch/Info.plist;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.walkietalkie.watchkitapp;
+				PRODUCT_NAME = "WalkieTalkie Watch";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Release;
 		};
 		BC76C1E0D29A6572068E20E6 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -467,16 +612,13 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.walkietalkie;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
 			};
 			name = Release;
 		};
@@ -501,6 +643,7 @@
 					"$(SRCROOT)/ThirdParty/include",
 				);
 				INFOPLIST_FILE = WalkieTalkie/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -513,13 +656,22 @@
 				PRODUCT_NAME = WalkieTalkie;
 				SDKROOT = iphoneos;
 				SWIFT_OBJC_BRIDGING_HEADER = "WalkieTalkie/OpusBridge/WalkieTalkie-Bridging-Header.h";
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		307F27D8DE71833A8A99C48F /* Build configuration list for PBXNativeTarget "WalkieTalkieWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				064EA9120183A9F8C7F7D698 /* Debug */,
+				AF8BCE2C35EF147032B572CA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		7F87489C4311EFE6A3E60587 /* Build configuration list for PBXProject "WalkieTalkie" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

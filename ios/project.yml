@@ -6,16 +6,14 @@ options:
   bundleIdPrefix: com
   deploymentTarget:
     iOS: "16.0"
+    watchOS: "9.0"
   createIntermediateGroups: true
   groupSortPosition: top
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    TARGETED_DEVICE_FAMILY: "1"
-    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
-    PRODUCT_BUNDLE_IDENTIFIER: com.walkietalkie
 configFiles:
   Debug: Config/Shared.xcconfig
   Release: Config/Shared.xcconfig
@@ -29,6 +27,8 @@ targets:
           - "**/.DS_Store"
     settings:
       base:
+        TARGETED_DEVICE_FAMILY: "1"
+        IPHONEOS_DEPLOYMENT_TARGET: "16.0"
         INFOPLIST_FILE: WalkieTalkie/Info.plist
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: WalkieTalkie/WalkieTalkie.entitlements
@@ -48,6 +48,8 @@ targets:
         SWIFT_OBJC_BRIDGING_HEADER: WalkieTalkie/OpusBridge/WalkieTalkie-Bridging-Header.h
         CLANG_ENABLE_MODULES: YES
     dependencies:
+      - target: WalkieTalkieWatch
+        embed: true
       - framework: Frameworks/Core.xcframework
         embed: true
         codeSign: true
@@ -60,5 +62,28 @@ targets:
       - sdk: AVFoundation.framework
       - sdk: UIKit.framework
       - sdk: Network.framework
+      - sdk: WatchConnectivity.framework
     # Info.plist is maintained by hand (WalkieTalkie/Info.plist); do not let
     # XcodeGen rewrite it (fails on some volume mounts and fights our keys).
+
+  WalkieTalkieWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: WalkieTalkieWatch
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        INFOPLIST_FILE: WalkieTalkieWatch/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        PRODUCT_NAME: WalkieTalkie Watch
+        PRODUCT_BUNDLE_IDENTIFIER: com.walkietalkie.watchkitapp
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "4"
+        SDKROOT: watchos
+        SKIP_INSTALL: YES
+    dependencies:
+      - sdk: WatchConnectivity.framework
+      - sdk: SwiftUI.framework

@@ -46,8 +46,8 @@ echo "   Args: $@"
 echo "   ANDROID_HOME=$ANDROID_HOME"
 echo ""
 
-if [[ ! -f app/libs/core.aar ]]; then
-    echo "⚠️  app/libs/core.aar not found — run ../tools/gomobile-bind-android.sh first"
+if [[ ! -f mesh/libs/core.aar ]]; then
+    echo "⚠️  mesh/libs/core.aar not found — run ../tools/gomobile-bind-android.sh first"
     exit 1
 fi
 

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ptt_service_channel_name">WalkieTalkie</string>
+    <string name="ptt_service_notification_title">WalkieTalkie is active</string>
+    <string name="ptt_service_notification_text">Listening for other devices</string>
+</resources>

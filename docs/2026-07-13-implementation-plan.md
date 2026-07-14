@@ -56,10 +56,11 @@ WalkieTalkie/
 │   ├── gradle.properties
 │   ├── local.properties          # gitignored, sdk.dir=/Volumes/JohnDovey/Android/Sdk
 │   ├── settings.gradle.kts
-│   ├── app/                      # phone app module — Kotlin, MediaCodec Opus, BLE, FusedLocation
-│   └── wear/                     # phase 5, added later
-├── ios/                           # phase 4 — Swift/Xcode app + core.xcframework consumer
-│   └── WalkieTalkieWatch/         # phase 5, added later — see watchOS open question below
+│   ├── mesh/                     # shared library: PTT service, Opus, BLE, GPS + core.aar
+│   ├── app/                      # phone app module — Compose UI over :mesh
+│   └── wear/                     # Wear OS Hold-to-Talk over :mesh (phase 5)
+├── ios/                           # phase 4 — Swift/Xcode app + Core.xcframework consumer
+│   └── WalkieTalkieWatch/         # phase 5 — WatchConnectivity relay (no Core on watch)
 ├── tools/                         # gomobile bind wrapper scripts; project-scoped GOPATH/GOCACHE redirection
 ├── docs/                           # existing — this plan + follow-on design docs
 └── Manual/                         # existing — update chapters as features land
@@ -189,9 +190,10 @@ This is deliberately a **different merge rule** from the existing `PeerReport` m
 - `gomobile bind` xcframework; SwiftUI app with permissions, `PTChannelManager` + Hold-to-Talk, BLE, GPS, Ogg Opus voice notes / private channels, Wi-Fi mesh restart. See `docs/2026-07-14-ios-phase4.md`.
 - **Verify (pending hardware + paid Team ID)**: iPhone joins the Android+desktop mesh; `PTChannelManager`'s system UI reflects the active transmitter; PTT works with the screen locked.
 
-**Phase 5 — Wearables (lowest priority)**
-- `android/wear`: Wear OS is a full Android runtime, reuses the same AAR directly — just Wear UI + companion pairing for mic/BLE hardware.
-- `ios/WalkieTalkieWatch`: **open question** — gomobile's iOS targets historically exclude watchOS, so the watch app may need to relay through the paired iPhone via `WatchConnectivity` rather than embedding `core` directly. Needs its own research spike at the start of this phase, not before.
+**Phase 5 — Wearables** — 🟡 in progress (2026-07-14)
+- `android/wear`: Wear OS standalone mesh participant (`platform=wear`), shared `:mesh` with phone; Hold to Talk UI. VERSION `0.1.0`.
+- `ios/WalkieTalkieWatch`: WatchConnectivity relay stub (no gomobile on watch). Decision: phone owns Core/Opus/BLE/GPS. See `docs/2026-07-14-phase5-wearables.md`.
+- **Verify (needs hardware)**: Wear on Wi-Fi joins Base Station mesh; Apple Watch Talk relays via iPhone.
 
 ## Risks and tradeoffs
 

@@ -17,13 +17,12 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import com.walkietalkie.BuildConfig
-import com.walkietalkie.MainActivity
-import com.walkietalkie.R
 import com.walkietalkie.audio.OpusMicSource
 import com.walkietalkie.audio.OpusSpeakerSink
 import com.walkietalkie.ble.BlePresenceBridge
 import com.walkietalkie.location.LocationUpdater
+import com.walkietalkie.mesh.MeshIdentity
+import com.walkietalkie.mesh.R
 import com.walkietalkie.settings.NicknameStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -104,7 +103,10 @@ class PTTService : LifecycleService() {
         }
 
         when (intent?.action) {
-            ACTION_START_TALKING -> node?.startTalking()
+            ACTION_START_TALKING -> {
+                startNodeIfNeeded()
+                node?.startTalking()
+            }
             ACTION_STOP_TALKING -> node?.stopTalking()
             else -> startNodeIfNeeded()
         }
@@ -142,8 +144,8 @@ class PTTService : LifecycleService() {
                 val started = Mobile.startNode(
                     dataDir,
                     deviceName,
-                    "android",
-                    BuildConfig.VERSION_NAME,
+                    MeshIdentity.platform,
+                    MeshIdentity.appVersion,
                     source,
                     sink,
                 )
@@ -302,9 +304,11 @@ class PTTService : LifecycleService() {
     }
 
     private fun buildNotification(): Notification {
+        val launch = packageManager.getLaunchIntentForPackage(packageName)
+            ?: Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         val openIntent = PendingIntent.getActivity(
             this, 0,
-            Intent(this, MainActivity::class.java),
+            launch,
             PendingIntent.FLAG_IMMUTABLE,
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)

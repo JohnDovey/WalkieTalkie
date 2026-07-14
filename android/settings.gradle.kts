@@ -21,3 +21,5 @@ dependencyResolutionManagement {
 }
 rootProject.name = "WalkieTalkie"
 include(":app")
+include(":mesh")
+include(":wear")

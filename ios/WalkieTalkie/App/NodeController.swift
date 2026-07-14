@@ -38,6 +38,7 @@ final class NodeController: ObservableObject {
     func startIfNeeded() {
         guard !started, node == nil else { return }
         started = true
+        WatchConnectivityBridge.shared.activate(node: self)
         startPathMonitorIfNeeded()
         bootNode()
     }

@@ -4,6 +4,7 @@ subtitle: ''
 numberMode: Auto
 numberOverride: 
 ---
+
 <h2 id="the-android-app">The Android app</h2>
 <p>The Android app was confirmed working on real hardware for the first time on 2026-07-13: it discovers a Base Station over Wi-Fi, connects to it, and exchanges real two-way audio — confirmed in both directions, including someone pressing the phone's Talk button and hearing their own voice come out of the desktop machine's speakers.</p>
 <p>A few things worth knowing if you're trying this yourself:</p>
@@ -13,11 +14,12 @@ numberOverride:
 </ul>
 
 <h2 id="devices">Devices</h2>
-<p>The home screen is <strong>Devices</strong>: a list of peers seen on the mesh, per-device actions, and the green <strong>Hold to talk</strong> button for group push-to-talk.</p>
-<figure id="fig:5c8e557b4f7b46c7a271aeae6b01d5bd" style="text-align:center">
+<figure id="fig:5c8e557b4f7b46c7a271aeae6b01d5bd" style="float:right">
 <img src="../images/android-devices.png" alt="android-devices" width="280" height="622">
 <figcaption class="caption">Devices screen — connected and disconnected peers, mic and chat actions, and Hold to talk</figcaption>
 </figure>
+<p>The home screen is <strong>Devices</strong>: a list of peers seen on the mesh, per-device actions, and the green <strong>Hold to talk</strong> button for group push-to-talk.</p>
+
 <p>Connected peers appear in green. Each row can offer a microphone control (start a voice message) and, when the peer is connected, a chat control (invite a private channel). The Devices list is sorted most-recently-seen first, and — unlike the desktop Base Station, which keeps every device it's ever seen — the phone automatically forgets (deletes) any device it hasn't seen in over 48 hours, to keep the on-device list from accumulating clutter over time.</p>
 
 <h2 id="settings">Settings</h2>
@@ -62,3 +64,4 @@ numberOverride:
 </figure>
 
 <p>Not yet tested: whether a third device can detect the phone over Bluetooth and report its presence to a Base Station when the phone has no Wi-Fi — that needs a second Bluetooth-capable device to verify.</p>
+

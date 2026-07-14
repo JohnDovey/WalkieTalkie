@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WalkieTalkie</string>
+    <string name="ptt_idle">Hold to talk</string>
+    <string name="ptt_talking">Talking…</string>
+    <string name="peers_fmt">%1$d peers</string>
+    <string name="grant_mic">Allow mic</string>
+</resources>

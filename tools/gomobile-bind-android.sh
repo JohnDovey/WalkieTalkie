@@ -3,7 +3,7 @@
 #
 # Builds core/mobile (and core/media, whose AudioSource/AudioSink
 # interfaces core/mobile's StartNode exposes) into an Android AAR at
-# android/app/libs/core.aar.
+# android/mesh/libs/core.aar (consumed by :app and :wear via :mesh).
 #
 # Two non-obvious flags are required, both discovered the hard way:
 #
@@ -41,15 +41,15 @@ if ! command -v gomobile >/dev/null; then
     (cd core && go install golang.org/x/mobile/cmd/gomobile golang.org/x/mobile/cmd/gobind)
 fi
 
-mkdir -p android/app/libs
+mkdir -p android/mesh/libs
 
-echo "🤖 Binding core/mobile + core/media -> android/app/libs/core.aar"
+echo "🤖 Binding core/mobile + core/media -> android/mesh/libs/core.aar"
 (
     cd core
     gomobile bind -target=android -androidapi 26 \
         -ldflags="-checklinkname=0" \
-        -o ../android/app/libs/core.aar \
+        -o ../android/mesh/libs/core.aar \
         ./mobile ./media
 )
 
-echo "✅ Wrote android/app/libs/core.aar"
+echo "✅ Wrote android/mesh/libs/core.aar"
