@@ -263,18 +263,55 @@ struct AboutView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("WalkieTalkie").font(.largeTitle.bold())
-                Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")")
-                Text("Device ID: \(node.selfID)").font(.caption.monospaced())
-                Text("Base Station: \(node.baseStationURL.isEmpty ? "—" : node.baseStationURL)")
-                    .font(.caption)
-                Text("LAN push-to-talk mesh. iOS shell over the shared Go core.")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("WalkieTalkie").font(.largeTitle.bold())
+                    Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")")
+                    Text("Platform: ios")
+                    Text("Device ID: \(node.selfID)").font(.caption.monospaced())
+                    if let url = URL(string: node.baseStationURL), !node.baseStationURL.isEmpty {
+                        Link("Base Station: \(node.baseStationURL)", destination: url)
+                            .font(.caption)
+                    } else {
+                        Text("Base Station: not discovered yet")
+                            .font(.caption)
+                    }
+
+                    Text("What it is")
+                        .font(.headline)
+                        .padding(.top, 8)
+                    Text(
+                        "WalkieTalkie is a LAN push-to-talk mesh. Hold Talk and other devices on the " +
+                        "same Wi‑Fi hear you live — no accounts, no manual pairing. This iPhone app " +
+                        "joins the same mesh as Android, Wear OS, Apple Watch (relayed through this " +
+                        "phone), and a desktop Base Station."
+                    )
                     .foregroundStyle(.secondary)
-                Spacer()
+
+                    Text("How discovery works")
+                        .font(.headline)
+                        .padding(.top, 4)
+                    Text(
+                        "Peers find each other with mDNS over Wi‑Fi. Off the LAN, nearby phones and " +
+                        "watches can still appear over Bluetooth LE as presence-only (id and name, " +
+                        "no live audio until you're back on Wi‑Fi together)."
+                    )
+                    .foregroundStyle(.secondary)
+
+                    Text("The Base Station")
+                        .font(.headline)
+                        .padding(.top, 4)
+                    Text(
+                        "The Base Station is the desktop companion: web dashboard, mesh hub, and " +
+                        "store-and-forward for voice notes and private channels. Tap the Base Station " +
+                        "URL above to open its web UI in Safari. Group Hold-to-talk works peer-to-peer " +
+                        "without one; voice messages and private chats need a Base Station on the LAN."
+                    )
+                    .foregroundStyle(.secondary)
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
             .navigationTitle("About")
         }
     }

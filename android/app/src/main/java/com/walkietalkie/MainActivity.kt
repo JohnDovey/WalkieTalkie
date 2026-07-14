@@ -25,7 +25,9 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
@@ -50,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.walkietalkie.audio.ClipRecorder
@@ -428,6 +431,8 @@ private fun SettingsScreen() {
 private fun AboutScreen() {
     var selfId by remember { mutableStateOf("") }
     var baseUrl by remember { mutableStateOf("") }
+    val uriHandler = LocalUriHandler.current
+    val scroll = rememberScrollState()
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -437,14 +442,68 @@ private fun AboutScreen() {
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scroll)
+            .padding(24.dp),
+    ) {
         Text(text = "About WalkieTalkie", style = MaterialTheme.typography.titleMedium)
         Text(text = "Version: ${BuildConfig.VERSION_NAME}", modifier = Modifier.padding(top = 16.dp))
         Text(text = "Platform: android", modifier = Modifier.padding(top = 8.dp))
         Text(text = "Device ID: $selfId", modifier = Modifier.padding(top = 8.dp))
+        if (baseUrl.isBlank()) {
+            Text(
+                text = "Base Station: not discovered yet",
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        } else {
+            Text(
+                text = "Base Station: $baseUrl",
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .clickable { uriHandler.openUri(baseUrl) },
+            )
+        }
+
         Text(
-            text = "Base Station: ${baseUrl.ifBlank { "not discovered yet" }}",
+            text = "What it is",
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(top = 24.dp),
+        )
+        Text(
+            text = "WalkieTalkie is a LAN push-to-talk mesh. Hold Talk and other devices on the " +
+                "same Wi‑Fi hear you live — no accounts, no manual pairing. This Android app " +
+                "joins the same mesh as iPhone, Wear OS, Apple Watch (via iPhone), and a " +
+                "desktop Base Station.",
             modifier = Modifier.padding(top = 8.dp),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            text = "How discovery works",
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(top = 16.dp),
+        )
+        Text(
+            text = "Peers find each other with mDNS over Wi‑Fi. Off the LAN, nearby phones and " +
+                "watches can still appear over Bluetooth LE as presence-only (id and name, " +
+                "no live audio until you're back on Wi‑Fi together).",
+            modifier = Modifier.padding(top = 8.dp),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            text = "The Base Station",
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(top = 16.dp),
+        )
+        Text(
+            text = "The Base Station is the desktop companion: web dashboard, mesh hub, and " +
+                "store-and-forward for voice notes and private channels. Tap the Base Station " +
+                "URL above to open its web UI in a browser. Group Hold-to-talk works peer-to-peer " +
+                "without one; voice messages and private chats need a Base Station on the LAN.",
+            modifier = Modifier.padding(top = 8.dp),
+            style = MaterialTheme.typography.bodyMedium,
         )
     }
 }

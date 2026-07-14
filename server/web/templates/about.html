@@ -21,7 +21,7 @@
     </div>
   </nav>
 
-  <div class="container" style="max-width: 480px;">
+  <div class="container" style="max-width: 640px;">
     <h1 class="h4 mb-3">About this Base Station</h1>
     <table class="table">
       <tbody>
@@ -29,13 +29,43 @@
         <tr><th scope="row">Platform</th><td id="about-platform">&hellip;</td></tr>
         <tr><th scope="row">Version</th><td id="about-version">&hellip;</td></tr>
         <tr><th scope="row">Device ID</th><td id="about-id" class="text-break">&hellip;</td></tr>
+        <tr>
+          <th scope="row">Dashboard</th>
+          <td><a id="about-url" href="/">&hellip;</a></td>
+        </tr>
       </tbody>
     </table>
+
+    <h2 class="h6 mt-4">What it is</h2>
+    <p class="text-secondary">
+      WalkieTalkie is a LAN push-to-talk mesh. Hold Talk on any client and other devices on the
+      same Wi‑Fi hear you live — no accounts, no manual pairing. This computer is a
+      <strong>Base Station</strong>: it joins the same mesh as Android, iPhone, Wear OS, and
+      Apple Watch (via iPhone), and hosts the web dashboard you are using now.
+    </p>
+
+    <h2 class="h6">How discovery works</h2>
+    <p class="text-secondary">
+      Peers find each other with mDNS over Wi‑Fi. Off the LAN, nearby phones and watches can
+      still appear over Bluetooth LE as presence-only (id and name, no live audio until they
+      are back on Wi‑Fi together).
+    </p>
+
+    <h2 class="h6">The Base Station</h2>
+    <p class="text-secondary">
+      Besides Talk, this Base Station is the mesh hub for the device list, map, settings, and
+      store-and-forward voice notes / private channels for mobile clients. Group Hold-to-talk
+      works peer-to-peer without a Base Station; voice messages and private chats need one on
+      the LAN. Open the dashboard link above anytime — it is this UI’s own address on the network.
+    </p>
   </div>
 
   <script src="/static/vendor/jquery.min.js"></script>
   <script src="/static/vendor/bootstrap.bundle.min.js"></script>
   <script>
+    var origin = window.location.origin;
+    $('#about-url').attr('href', origin).text(origin);
+
     $.getJSON('/api/about', function (info) {
       $('#about-name').text(info.name);
       $('#about-platform').text(info.platform);
