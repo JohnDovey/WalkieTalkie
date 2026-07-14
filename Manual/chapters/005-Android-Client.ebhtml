@@ -60,7 +60,7 @@ numberOverride:
 <img src="../images/android-private-channel.png" alt="android-private-channel" width="280" height="622" border="1">
 <figcaption class="caption">Private channel — Hold to talk for a 1:1 clip channel</figcaption>
 </figure>
-<p>When a peer is connected, the chat action invites a private channel. That screen has its own Hold to talk control for clips that queue if the other party is not focused on the channel.</p>
+<p>When a peer is connected, the chat action invites a private channel. Hold to talk is <strong>live unicast</strong> when that peer has a direct Wi‑Fi mesh link; otherwise it records a clip via the Base Station that queues until they focus the channel. The screen shows the current mode (live vs clip).</p>
 
 <h2>Not yet tested</h2>
 <p>Whether a third device can detect the phone over Bluetooth and report its presence to a Base Station when the phone has no Wi-Fi — that needs a second Bluetooth-capable device to verify.</p>

@@ -6,7 +6,7 @@ numberOverride:
 ---
 
 <h1 id="the-iphone-app">The iPhone app</h1>
-<p>The iPhone app shares the same Go mesh core as Android. Current version is <strong>0.2.0</strong> (voice messages, private channels, and permission gating in addition to live Hold to Talk).</p>
+<p>The iPhone app shares the same Go mesh core as Android. Current version is <strong>0.3.1</strong> (voice messages, private channels with live-or-clip Hold to Talk, and permission gating).</p>
 
 <h2 id="building-and-opening">Building and opening</h2>
 <p>Before opening the Xcode project, regenerate the gitignored frameworks (same idea as the Android AAR):</p>

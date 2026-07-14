@@ -196,7 +196,7 @@ This is deliberately a **different merge rule** from the existing `PeerReport` m
 - **Verify (needs hardware)**: Wear on Wi-Fi joins Base Station mesh; Apple Watch Talk relays via iPhone.
 
 **Phase 6 — Private-channel live Talk** — 🟡 in progress (2026-07-14)
-- First slice of deferred live private audio: `MeshManager.SendTo` / `StartTalkingTo`; Android/iOS private Hold-to-Talk uses live unicast when the peer is directly connected, else clips. See `docs/2026-07-14-phase6-private-live-talk.md`.
+- Unicast `StartTalkingTo` when peer is directly connected; clips otherwise. Multi-device `focused` set on channels (`server` 1.2.1). Android/iOS mode labels. See `docs/2026-07-14-phase6-private-live-talk.md`.
 
 ## Risks and tradeoffs
 

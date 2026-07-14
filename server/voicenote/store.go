@@ -49,9 +49,11 @@ type Channel struct {
 	ParticipantB string    `json:"participantB"`
 	CreatedAt    time.Time `json:"createdAt"`
 	Status       string    `json:"status"`
-	// FocusedBy is the device ID currently viewing this channel (for
-	// auto-play vs queue). Empty means nobody is focused.
-	FocusedBy string `json:"focusedBy,omitempty"`
+	// Focused lists device IDs currently viewing this channel (both parties
+	// may be focused at once). FocusedBy remains the most recent focus for
+	// older clients / tooling that only read a single string.
+	Focused   []string `json:"focused,omitempty"`
+	FocusedBy string   `json:"focusedBy,omitempty"`
 	// UnreadFor is filled only in ListChannels responses.
 	UnreadFor int `json:"unreadFor,omitempty"`
 }
@@ -118,7 +120,54 @@ func (s *Store) getChannel(tx *bbolt.Tx, id string) (*Channel, bool) {
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return nil, false
 	}
+	c.normalizeFocus()
 	return &c, true
+}
+
+func (c *Channel) normalizeFocus() {
+	if len(c.Focused) == 0 && c.FocusedBy != "" {
+		c.Focused = []string{c.FocusedBy}
+	}
+	c.syncFocusedBy()
+}
+
+func (c *Channel) syncFocusedBy() {
+	if len(c.Focused) == 0 {
+		c.FocusedBy = ""
+		return
+	}
+	c.FocusedBy = c.Focused[len(c.Focused)-1]
+}
+
+func (c *Channel) addFocused(deviceID string) {
+	for _, id := range c.Focused {
+		if id == deviceID {
+			c.syncFocusedBy()
+			return
+		}
+	}
+	c.Focused = append(c.Focused, deviceID)
+	c.syncFocusedBy()
+}
+
+func (c *Channel) removeFocused(deviceID string) {
+	out := c.Focused[:0]
+	for _, id := range c.Focused {
+		if id != deviceID {
+			out = append(out, id)
+		}
+	}
+	c.Focused = out
+	c.syncFocusedBy()
+}
+
+func (c *Channel) isFocused(deviceID string) bool {
+	for _, id := range c.Focused {
+		if id == deviceID {
+			return true
+		}
+	}
+	return false
 }
 
 // SaveNote writes opusBytes to disk and records metadata. Retention is 21 days.
@@ -449,12 +498,14 @@ func (s *Store) CloseChannel(channelID, actorID string) error {
 			return fmt.Errorf("voicenote: not a participant")
 		}
 		c.Status = ChannelClosed
+		c.Focused = nil
 		c.FocusedBy = ""
 		return s.putChannel(tx, c)
 	})
 }
 
-// SetFocus records which participant is viewing a channel.
+// SetFocus records whether a participant is viewing a channel. Both
+// participants may be focused at the same time.
 func (s *Store) SetFocus(channelID, deviceID string, focused bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -467,9 +518,9 @@ func (s *Store) SetFocus(channelID, deviceID string, focused bool) error {
 			return fmt.Errorf("voicenote: not a participant")
 		}
 		if focused {
-			c.FocusedBy = deviceID
-		} else if c.FocusedBy == deviceID {
-			c.FocusedBy = ""
+			c.addFocused(deviceID)
+		} else {
+			c.removeFocused(deviceID)
 		}
 		return s.putChannel(tx, c)
 	})

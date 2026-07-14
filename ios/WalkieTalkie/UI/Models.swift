@@ -54,6 +54,25 @@ struct ChannelRow: Identifiable {
             )
         }
     }
+
+    /// Whether peerID appears in the channel's focused set (or legacy focusedBy).
+    static func peerFocused(in json: String, channelID: String, peerID: String) -> Bool {
+        guard !peerID.isEmpty, !channelID.isEmpty,
+              let data = json.data(using: .utf8),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return false
+        }
+        for dict in arr {
+            guard (dict["id"] as? String) == channelID else { continue }
+            if let focused = dict["focused"] as? [String], focused.contains(peerID) {
+                return true
+            }
+            if (dict["focusedBy"] as? String) == peerID {
+                return true
+            }
+        }
+        return false
+    }
 }
 
 struct VoiceNoteRow: Identifiable {

@@ -15,7 +15,7 @@ Build priority is Android first, then desktop, then iPhone, then wearables last 
 - **Phase 5 (wearables)**: 🟡 software complete — Wear OS `0.2.0` + watchOS WatchConnectivity relay; hardware verify pending. See `docs/2026-07-14-phase5-wearables.md`.
 - **Phase 6 (private live Talk)**: 🟡 in progress — unicast when peer is on direct mesh; clips otherwise. See `docs/2026-07-14-phase6-private-live-talk.md`.
 
-**Current release track:** server `1.2.0`, android `1.1.0`, wear `0.2.0`, ios `0.3.0`.
+**Current release track:** server `1.2.1`, android `1.1.1`, wear `0.2.0`, ios `0.3.1`.
 
 ## Repo layout
 

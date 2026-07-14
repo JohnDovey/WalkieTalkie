@@ -767,6 +767,8 @@ private fun PrivateChannelScreen(
     val context = LocalContext.current
     var notesJson by remember { mutableStateOf("[]") }
     var talking by remember { mutableStateOf(false) }
+    var liveMesh by remember { mutableStateOf(false) }
+    var peerFocused by remember { mutableStateOf(false) }
     val recorder = remember { ClipRecorder(context) }
     val scope = rememberCoroutineScope()
     var player by remember { mutableStateOf<MediaPlayer?>(null) }
@@ -777,6 +779,7 @@ private fun PrivateChannelScreen(
         }
         PTTService.instance?.focusChannel(channelId)
         onDispose {
+            PTTService.instance?.stopTalking()
             PTTService.instance?.blurChannel(channelId)
             player?.release()
             player = null
@@ -784,25 +787,34 @@ private fun PrivateChannelScreen(
         }
     }
 
-    LaunchedEffect(channelId) {
+    LaunchedEffect(channelId, peerId) {
         while (true) {
             notesJson = PTTService.instance?.listChannelNotesJSON(channelId) ?: "[]"
+            liveMesh = PTTService.instance?.isDirectlyConnected(peerId) == true
+            peerFocused = channelPeerFocused(
+                PTTService.instance?.listChannelsJSON() ?: "[]",
+                channelId,
+                peerId,
+            )
             val notes = parseNotes(notesJson)
             val selfId = PTTService.instance?.selfId() ?: ""
             notes.filter { it.toId == selfId && it.status == "queued" }.forEach { n ->
-                // Auto-ack when focused so the queue clears (auto-play on open).
                 val bytes = PTTService.instance?.downloadVoiceNote(n.id)
                 if (bytes != null) {
                     PTTService.instance?.ackVoiceNote(n.id)
-                    // Play latest only once per poll cycle if not already playing
                 }
             }
-            delay(2000)
+            delay(1500)
         }
     }
 
     val notes = remember(notesJson) { parseNotes(notesJson) }
     val selfId = PTTService.instance?.selfId() ?: ""
+    val modeLabel = when {
+        liveMesh && peerFocused -> "Mode: live mesh (peer is here)"
+        liveMesh -> "Mode: live mesh"
+        else -> "Mode: clip via Base Station"
+    }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -818,6 +830,13 @@ private fun PrivateChannelScreen(
             Spacer(Modifier.width(48.dp))
         }
 
+        Text(
+            text = modeLabel,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (liveMesh) Color(0xFF1F6F43) else Color.Gray,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -827,12 +846,11 @@ private fun PrivateChannelScreen(
                     color = if (talking) Color(0xFFC0392B) else Color(0xFF1F6F43),
                     shape = CircleShape,
                 )
-                .pointerInput(Unit) {
+                .pointerInput(liveMesh) {
                     detectTapGestures(
                         onPress = {
                             talking = true
-                            val live = PTTService.instance?.isDirectlyConnected(peerId) == true
-                            if (live) {
+                            if (liveMesh) {
                                 PTTService.instance?.startTalkingTo(peerId)
                                 try {
                                     tryAwaitRelease()
@@ -865,14 +883,19 @@ private fun PrivateChannelScreen(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = if (talking) "Talking…" else "Hold to talk",
+                text = when {
+                    talking && liveMesh -> "Live…"
+                    talking -> "Recording…"
+                    liveMesh -> "Hold for live talk"
+                    else -> "Hold to record clip"
+                },
                 color = Color.White,
                 style = MaterialTheme.typography.headlineSmall,
             )
         }
 
         Text(
-            "Live when the peer is on Wi‑Fi mesh; otherwise clips queue until they focus this channel.",
+            "Live when the peer is on direct Wi‑Fi mesh; otherwise clips queue until they focus this channel.",
             style = MaterialTheme.typography.bodySmall,
             color = Color.Gray,
         )
@@ -906,6 +929,7 @@ private fun PrivateChannelScreen(
         }
     }
 }
+
 
 // --- data helpers ---
 
@@ -977,6 +1001,28 @@ private fun parseNotes(json: String): List<NoteRow> {
         }
     } catch (_: Exception) {
         emptyList()
+    }
+}
+
+/** True when channel JSON lists peerId in the focused set (or legacy focusedBy). */
+private fun channelPeerFocused(channelsJson: String, channelId: String, peerId: String): Boolean {
+    if (peerId.isEmpty() || channelId.isEmpty()) return false
+    return try {
+        val arr = JSONArray(channelsJson)
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            if (obj.optString("id") != channelId) continue
+            val focused = obj.optJSONArray("focused")
+            if (focused != null) {
+                for (j in 0 until focused.length()) {
+                    if (focused.optString(j) == peerId) return true
+                }
+            }
+            if (obj.optString("focusedBy") == peerId) return true
+        }
+        false
+    } catch (_: Exception) {
+        false
     }
 }
 

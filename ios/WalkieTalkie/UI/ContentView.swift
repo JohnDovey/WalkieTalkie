@@ -517,13 +517,24 @@ struct PrivateChannelView: View {
 
     @State private var notesJSON = "[]"
     @State private var localStatus = ""
+    @State private var liveMesh = false
+    @State private var peerFocused = false
     private let recorder = ClipRecorder()
     private let player = VoiceNotePlayer()
     @State private var recording = false
 
+    private var modeLabel: String {
+        if liveMesh && peerFocused { return "Mode: live mesh (peer is here)" }
+        if liveMesh { return "Mode: live mesh" }
+        return "Mode: clip via Base Station"
+    }
+
     var body: some View {
         VStack {
             Text("Private: \(peerName)").font(.headline)
+            Text(modeLabel)
+                .font(.caption)
+                .foregroundStyle(liveMesh ? Color.green : .secondary)
             List(VoiceNoteRow.parse(notesJSON)) { n in
                 HStack {
                     Text("\(n.fromId == node.selfID ? "You" : peerName) · \(n.status)")
@@ -536,7 +547,9 @@ struct PrivateChannelView: View {
                     }
                 }
             }
-            Text(recording || node.isTalking ? "Live / recording…" : "Hold below — live if peer is on mesh, else clip")
+            Text(recording || node.isTalking
+                 ? (liveMesh ? "Live…" : "Recording clip…")
+                 : (liveMesh ? "Hold for live talk" : "Hold to record clip"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Text(recording || node.isTalking ? "Talking…" : "Hold to Talk (channel)")
@@ -550,7 +563,7 @@ struct PrivateChannelView: View {
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { _ in
-                            if node.isDirectlyConnected(peerID: peerId) {
+                            if liveMesh {
                                 guard !node.isTalking else { return }
                                 node.startTalkingTo(peerID: peerId)
                                 return
@@ -596,6 +609,7 @@ struct PrivateChannelView: View {
             node.focusChannel(channelID: channelId)
         }
         .onDisappear {
+            node.stopTalking()
             node.blurChannel(channelID: channelId)
             recorder.cancel()
             player.stop()
@@ -603,7 +617,13 @@ struct PrivateChannelView: View {
         .task {
             while !Task.isCancelled {
                 notesJSON = node.listChannelNotesJSON(channelID: channelId)
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                liveMesh = node.isDirectlyConnected(peerID: peerId)
+                peerFocused = ChannelRow.peerFocused(
+                    in: node.channelsJSON,
+                    channelID: channelId,
+                    peerID: peerId
+                )
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
             }
         }
     }
