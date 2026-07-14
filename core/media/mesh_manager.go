@@ -25,9 +25,11 @@ type RelayDialer interface {
 }
 
 type peerConn struct {
-	id    string
-	pc    *webrtc.PeerConnection
-	track *webrtc.TrackLocalStaticSample
+	id      string
+	pc      *webrtc.PeerConnection
+	track   *webrtc.TrackLocalStaticSample
+	dc      *webrtc.DataChannel
+	dcReady chan struct{} // closed when voicenote DC opens
 }
 
 // MeshManager holds one pion PeerConnection per reachable peer (full mesh)
@@ -45,6 +47,8 @@ type MeshManager struct {
 	mu         sync.Mutex
 	peers      map[string]*peerConn
 	relayPeers map[string]struct{} // peers reached only via SFU
+	voiceRecv  map[string]*voiceRecvBuf
+	pendingDC  map[string]*webrtc.DataChannel // open before storePeer
 
 	talking    int32
 	stopTalk   chan struct{}
@@ -76,6 +80,9 @@ type MeshManager struct {
 	OnOpusFrameSent     func(frameBytes, peerCount int)
 	OnOpusFrameReceived func(peerID string, frameBytes int)
 	OnTalkStarted       func()
+
+	// OnVoiceNoteReceived delivers a complete P2P voice-note transfer.
+	OnVoiceNoteReceived func(meta VoiceNoteMeta, audio []byte)
 }
 
 // SetRelayThreshold configures the peer count above which new connections
@@ -257,7 +264,7 @@ func (mm *MeshManager) connectDirect(host string, port int, peerID string) error
 	ctx, cancel := context.WithTimeout(context.Background(), connectTimeout)
 	defer cancel()
 
-	pc, track, err := mm.newPeerConnection(peerID)
+	pc, track, err := mm.newPeerConnection(peerID, true)
 	if err != nil {
 		return err
 	}
@@ -331,10 +338,17 @@ func (mm *MeshManager) ConnectAny(hosts []string, port int, peerID string) error
 func (mm *MeshManager) storePeer(peerID string, pc *webrtc.PeerConnection, track *webrtc.TrackLocalStaticSample) {
 	mm.mu.Lock()
 	old, existed := mm.peers[peerID]
-	mm.peers[peerID] = &peerConn{id: peerID, pc: pc, track: track}
+	ready := make(chan struct{})
+	entry := &peerConn{id: peerID, pc: pc, track: track, dcReady: ready}
+	if dc, ok := mm.pendingDC[peerID]; ok {
+		entry.dc = dc
+		close(ready)
+		delete(mm.pendingDC, peerID)
+	}
+	mm.peers[peerID] = entry
 	delete(mm.relayPeers, peerID)
 	mm.mu.Unlock()
-	if existed {
+	if existed && old != nil && old.pc != pc {
 		_ = old.pc.Close()
 	}
 }
@@ -348,10 +362,11 @@ func (mm *MeshManager) Disconnect(peerID string) {
 		delete(mm.peers, peerID)
 	}
 	delete(mm.relayPeers, peerID)
+	delete(mm.voiceRecv, peerID)
 }
 
 func (mm *MeshManager) handleIncomingOffer(senderID, offerSDP string) (string, error) {
-	pc, track, err := mm.newPeerConnection(senderID)
+	pc, track, err := mm.newPeerConnection(senderID, false)
 	if err != nil {
 		return "", err
 	}
@@ -381,7 +396,7 @@ func (mm *MeshManager) handleIncomingOffer(senderID, offerSDP string) (string, e
 	return pc.LocalDescription().SDP, nil
 }
 
-func (mm *MeshManager) newPeerConnection(peerID string) (*webrtc.PeerConnection, *webrtc.TrackLocalStaticSample, error) {
+func (mm *MeshManager) newPeerConnection(peerID string, createDC bool) (*webrtc.PeerConnection, *webrtc.TrackLocalStaticSample, error) {
 	pc, err := mm.api.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("media: new peer connection for %s: %w", peerID, err)
@@ -404,6 +419,22 @@ func (mm *MeshManager) newPeerConnection(peerID string) (*webrtc.PeerConnection,
 	pc.OnTrack(func(remote *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
 		go mm.readRemoteTrack(peerID, remote)
 	})
+
+	pc.OnDataChannel(func(dc *webrtc.DataChannel) {
+		if dc.Label() != voiceNoteDCLabel {
+			return
+		}
+		mm.attachVoiceDC(peerID, dc)
+	})
+
+	if createDC {
+		dc, err := pc.CreateDataChannel(voiceNoteDCLabel, nil)
+		if err != nil {
+			_ = pc.Close()
+			return nil, nil, fmt.Errorf("media: create voicenote DataChannel: %w", err)
+		}
+		mm.attachVoiceDC(peerID, dc)
+	}
 
 	if mm.OnConnectionStateChange != nil {
 		pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {

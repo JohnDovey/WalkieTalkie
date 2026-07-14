@@ -61,7 +61,7 @@ numberOverride:
 
 
 <h2 id="voice-messages-and-private-channels">Voice messages and private channels</h2>
-<p>Both the Base Station dashboard and the Android app support <strong>async voice messages</strong> and <strong>invite-only private channels</strong>. Clips are stored on a Base Station on the LAN; when multiple Base Stations are present they replicate those inboxes with each other. Direct peer-to-peer clip transfer (bypassing the Base Station) is still a planned follow-up.</p>
+<p>Both the Base Station dashboard and the Android app support <strong>async voice messages</strong> and <strong>invite-only private channels</strong>. When two devices already have a direct Wi‑Fi mesh link, voice clips can transfer peer-to-peer; otherwise clips are stored on a Base Station on the LAN, and multiple Base Stations replicate those inboxes with each other.</p>
 <ul>
 <li>On each device row, a microphone icon sends a <strong>Voice Message</strong> to that node (works even if they are offline — the note is held until they return, for at least 21 days, then deleted). A chat icon <strong>Invite to Chat</strong> appears only while the peer is connected.</li>
 <li>A left-hand drawer lists active private channels and nodes with new voice messages waiting, with count badges.</li>

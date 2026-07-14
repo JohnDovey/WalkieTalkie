@@ -264,6 +264,17 @@ func main() {
 	if err != nil {
 		log.Fatalf("init voice-note store: %v", err)
 	}
+	session.OnVoiceNoteReceived = func(meta media.VoiceNoteMeta, audio []byte) {
+		n, err := voiceStore.ImportNote(meta.ID, meta.FromID, meta.ToID, meta.ChannelID, meta.CreatedAt, audio)
+		if err != nil {
+			log.Printf("P2P voice note from %s: %v", meta.FromID, err)
+			return
+		}
+		if usageStats != nil {
+			usageStats.VoiceNoteUploaded(n.Size, n.ChannelID)
+		}
+		log.Printf("P2P voice note %s stored (%d bytes)", n.ID, n.Size)
+	}
 	syncer.SetVoice(voiceStore)
 	voiceHandlers := &voicenote.Handlers{Voice: voiceStore, Reg: store, SelfID: selfID, Usage: usageStats}
 	purgeStop := make(chan struct{})

@@ -13,9 +13,9 @@ Build priority is Android first, then desktop, then iPhone, then wearables last 
 - **Phase 3 (desktop hardening + multi-Base-Station registry sync)**: ✅ done (registry sync, map, Old Nodes, Windows/macOS/Linux packaging scripts, system tray, Base Station mesh SFU / relay threshold). Three-OS hardware mesh not run on this Mac-only setup.
 - **Phase 4 (iPhone)**: 🟡 in progress — SwiftUI shell + bind/Opus + voice notes/private channels (`0.3.0` adds live private Talk); `iphoneos` build verified. Device mesh / locked-screen PTT needs Team ID + hardware. See `docs/2026-07-14-ios-phase4.md`.
 - **Phase 5 (wearables)**: 🟡 software complete — Wear OS `0.2.0` + watchOS WatchConnectivity relay; hardware verify pending. See `docs/2026-07-14-phase5-wearables.md`.
-- **Phase 6 (private live Talk)**: 🟡 in progress — unicast on direct mesh or SFU Hub; clips otherwise; multi-Base voice sync. See `docs/2026-07-14-phase6-private-live-talk.md`.
+- **Phase 6 (private live Talk)**: 🟡 in progress — live unicast (mesh/SFU), multi-Base voice sync, P2P voice notes when DirectConnected. See `docs/2026-07-14-phase6-private-live-talk.md`.
 
-**Current release track:** server `1.4.0`, android `1.2.0`, wear `0.2.0`, ios `0.4.0`.
+**Current release track:** server `1.5.0`, android `1.3.0`, wear `0.2.0`, ios `0.5.0`.
 
 ## Repo layout
 
@@ -42,7 +42,7 @@ xcodebuild -scheme WalkieTalkie -sdk iphoneos build
 Requires Xcode (`DEVELOPER_DIR` from `source-john-dovey.sh`). Simulator builds need an installed iOS Simulator runtime.
 ## Voice messages and private channels
 
-Async voice notes and invite-only private channels are relayed through a LAN Base Station (store-and-forward Opus/WebM clips, 21-day retention). See [`docs/2026-07-13-voice-message-and-private-channels.md`](docs/2026-07-13-voice-message-and-private-channels.md). Peer-to-peer delivery and live private WebRTC are deferred ([`docs/TODO-p2p-voice-and-private-relay.md`](docs/TODO-p2p-voice-and-private-relay.md)).
+Async voice notes and invite-only private channels use a LAN Base Station for store-and-forward when peers are offline or SFU-only; when both peers have a direct mesh link, clips transfer over a WebRTC DataChannel instead. See [`docs/2026-07-13-voice-message-and-private-channels.md`](docs/2026-07-13-voice-message-and-private-channels.md) and Phase 6.
 
 ## Running the desktop server
 

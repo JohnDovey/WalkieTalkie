@@ -18,6 +18,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 
@@ -49,6 +50,8 @@ type Node struct {
 	baseURL      string // last seen Base Station http://host:apiPort
 	voiceClient  *voicenote.Client
 	relayClient  *corerelay.Client
+	inbox        *voicenote.LocalInbox
+	dataDir      string
 }
 
 // StartNode boots the shared core for one local device: opens the
@@ -94,6 +97,19 @@ func StartNode(dataDir, name, platform, appVersion string, source media.AudioSou
 		store:      store,
 		session:    session,
 		name:       name,
+		dataDir:    dataDir,
+	}
+	inbox, err := voicenote.OpenLocalInbox(dataDir)
+	if err != nil {
+		n.Stop()
+		return nil, fmt.Errorf("mobile: local inbox: %w", err)
+	}
+	n.inbox = inbox
+	session.OnVoiceNoteReceived = func(meta media.VoiceNoteMeta, audio []byte) {
+		_ = inbox.Put(voicenote.Note{
+			ID: meta.ID, FromID: meta.FromID, ToID: meta.ToID, ChannelID: meta.ChannelID,
+			CreatedAt: meta.CreatedAt, Size: meta.Size, Status: voicenote.StatusQueued,
+		}, audio)
 	}
 
 	settings := config.Default()
@@ -237,8 +253,21 @@ func (n *Node) BaseStationURL() string {
 	return n.baseURL
 }
 
-// SendVoiceNote uploads an async clip to toDeviceID via the Base Station.
+// SendVoiceNote delivers an async clip to toDeviceID via direct DataChannel when
+// possible, otherwise via the Base Station inbox.
 func (n *Node) SendVoiceNote(toDeviceID string, audio []byte) error {
+	if n.session != nil && n.session.DirectConnected(toDeviceID) {
+		meta := media.VoiceNoteMeta{
+			ID: voicenote.NewID(), FromID: n.selfID, ToID: toDeviceID, CreatedAt: time.Now(),
+		}
+		if err := n.session.SendVoiceNoteP2P(meta, audio); err == nil {
+			_ = n.inbox.Put(voicenote.Note{
+				ID: meta.ID, FromID: meta.FromID, ToID: meta.ToID,
+				CreatedAt: meta.CreatedAt, Size: int64(len(audio)), Status: voicenote.StatusQueued,
+			}, audio)
+			return nil
+		}
+	}
 	c, err := n.client()
 	if err != nil {
 		return err
@@ -247,8 +276,22 @@ func (n *Node) SendVoiceNote(toDeviceID string, audio []byte) error {
 	return err
 }
 
-// SendChannelClip uploads a private-channel clip via the Base Station.
+// SendChannelClip delivers a private-channel clip via DataChannel when the peer
+// is DirectConnected, otherwise via the Base Station.
 func (n *Node) SendChannelClip(channelID string, audio []byte) error {
+	peerID := n.channelPeerID(channelID)
+	if peerID != "" && n.session != nil && n.session.DirectConnected(peerID) {
+		meta := media.VoiceNoteMeta{
+			ID: voicenote.NewID(), FromID: n.selfID, ToID: peerID, ChannelID: channelID, CreatedAt: time.Now(),
+		}
+		if err := n.session.SendVoiceNoteP2P(meta, audio); err == nil {
+			_ = n.inbox.Put(voicenote.Note{
+				ID: meta.ID, FromID: meta.FromID, ToID: meta.ToID, ChannelID: channelID,
+				CreatedAt: meta.CreatedAt, Size: int64(len(audio)), Status: voicenote.StatusQueued,
+			}, audio)
+			return nil
+		}
+	}
 	c, err := n.client()
 	if err != nil {
 		return err
@@ -257,36 +300,77 @@ func (n *Node) SendChannelClip(channelID string, audio []byte) error {
 	return err
 }
 
-// ListVoiceNotesJSON returns inbox notes, or the thread with withPeerID when set.
-func (n *Node) ListVoiceNotesJSON(withPeerID string) (string, error) {
+func (n *Node) channelPeerID(channelID string) string {
 	c, err := n.client()
 	if err != nil {
-		return "[]", err
+		return ""
 	}
-	notes, err := c.Inbox(withPeerID, "")
+	chs, err := c.ListChannels()
 	if err != nil {
-		return "", err
+		return ""
 	}
-	raw, err := json.Marshal(notes)
+	for _, ch := range chs {
+		if ch.ID == channelID {
+			return ch.PeerID
+		}
+	}
+	return ""
+}
+
+func mergeNotes(local, remote []voicenote.Note) []voicenote.Note {
+	byID := make(map[string]voicenote.Note, len(local)+len(remote))
+	for _, n := range remote {
+		byID[n.ID] = n
+	}
+	for _, n := range local {
+		if _, ok := byID[n.ID]; !ok {
+			byID[n.ID] = n
+		}
+	}
+	out := make([]voicenote.Note, 0, len(byID))
+	for _, n := range byID {
+		out = append(out, n)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].CreatedAt.After(out[j].CreatedAt)
+	})
+	return out
+}
+
+// ListVoiceNotesJSON returns inbox notes, or the thread with withPeerID when set.
+// Merges local P2P inbox with Base Station when reachable.
+func (n *Node) ListVoiceNotesJSON(withPeerID string) (string, error) {
+	var local []voicenote.Note
+	if n.inbox != nil {
+		local, _ = n.inbox.List(n.selfID, withPeerID, "")
+	}
+	var remote []voicenote.Note
+	if c, err := n.client(); err == nil {
+		remote, _ = c.Inbox(withPeerID, "")
+	}
+	raw, err := json.Marshal(mergeNotes(local, remote))
 	return string(raw), err
 }
 
 // ListChannelNotesJSON returns clips for a private channel.
 func (n *Node) ListChannelNotesJSON(channelID string) (string, error) {
-	c, err := n.client()
-	if err != nil {
-		return "[]", err
+	var local []voicenote.Note
+	if n.inbox != nil {
+		local, _ = n.inbox.List(n.selfID, "", channelID)
 	}
-	notes, err := c.Inbox("", channelID)
-	if err != nil {
-		return "", err
+	var remote []voicenote.Note
+	if c, err := n.client(); err == nil {
+		remote, _ = c.Inbox("", channelID)
 	}
-	raw, err := json.Marshal(notes)
+	raw, err := json.Marshal(mergeNotes(local, remote))
 	return string(raw), err
 }
 
-// DownloadVoiceNote returns the audio bytes for a note.
+// DownloadVoiceNote returns the audio bytes for a note (local first, then Base).
 func (n *Node) DownloadVoiceNote(noteID string) ([]byte, error) {
+	if n.inbox != nil && n.inbox.Has(noteID) {
+		return n.inbox.ReadAudio(noteID)
+	}
 	c, err := n.client()
 	if err != nil {
 		return nil, err
@@ -294,22 +378,36 @@ func (n *Node) DownloadVoiceNote(noteID string) ([]byte, error) {
 	return c.DownloadAudio(noteID)
 }
 
-// AckVoiceNote marks a note as played.
+// AckVoiceNote marks a note as played (local and/or Base Station).
 func (n *Node) AckVoiceNote(noteID string) error {
-	c, err := n.client()
-	if err != nil {
-		return err
+	localOK := false
+	if n.inbox != nil && n.inbox.Has(noteID) {
+		if err := n.inbox.Ack(noteID); err != nil {
+			return err
+		}
+		localOK = true
 	}
-	return c.Ack(noteID)
+	if c, err := n.client(); err == nil {
+		if err := c.Ack(noteID); err != nil && !localOK {
+			return err
+		}
+		return nil
+	}
+	if localOK {
+		return nil
+	}
+	return fmt.Errorf("no Base Station reachable and note not in local inbox")
 }
 
-// DeleteVoiceNote soft-deletes a note on the Base Station.
+// DeleteVoiceNote soft-deletes a note locally and on the Base Station when present.
 func (n *Node) DeleteVoiceNote(noteID string) error {
-	c, err := n.client()
-	if err != nil {
-		return err
+	if n.inbox != nil {
+		_ = n.inbox.Delete(noteID)
 	}
-	return c.Delete(noteID)
+	if c, err := n.client(); err == nil {
+		return c.Delete(noteID)
+	}
+	return nil
 }
 
 // InviteChannel invites a connected peer to a private channel; returns channel JSON.

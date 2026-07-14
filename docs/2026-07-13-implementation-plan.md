@@ -196,7 +196,7 @@ This is deliberately a **different merge rule** from the existing `PeerReport` m
 - **Verify (needs hardware)**: Wear on Wi-Fi joins Base Station mesh; Apple Watch Talk relays via iPhone.
 
 **Phase 6 — Private-channel live Talk** — 🟡 in progress (2026-07-14)
-- Unicast `StartTalkingTo` when peer is directly connected **or** on the Base Station SFU (Hub unicast routes). Clips otherwise. Multi-device `focused` set. Base Station web private panel live/clip/relay parity. Multi-Base channel + voice-note blob sync. See `docs/2026-07-14-phase6-private-live-talk.md` (`server` 1.4.0, android `1.2.0`, ios `0.4.0`).
+- Unicast `StartTalkingTo` when peer is directly connected **or** on the Base Station SFU (Hub unicast routes). Clips otherwise. Multi-device `focused` set. Base Station web private panel. Multi-Base channel + voice-note blob sync. **P2P voice-note DataChannel** when DirectConnected (local inbox + Base `ImportNote`). See `docs/2026-07-14-phase6-private-live-talk.md` (`server` 1.5.0, android `1.3.0`, ios `0.5.0`).
 
 ## Risks and tradeoffs
 

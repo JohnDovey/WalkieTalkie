@@ -172,28 +172,49 @@ func (c *Channel) isFocused(deviceID string) bool {
 
 // SaveNote writes opusBytes to disk and records metadata. Retention is 21 days.
 func (s *Store) SaveNote(fromID, toID, channelID string, opusBytes []byte) (*Note, error) {
+	return s.ImportNote(uuid.NewString(), fromID, toID, channelID, time.Now(), opusBytes)
+}
+
+// ImportNote stores a note with a caller-provided ID (P2P DataChannel receive).
+// Idempotent: if the ID already exists, returns the existing note without error.
+func (s *Store) ImportNote(id, fromID, toID, channelID string, createdAt time.Time, opusBytes []byte) (*Note, error) {
 	if fromID == "" || toID == "" {
 		return nil, fmt.Errorf("voicenote: from and to are required")
 	}
 	if len(opusBytes) == 0 {
 		return nil, fmt.Errorf("voicenote: empty audio")
 	}
+	if id == "" {
+		id = uuid.NewString()
+	}
+	if createdAt.IsZero() {
+		createdAt = time.Now()
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	id := uuid.NewString()
+	var existing *Note
+	_ = s.db.View(func(tx *bbolt.Tx) error {
+		if n, ok := s.getNote(tx, id); ok {
+			existing = n
+		}
+		return nil
+	})
+	if existing != nil {
+		return existing, nil
+	}
+
 	path := filepath.Join(s.blobDir, id+".opus")
 	if err := os.WriteFile(path, opusBytes, 0o600); err != nil {
 		return nil, fmt.Errorf("voicenote: write blob: %w", err)
 	}
-	now := time.Now()
 	n := &Note{
 		ID:        id,
 		FromID:    fromID,
 		ToID:      toID,
 		ChannelID: channelID,
-		CreatedAt: now,
-		ExpiresAt: now.Add(Retention),
+		CreatedAt: createdAt,
+		ExpiresAt: createdAt.Add(Retention),
 		Size:      int64(len(opusBytes)),
 		Path:      path,
 		Status:    StatusQueued,

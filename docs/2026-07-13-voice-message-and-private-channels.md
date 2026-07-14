@@ -17,7 +17,7 @@ Unify both features on **server store-and-forward of Opus clips**, not live mesh
 - **Private channel:** invite (both must be `connected`) → channel listed in drawer → hold-to-talk records a clip tagged with `channelId` → if peer is focused on that channel, deliver/auto-play promptly; if not, queue and show count.
 - Main-screen group PTT stays the existing WebRTC `Broadcast` mesh.
 
-**Base Station requirement:** a LAN Base Station (mDNS `api` port) is the inbox. If none is reachable, voice-note send fails with a clear error. Multi-Base sync of voice blobs shipped later in `server` 1.3.1 (see Phase 6).
+**Base Station requirement:** a LAN Base Station (mDNS `api` port) is the store-and-forward inbox when peers are offline or not DirectConnected. When both peers share a direct mesh PeerConnection, clips transfer over a DataChannel (Phase 6). Multi-Base sync of voice blobs shipped in `server` 1.3.1.
 
 ## Data model
 
