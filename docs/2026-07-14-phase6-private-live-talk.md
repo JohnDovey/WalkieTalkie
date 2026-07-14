@@ -4,7 +4,7 @@ Started 2026-07-14. Slices of [`TODO-p2p-voice-and-private-relay.md`](TODO-p2p-v
 
 ## Status
 
-**In progress (software)** — live unicast (direct + SFU Hub), multi-Base voice sync, P2P voice-note DataChannel when DirectConnected.
+**Software complete** — live unicast (direct + SFU Hub), multi-Base voice sync, P2P voice-note DataChannel, P2P→Base mirror-upload for multi-Base visibility.
 
 ## Behaviour
 
@@ -22,10 +22,10 @@ UI: **Mode: live mesh** / **Mode: live relay** / **Mode: clip via Base Station**
 
 | Condition | Behaviour |
 |-----------|-----------|
-| Peer **DirectConnected** | Opus over `"voicenote"` DataChannel → recipient local inbox (phones) or Base Station store |
+| Peer **DirectConnected** | Opus over `"voicenote"` DataChannel → recipient local inbox (phones) or Base Station store; then best-effort mirror-upload to Base with the same note ID |
 | Otherwise | Existing `POST /api/voice-notes` store-and-forward |
 
-List/download/ack merge local inbox + Base Station. No Base Station required to deliver a P2P note when peers already have a direct PC.
+List/download/ack merge local inbox + Base Station. Upload accepts optional `id`/`createdAt` for stable P2P mirror IDs (`ImportNote`).
 
 ### Base Station web
 
@@ -35,13 +35,13 @@ List/download/ack merge local inbox + Base Station. No Base Station required to 
 
 ### Multi-Base voice sync (`1.3.1+`)
 
-Registry sync tick also pulls `/api/sync/channels` and `/api/sync/voice-notes` (+ audio blobs).
+Registry sync tick also pulls `/api/sync/channels` and `/api/sync/voice-notes` (+ audio blobs). Mirrored P2P notes participate in that sync.
 
 ## Versions
 
-- Android phone `1.3.0`
-- iOS `0.5.0`
-- Server `1.5.0`
+- Android phone `1.3.1`
+- iOS `0.5.1`
+- Server `1.5.1`
 
 ## Build
 
@@ -54,6 +54,5 @@ cd server && go run .
 
 ## Still deferred
 
-- Mirror every P2P note up to Base for multi-Base sync
 - Named multi-party Hub rooms / second WebRTC PC per channel
 - Bridging mixed direct↔relay for notes over SFU

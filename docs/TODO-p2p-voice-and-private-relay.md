@@ -6,7 +6,9 @@ Deferred from [`2026-07-13-voice-message-and-private-channels.md`](2026-07-13-vo
 
 ## Direct P2P voice-note transfer
 
-✅ Shipped in android `1.3.0` / ios `0.5.0` / server `1.5.0` — `"voicenote"` DataChannel on direct mesh PeerConnections; local inbox on phones; Base Station `ImportNote` on receive; fall back to store-and-forward when not DirectConnected. Optional later: mirror P2P notes to Base for multi-Base sync.
+✅ Shipped in android `1.3.0` / ios `0.5.0` / server `1.5.0` — `"voicenote"` DataChannel on direct mesh PeerConnections; local inbox on phones; Base Station `ImportNote` on receive; fall back to store-and-forward when not DirectConnected.
+
+✅ Mirror-upload (`1.5.1` / android `1.3.1` / ios `0.5.1`): after a successful P2P send or receive, best-effort `UploadNote` with the same note ID so multi-Base voice sync can replicate the clip.
 
 ## Live private-channel SFU rooms
 

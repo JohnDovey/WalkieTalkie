@@ -96,7 +96,7 @@ func (h *Handlers) EnrichDevices(devices []*registry.Device) (any, error) {
 
 func (h *Handlers) upload(w http.ResponseWriter, r *http.Request) {
 	ct := r.Header.Get("Content-Type")
-	var fromID, toID, channelID string
+	var fromID, toID, channelID, noteID, createdAtRaw string
 	var opus []byte
 
 	if strings.HasPrefix(ct, "multipart/form-data") {
@@ -107,6 +107,8 @@ func (h *Handlers) upload(w http.ResponseWriter, r *http.Request) {
 		fromID = r.FormValue("from")
 		toID = r.FormValue("to")
 		channelID = r.FormValue("channelId")
+		noteID = r.FormValue("id")
+		createdAtRaw = r.FormValue("createdAt")
 		file, _, err := r.FormFile("audio")
 		if err != nil {
 			http.Error(w, "audio file required", http.StatusBadRequest)
@@ -123,6 +125,8 @@ func (h *Handlers) upload(w http.ResponseWriter, r *http.Request) {
 		fromID = r.URL.Query().Get("from")
 		toID = r.URL.Query().Get("to")
 		channelID = r.URL.Query().Get("channelId")
+		noteID = r.URL.Query().Get("id")
+		createdAtRaw = r.URL.Query().Get("createdAt")
 		var err error
 		opus, err = io.ReadAll(io.LimitReader(r.Body, 8<<20))
 		if err != nil {
@@ -158,7 +162,22 @@ func (h *Handlers) upload(w http.ResponseWriter, r *http.Request) {
 		toID = ch.PeerOf(fromID)
 	}
 
-	note, err := h.Voice.SaveNote(fromID, toID, channelID, opus)
+	var createdAt time.Time
+	if createdAtRaw != "" {
+		if t, err := time.Parse(time.RFC3339Nano, createdAtRaw); err == nil {
+			createdAt = t
+		} else if t, err := time.Parse(time.RFC3339, createdAtRaw); err == nil {
+			createdAt = t
+		}
+	}
+
+	var note *Note
+	var err error
+	if noteID != "" {
+		note, err = h.Voice.ImportNote(noteID, fromID, toID, channelID, createdAt, opus)
+	} else {
+		note, err = h.Voice.SaveNote(fromID, toID, channelID, opus)
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

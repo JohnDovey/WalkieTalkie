@@ -106,10 +106,12 @@ func StartNode(dataDir, name, platform, appVersion string, source media.AudioSou
 	}
 	n.inbox = inbox
 	session.OnVoiceNoteReceived = func(meta media.VoiceNoteMeta, audio []byte) {
-		_ = inbox.Put(voicenote.Note{
+		note := voicenote.Note{
 			ID: meta.ID, FromID: meta.FromID, ToID: meta.ToID, ChannelID: meta.ChannelID,
 			CreatedAt: meta.CreatedAt, Size: meta.Size, Status: voicenote.StatusQueued,
-		}, audio)
+		}
+		_ = inbox.Put(note, audio)
+		n.mirrorNoteToBase(note, audio)
 	}
 
 	settings := config.Default()
@@ -254,17 +256,20 @@ func (n *Node) BaseStationURL() string {
 }
 
 // SendVoiceNote delivers an async clip to toDeviceID via direct DataChannel when
-// possible, otherwise via the Base Station inbox.
+// possible, otherwise via the Base Station inbox. Successful P2P sends are also
+// mirrored to the Base Station (best-effort) so multi-Base sync can see them.
 func (n *Node) SendVoiceNote(toDeviceID string, audio []byte) error {
 	if n.session != nil && n.session.DirectConnected(toDeviceID) {
 		meta := media.VoiceNoteMeta{
 			ID: voicenote.NewID(), FromID: n.selfID, ToID: toDeviceID, CreatedAt: time.Now(),
 		}
 		if err := n.session.SendVoiceNoteP2P(meta, audio); err == nil {
-			_ = n.inbox.Put(voicenote.Note{
+			note := voicenote.Note{
 				ID: meta.ID, FromID: meta.FromID, ToID: meta.ToID,
 				CreatedAt: meta.CreatedAt, Size: int64(len(audio)), Status: voicenote.StatusQueued,
-			}, audio)
+			}
+			_ = n.inbox.Put(note, audio)
+			n.mirrorNoteToBase(note, audio)
 			return nil
 		}
 	}
@@ -277,7 +282,8 @@ func (n *Node) SendVoiceNote(toDeviceID string, audio []byte) error {
 }
 
 // SendChannelClip delivers a private-channel clip via DataChannel when the peer
-// is DirectConnected, otherwise via the Base Station.
+// is DirectConnected, otherwise via the Base Station. Successful P2P sends are
+// mirrored to the Base Station best-effort.
 func (n *Node) SendChannelClip(channelID string, audio []byte) error {
 	peerID := n.channelPeerID(channelID)
 	if peerID != "" && n.session != nil && n.session.DirectConnected(peerID) {
@@ -285,10 +291,12 @@ func (n *Node) SendChannelClip(channelID string, audio []byte) error {
 			ID: voicenote.NewID(), FromID: n.selfID, ToID: peerID, ChannelID: channelID, CreatedAt: time.Now(),
 		}
 		if err := n.session.SendVoiceNoteP2P(meta, audio); err == nil {
-			_ = n.inbox.Put(voicenote.Note{
+			note := voicenote.Note{
 				ID: meta.ID, FromID: meta.FromID, ToID: meta.ToID, ChannelID: channelID,
 				CreatedAt: meta.CreatedAt, Size: int64(len(audio)), Status: voicenote.StatusQueued,
-			}, audio)
+			}
+			_ = n.inbox.Put(note, audio)
+			n.mirrorNoteToBase(note, audio)
 			return nil
 		}
 	}
@@ -298,6 +306,18 @@ func (n *Node) SendChannelClip(channelID string, audio []byte) error {
 	}
 	_, err = c.Upload("", channelID, audio, "note.webm")
 	return err
+}
+
+// mirrorNoteToBase best-effort uploads a P2P note with a stable ID so other
+// Base Stations can sync it. Failures are ignored (delivery already succeeded).
+func (n *Node) mirrorNoteToBase(note voicenote.Note, audio []byte) {
+	go func() {
+		c, err := n.client()
+		if err != nil {
+			return
+		}
+		_, _ = c.UploadNote(note, audio, "note.webm")
+	}()
 }
 
 func (n *Node) channelPeerID(channelID string) string {

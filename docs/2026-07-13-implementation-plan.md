@@ -195,8 +195,8 @@ This is deliberately a **different merge rule** from the existing `PeerReport` m
 - `ios/WalkieTalkieWatch`: WatchConnectivity relay + phone status push. See `docs/2026-07-14-phase5-wearables.md`.
 - **Verify (needs hardware)**: Wear on Wi-Fi joins Base Station mesh; Apple Watch Talk relays via iPhone.
 
-**Phase 6 — Private-channel live Talk** — 🟡 in progress (2026-07-14)
-- Unicast `StartTalkingTo` when peer is directly connected **or** on the Base Station SFU (Hub unicast routes). Clips otherwise. Multi-device `focused` set. Base Station web private panel. Multi-Base channel + voice-note blob sync. **P2P voice-note DataChannel** when DirectConnected (local inbox + Base `ImportNote`). See `docs/2026-07-14-phase6-private-live-talk.md` (`server` 1.5.0, android `1.3.0`, ios `0.5.0`).
+**Phase 6 — Private-channel live Talk** — ✅ software complete (2026-07-14)
+- Unicast `StartTalkingTo` (direct or SFU Hub unicast). Clips otherwise. Multi-Base channel/voice sync. P2P voice-note DataChannel when DirectConnected, with best-effort Base mirror-upload for multi-Base visibility (`server` 1.5.1, android `1.3.1`, ios `0.5.1`). Named Hub rooms / mixed-topology note bridging still deferred. See `docs/2026-07-14-phase6-private-live-talk.md`.
 
 ## Risks and tradeoffs
 

@@ -59,22 +59,39 @@ func (c *Client) requireBase() error {
 	return nil
 }
 
-// Upload sends an Opus/WebM clip to toID (or channelID).
+// Upload sends an Opus/WebM clip to toID (or channelID). The Base Station
+// assigns a new note ID.
 func (c *Client) Upload(toID, channelID string, audio []byte, filename string) (*Note, error) {
+	return c.UploadNote(Note{ToID: toID, ChannelID: channelID, FromID: c.DeviceID}, audio, filename)
+}
+
+// UploadNote uploads a clip, optionally preserving id/fromId/createdAt so a
+// P2P-delivered note can be mirrored into the Base Station with the same ID.
+func (c *Client) UploadNote(n Note, audio []byte, filename string) (*Note, error) {
 	if err := c.requireBase(); err != nil {
 		return nil, err
 	}
 	if filename == "" {
 		filename = "note.opus"
 	}
+	fromID := n.FromID
+	if fromID == "" {
+		fromID = c.DeviceID
+	}
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
-	_ = w.WriteField("from", c.DeviceID)
-	if toID != "" {
-		_ = w.WriteField("to", toID)
+	_ = w.WriteField("from", fromID)
+	if n.ID != "" {
+		_ = w.WriteField("id", n.ID)
 	}
-	if channelID != "" {
-		_ = w.WriteField("channelId", channelID)
+	if n.ToID != "" {
+		_ = w.WriteField("to", n.ToID)
+	}
+	if n.ChannelID != "" {
+		_ = w.WriteField("channelId", n.ChannelID)
+	}
+	if !n.CreatedAt.IsZero() {
+		_ = w.WriteField("createdAt", n.CreatedAt.UTC().Format(time.RFC3339Nano))
 	}
 	part, err := w.CreateFormFile("audio", filename)
 	if err != nil {
