@@ -57,7 +57,7 @@ numberOverride:
 </figure>
 
 <h2 id="private-channels">Private channels</h2>
-<p>When a peer is connected, the chat action invites a private channel. That screen has its own Hold to talk control — live over the mesh when the peer is directly connected, otherwise clips that queue if they are not focused on the channel.</p>
+<p>When a peer is connected, the chat action invites a private channel (extra peers can be invited later). That screen has its own Hold to talk control — live over the mesh or SFU room when peers are reachable, otherwise clips that queue if they are not focused on the channel.</p>
 <figure id="fig:877457abe04c484e8cdde039f085b481" style="text-align:center">
 <img src="../images/android-private-channel.png" alt="android-private-channel" width="280" height="622">
 <figcaption class="caption">Private channel — Hold to talk for a 1:1 clip channel</figcaption>
