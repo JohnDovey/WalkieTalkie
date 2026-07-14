@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"strings"
 	"sync"
 	"time"
 )
@@ -13,6 +14,7 @@ const (
 	KindSubnet     Kind = "subnet"
 	KindRouter     Kind = "router"
 	KindHost       Kind = "host"
+	KindComputer   Kind = "computer" // desktop / laptop (general machine)
 	KindWalkie     Kind = "walkie"
 	KindBridge     Kind = "bridge"
 	KindRemoteHint Kind = "remoteHint"
@@ -23,6 +25,7 @@ type Node struct {
 	ID               string            `json:"id"`
 	Kind             Kind              `json:"kind"`
 	Label            string            `json:"label"`
+	Hostname         string            `json:"hostname,omitempty"`
 	IPs              []string          `json:"ips,omitempty"`
 	MACs             []string          `json:"macs,omitempty"`
 	MeshID           string            `json:"meshId,omitempty"`
@@ -37,6 +40,12 @@ type Node struct {
 	RemoteBaseID     string            `json:"remoteBaseId,omitempty"`
 	RemoteBaseName   string            `json:"remoteBaseName,omitempty"`
 	Subnet           string            `json:"subnet,omitempty"`
+	ViaRouter        string            `json:"viaRouter,omitempty"` // gateway IP or router node id
+	SameHostAs       string            `json:"sameHostAs,omitempty"` // canonical host id when colocated
+	SSID             string            `json:"ssid,omitempty"`
+	BSSID            string            `json:"bssid,omitempty"`
+	Channel          string            `json:"channel,omitempty"`
+	Security         string            `json:"security,omitempty"`
 	LastSeen         time.Time         `json:"lastSeen"`
 	Detail           map[string]any    `json:"detail,omitempty"`
 }
@@ -140,6 +149,19 @@ func (s *Store) Upsert(n Node) string {
 }
 
 func (s *Store) findMergeIDLocked(n Node) string {
+	// Prefer a stable host:<ip> machine node when any IP matches.
+	for _, ip := range n.IPs {
+		if ip == "" {
+			continue
+		}
+		canon := "host:" + ip
+		if _, ok := s.nodes[canon]; ok {
+			return canon
+		}
+		if strings.HasPrefix(n.ID, "host:") {
+			return n.ID
+		}
+	}
 	if n.MeshID != "" {
 		for id, ex := range s.nodes {
 			if ex.MeshID == n.MeshID {
@@ -154,7 +176,7 @@ func (s *Store) findMergeIDLocked(n Node) string {
 		for id, ex := range s.nodes {
 			for _, em := range ex.MACs {
 				if em == mac {
-					return id
+					return preferredHostID(id, n.ID, ex, n)
 				}
 			}
 		}
@@ -166,7 +188,7 @@ func (s *Store) findMergeIDLocked(n Node) string {
 		for id, ex := range s.nodes {
 			for _, ei := range ex.IPs {
 				if ei == ip {
-					return id
+					return preferredHostID(id, n.ID, ex, n)
 				}
 			}
 		}
@@ -179,16 +201,50 @@ func (s *Store) findMergeIDLocked(n Node) string {
 	return n.ID
 }
 
+func preferredHostID(existingID, incomingID string, existing *Node, incoming Node) string {
+	if strings.HasPrefix(existingID, "host:") {
+		return existingID
+	}
+	if strings.HasPrefix(incomingID, "host:") {
+		return incomingID
+	}
+	if existing.Kind == KindComputer || existing.Kind == KindHost || existing.Kind == KindRouter {
+		return existingID
+	}
+	if incoming.Kind == KindComputer || incoming.Kind == KindHost || incoming.Kind == KindRouter {
+		return incomingID
+	}
+	return existingID
+}
+
 func mergeNode(dst *Node, src Node) {
-	if src.Kind != "" && (dst.Kind == KindRemoteHint || dst.Kind == KindHost || dst.Kind == "") {
-		if src.Kind == KindWalkie || src.Kind == KindRouter || src.Kind == KindBridge {
-			dst.Kind = src.Kind
-		} else if dst.Kind == "" || dst.Kind == KindRemoteHint {
-			dst.Kind = src.Kind
+	// Machine kinds win over role-only walkie/bridge when colocated on one IP.
+	dst.Kind = preferKind(dst.Kind, src.Kind)
+	if src.Label != "" && (dst.Label == "" || dst.Kind == KindComputer || dst.Kind == KindHost || dst.Kind == KindRouter ||
+		(src.Kind != KindWalkie && src.Kind != KindBridge && src.Kind != KindRemoteHint)) {
+		// Keep richer computer/router labels; allow walkie names when that's the identity.
+		if src.Kind == KindWalkie || src.Kind == KindBridge || src.Nickname != "" {
+			if src.Nickname != "" {
+				dst.Nickname = src.Nickname
+			}
+			if dst.Kind == KindWalkie || dst.Kind == KindBridge || dst.Label == "" || strings.HasPrefix(dst.Label, "host:") || looksLikeIP(dst.Label) {
+				dst.Label = src.Label
+			}
+		} else if src.Hostname != "" || src.Kind == KindComputer || src.Kind == KindRouter {
+			if dst.SSID != "" && src.SSID == "" && (dst.Kind == KindRouter || dst.Kind == KindNetwork) {
+				// Keep Wi‑Fi SSID as the primary label.
+			} else {
+				dst.Label = src.Label
+			}
+		} else if dst.Label == "" || looksLikeIP(dst.Label) {
+			dst.Label = src.Label
 		}
 	}
-	if src.Label != "" {
-		dst.Label = src.Label
+	if src.Hostname != "" {
+		dst.Hostname = src.Hostname
+		if looksLikeIP(dst.Label) || dst.Label == "" {
+			dst.Label = src.Hostname
+		}
 	}
 	if src.Nickname != "" {
 		dst.Nickname = src.Nickname
@@ -198,6 +254,9 @@ func mergeNode(dst *Node, src Node) {
 	}
 	if src.Platform != "" {
 		dst.Platform = src.Platform
+		if strings.HasPrefix(src.Platform, "desktop-") && (dst.Kind == KindHost || dst.Kind == "") {
+			dst.Kind = KindComputer
+		}
 	}
 	if src.AppVersion != "" {
 		dst.AppVersion = src.AppVersion
@@ -227,6 +286,28 @@ func mergeNode(dst *Node, src Node) {
 	if src.Subnet != "" {
 		dst.Subnet = src.Subnet
 	}
+	if src.ViaRouter != "" {
+		dst.ViaRouter = src.ViaRouter
+	}
+	if src.SameHostAs != "" {
+		dst.SameHostAs = src.SameHostAs
+	}
+	if src.SSID != "" {
+		dst.SSID = src.SSID
+		// Prefer the human SSID on AP/router labels over "Router <ip>".
+		if dst.Kind == KindRouter || src.Kind == KindRouter || dst.Kind == KindNetwork {
+			dst.Label = src.SSID
+		}
+	}
+	if src.BSSID != "" {
+		dst.BSSID = src.BSSID
+	}
+	if src.Channel != "" {
+		dst.Channel = src.Channel
+	}
+	if src.Security != "" {
+		dst.Security = src.Security
+	}
 	if src.LastSeen.After(dst.LastSeen) {
 		dst.LastSeen = src.LastSeen
 	}
@@ -238,6 +319,101 @@ func mergeNode(dst *Node, src Node) {
 			dst.Detail[k] = v
 		}
 	}
+}
+
+func preferKind(a, b Kind) Kind {
+	rank := func(k Kind) int {
+		switch k {
+		case KindRouter:
+			return 6
+		case KindComputer:
+			return 5
+		case KindWalkie:
+			return 4
+		case KindBridge:
+			return 3
+		case KindHost:
+			return 2
+		case KindRemoteHint:
+			return 1
+		default:
+			return 0
+		}
+	}
+	if rank(b) > rank(a) {
+		return b
+	}
+	return a
+}
+
+func looksLikeIP(s string) bool {
+	return netIPLike(s)
+}
+
+func netIPLike(s string) bool {
+	if s == "" {
+		return false
+	}
+	dots := 0
+	for _, c := range s {
+		if c == '.' {
+			dots++
+		} else if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return dots == 3
+}
+
+// Delete removes a node and edges touching it.
+func (s *Store) Delete(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.nodes, id)
+	for eid, e := range s.edges {
+		if e.From == id || e.To == id {
+			delete(s.edges, eid)
+		}
+	}
+	s.seq++
+}
+
+// Nodes returns a snapshot of nodes (for reconciliation).
+func (s *Store) Nodes() []Node {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]Node, 0, len(s.nodes))
+	for _, n := range s.nodes {
+		out = append(out, *n)
+	}
+	return out
+}
+
+// Relink moves edges from oldID onto newID.
+func (s *Store) Relink(oldID, newID string) {
+	if oldID == "" || newID == "" || oldID == newID {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for eid, e := range s.edges {
+		changed := false
+		if e.From == oldID {
+			e.From = newID
+			changed = true
+		}
+		if e.To == oldID {
+			e.To = newID
+			changed = true
+		}
+		if changed {
+			delete(s.edges, eid)
+			nid := e.From + "->" + e.To + ":" + e.Kind
+			e.ID = nid
+			s.edges[nid] = e
+		}
+	}
+	s.seq++
 }
 
 func mergeServices(a, b []Service) []Service {

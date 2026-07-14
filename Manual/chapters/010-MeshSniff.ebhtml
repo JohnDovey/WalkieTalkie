@@ -26,9 +26,10 @@ go run ./meshsniff/cmd/meshsniff</code></pre>
 <h2 id="what-you-see">What you see</h2>
 <ul>
 <li><strong>Networks / subnets</strong> — local interfaces and CIDRs</li>
-<li><strong>Routers</strong> — default gateway and common <code>.1</code> / admin-port hosts</li>
-<li><strong>Hosts</strong> — ARP/TCP-discovered devices</li>
-<li><strong>WalkieTalkie devices</strong> — phones, Base Stations, Wear that answer identify or appear in mDNS</li>
+<li><strong>Routers</strong> — default gateway; when this Mac is on Wi‑Fi the AP shows its <strong>SSID</strong>, channel, and security (BSSID is often redacted by macOS); orange <em>LAN</em> edges show which computers/phones hang off that router</li>
+<li><strong>Computers</strong> — ARP/TCP-discovered desktops and laptops (including this Mac), with hostname when reverse-DNS is available</li>
+<li><strong>Same-machine services</strong> — Base Station, MeshBridge, MeshSniff, SSH, etc. that share an IP are listed on one node (not separate floating service bubbles)</li>
+<li><strong>WalkieTalkie devices</strong> — phones / Wear answering identify or mDNS</li>
 <li><strong>MeshBridge / remote hints</strong> — bridged remotes (dashed) until reached on L3</li>
 </ul>
 <p>Status strip shows MeshBridge/Base reachability, ICMP on/off, and last scan duration.</p>

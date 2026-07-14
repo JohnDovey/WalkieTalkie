@@ -2,6 +2,7 @@ package netinfo
 
 import (
 	"net"
+	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -78,6 +79,67 @@ func defaultGateway() string {
 		}
 	}
 	return ""
+}
+
+// Hostname returns the OS hostname (best-effort).
+func Hostname() string {
+	h, err := os.Hostname()
+	if err != nil {
+		return ""
+	}
+	return h
+}
+
+// LocalHost describes this machine's LAN presence.
+type LocalHost struct {
+	Hostname string
+	IPs      []string
+	MACs     []string
+	Subnets  []Subnet
+}
+
+// ThisMachine returns LAN IPs/MACs for the sniffer host itself.
+func ThisMachine() LocalHost {
+	lh := LocalHost{Hostname: Hostname()}
+	subs, _ := LocalSubnets()
+	lh.Subnets = subs
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return lh
+	}
+	seenIP := map[string]bool{}
+	seenMAC := map[string]bool{}
+	for _, ifi := range ifaces {
+		if ifi.Flags&net.FlagUp == 0 || ifi.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		mac := strings.ToLower(ifi.HardwareAddr.String())
+		if mac != "" && mac != "00:00:00:00:00:00" && !seenMAC[mac] {
+			seenMAC[mac] = true
+			lh.MACs = append(lh.MACs, mac)
+		}
+		addrs, err := ifi.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, a := range addrs {
+			ipNet, ok := a.(*net.IPNet)
+			if !ok {
+				continue
+			}
+			v4 := ipNet.IP.To4()
+			if v4 == nil || v4.IsLoopback() || !v4.IsPrivate() {
+				continue
+			}
+			s := v4.String()
+			if seenIP[s] {
+				continue
+			}
+			seenIP[s] = true
+			lh.IPs = append(lh.IPs, s)
+		}
+	}
+	return lh
 }
 
 // HostsInCIDR returns usable host IPs in cidr (skips network/broadcast; caps at 1024).

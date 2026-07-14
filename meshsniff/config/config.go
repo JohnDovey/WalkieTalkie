@@ -26,7 +26,7 @@ func Default() Settings {
 		StatusPort:      9096,
 		ScanIntervalSec: 20,
 		ScanCIDRs:       nil,
-		Ports:           []int{22, 53, 80, 443, 8080, 8443, 9091, 9095, 9096},
+		Ports:           []int{22, 53, 80, 88, 139, 443, 445, 548, 631, 3389, 5000, 5900, 7000, 8080, 8443, 9091, 9095, 9096},
 	}
 }
 

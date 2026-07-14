@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/JohnDovey/WalkieTalkie/core/registry"
 	"github.com/JohnDovey/WalkieTalkie/core/sniff"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/graph"
+	"github.com/JohnDovey/WalkieTalkie/meshsniff/netinfo"
 )
 
 // AboutInfo is Base Station GET /api/about.
@@ -91,26 +93,52 @@ func ApplyWalkieTalkie(g *graph.Store, baseURL string) WalkieSeedResult {
 		AppVersion:       about.Version,
 		DiscoveryMethods: []string{"walkietalkie"},
 		URLs:             map[string]string{"api": trailingSlash(baseURL)},
-		Services:         []graph.Service{{Name: "api", URL: trailingSlash(baseURL)}},
+		Services:         []graph.Service{{Name: "WalkieTalkie Base", URL: trailingSlash(baseURL)}},
 		Detail: map[string]any{
 			"role":       "base-station",
 			"seededFrom": "walkietalkie",
 			"baseURL":    baseURL,
 		},
 	}
+	// When Base is local (or we have LAN context), attach this machine's IPs so
+	// Base / MeshBridge / MeshSniff coalesce onto one computer on the map.
+	if host, _, ok := hostPortFromURL(baseURL); ok && (host == "127.0.0.1" || host == "localhost" || host == "::1") {
+		me := netinfo.ThisMachine()
+		n.IPs = me.IPs
+		n.MACs = me.MACs
+		n.Hostname = me.Hostname
+		n.Kind = graph.KindComputer
+		if me.Hostname != "" {
+			n.Label = me.Hostname + " · " + about.Name
+		}
+		n.Detail["sameMachineNote"] = "WalkieTalkie services on this computer share these IPs"
+		if len(me.IPs) > 0 {
+			n.ID = "host:" + me.IPs[0]
+			hubID = n.ID
+		}
+	} else if host, _, ok := hostPortFromURL(baseURL); ok {
+		n.IPs = []string{host}
+		n.ID = "host:" + host
+		hubID = n.ID
+	}
 	if id, err := FetchIdentify(baseURL); err == nil && id != nil {
 		if id.MeshID != "" {
 			n.MeshID = id.MeshID
-			hubID = "walkiebase:" + id.MeshID
-			n.ID = hubID
 		}
 		if id.Name != "" {
-			n.Label, n.Nickname = id.Name, id.Name
+			n.Nickname = id.Name
+			if n.Hostname == "" {
+				n.Label = id.Name
+			}
 		}
-		n.MACs = id.MACs
+		n.MACs = append(n.MACs, id.MACs...)
 		n.URLs = mergeURLMaps(n.URLs, id.URLs)
 		for _, s := range id.Services {
-			n.Services = append(n.Services, graph.Service{Name: s.Name, Port: s.Port, URL: s.URL})
+			name := s.Name
+			if s.Port == 9091 || name == "api" {
+				name = "WalkieTalkie Base"
+			}
+			n.Services = append(n.Services, graph.Service{Name: name, Port: s.Port, URL: s.URL})
 			if s.Port > 0 {
 				n.OpenPorts = append(n.OpenPorts, s.Port)
 			}
@@ -123,6 +151,9 @@ func ApplyWalkieTalkie(g *graph.Store, baseURL string) WalkieSeedResult {
 		}
 		if id.Platform != "" {
 			n.Platform = id.Platform
+			if strings.HasPrefix(id.Platform, "desktop-") {
+				n.Kind = graph.KindComputer
+			}
 		}
 	}
 	hubID = g.Upsert(n)
