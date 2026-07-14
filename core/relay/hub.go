@@ -23,10 +23,18 @@ type Hub struct {
 	mu           sync.Mutex
 	api          *webrtc.API
 	participants map[string]*participant
+	// routes maps sender ID → exclusive recipient ID for private Talk.
+	// When set, writeToOthers forwards only to that recipient (not the full mesh).
+	routes map[string]string
 
 	// OnRemoteFrame is called for every Opus payload from a remote
-	// participant (Base Station local playback / accounting).
+	// participant (Base Station local playback / accounting). Callers should
+	// check RouteOf before playing when private unicast must stay off the
+	// Base Station speaker.
 	OnRemoteFrame func(fromID string, payload []byte)
+
+	// OnParticipantJoined is called after a peer successfully joins the Hub.
+	OnParticipantJoined func(id string)
 }
 
 type participant struct {
@@ -44,6 +52,7 @@ func NewHub() (*Hub, error) {
 	return &Hub{
 		api:          webrtc.NewAPI(webrtc.WithMediaEngine(&m)),
 		participants: make(map[string]*participant),
+		routes:       make(map[string]string),
 	}, nil
 }
 
@@ -127,6 +136,10 @@ func (h *Hub) HandleOffer(senderID, offerSDP string) (answerSDP string, err erro
 	h.participants[senderID] = p
 	h.mu.Unlock()
 
+	if h.OnParticipantJoined != nil {
+		h.OnParticipantJoined(senderID)
+	}
+
 	return pc.LocalDescription().SDP, nil
 }
 
@@ -151,6 +164,12 @@ func (h *Hub) writeToOthers(fromID string, frame []byte) {
 	sample := media.Sample{Data: frame, Duration: opusFrameDuration}
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if toID, ok := h.routes[fromID]; ok {
+		if p, ok := h.participants[toID]; ok && toID != fromID {
+			_ = p.outbound.WriteSample(sample)
+		}
+		return
+	}
 	for id, p := range h.participants {
 		if id == fromID {
 			continue
@@ -159,10 +178,53 @@ func (h *Hub) writeToOthers(fromID string, frame []byte) {
 	}
 }
 
+// SetRoute restricts fromID's Opus to a single recipient until ClearRoute.
+// Used for private-channel live Talk over the SFU.
+func (h *Hub) SetRoute(fromID, toID string) {
+	if fromID == "" || toID == "" {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.routes == nil {
+		h.routes = make(map[string]string)
+	}
+	h.routes[fromID] = toID
+}
+
+// ClearRoute removes a private unicast restriction for fromID (resume fan-out).
+func (h *Hub) ClearRoute(fromID string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	delete(h.routes, fromID)
+}
+
+// RouteOf returns the private unicast target for fromID, if any.
+func (h *Hub) RouteOf(fromID string) (toID string, ok bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	toID, ok = h.routes[fromID]
+	return toID, ok
+}
+
 // InjectLocal pushes one Opus frame from a local publisher (Base Station mic)
-// to every SFU participant.
+// to every SFU participant (or only the SetRoute target for fromID).
 func (h *Hub) InjectLocal(fromID string, frame []byte) {
 	h.writeToOthers(fromID, frame)
+}
+
+// InjectTo pushes one Opus frame from a local publisher to a single Hub
+// participant (Base Station private Talk to an SFU-only peer).
+func (h *Hub) InjectTo(fromID, toID string, frame []byte) {
+	if toID == "" || toID == fromID {
+		return
+	}
+	sample := media.Sample{Data: frame, Duration: opusFrameDuration}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if p, ok := h.participants[toID]; ok {
+		_ = p.outbound.WriteSample(sample)
+	}
 }
 
 // Remove drops a participant from the hub.
@@ -172,6 +234,12 @@ func (h *Hub) Remove(id string) {
 	if p, ok := h.participants[id]; ok {
 		_ = p.pc.Close()
 		delete(h.participants, id)
+	}
+	delete(h.routes, id)
+	for from, to := range h.routes {
+		if to == id {
+			delete(h.routes, from)
+		}
 	}
 }
 
@@ -183,4 +251,5 @@ func (h *Hub) Close() {
 		_ = p.pc.Close()
 		delete(h.participants, id)
 	}
+	h.routes = make(map[string]string)
 }

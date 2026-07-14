@@ -35,3 +35,31 @@ func (b *HostBridge) DialViaRelay(peerID string) error {
 	}
 	return nil
 }
+
+// ConnectedViaRelay reports whether peerID was marked through DialViaRelay
+// and is (or was) expected on the Hub.
+func (b *HostBridge) ConnectedViaRelay(peerID string) bool {
+	b.mu.Lock()
+	_, marked := b.marked[peerID]
+	b.mu.Unlock()
+	if !marked || b.Hub == nil {
+		return false
+	}
+	return b.Hub.Has(peerID)
+}
+
+// InjectTo forwards one local Opus frame to a single Hub participant.
+func (b *HostBridge) InjectTo(toID string, frame []byte) {
+	if b.Hub == nil {
+		return
+	}
+	b.Hub.InjectTo(b.SelfID, toID, frame)
+}
+
+// ClearRoute clears the Base Station's private unicast Hub route (if any).
+func (b *HostBridge) ClearRoute() {
+	if b.Hub == nil {
+		return
+	}
+	b.Hub.ClearRoute(b.SelfID)
+}

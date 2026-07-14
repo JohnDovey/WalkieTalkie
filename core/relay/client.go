@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -106,8 +107,35 @@ func (c *Client) Broadcast(frame []byte) {
 	_ = send.WriteSample(media.Sample{Data: frame, Duration: opusFrameDuration})
 }
 
+// SetRoute asks the Hub to forward this client's Opus only to toID
+// (private live Talk). Cleared via ClearRoute.
+func (c *Client) SetRoute(toID string) error {
+	c.mu.Lock()
+	host, port, selfID := c.host, c.port, c.SelfID
+	c.mu.Unlock()
+	if host == "" || port == 0 {
+		return fmt.Errorf("relay: no Base Station SFU endpoint known")
+	}
+	if toID == "" {
+		return fmt.Errorf("relay: empty route target")
+	}
+	return postRoute(host, port, selfID, toID)
+}
+
+// ClearRoute restores full-mesh fan-out for this client's SFU Opus.
+func (c *Client) ClearRoute() error {
+	c.mu.Lock()
+	host, port, selfID := c.host, c.port, c.SelfID
+	c.mu.Unlock()
+	if host == "" || port == 0 {
+		return nil
+	}
+	return deleteRoute(host, port, selfID)
+}
+
 // Close tears down the SFU PeerConnection.
 func (c *Client) Close() {
+	_ = c.ClearRoute()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.pc != nil {
@@ -241,4 +269,52 @@ func postOffer(ctx context.Context, host string, port int, senderID, offerSDP st
 		return "", err
 	}
 	return res.SDP, nil
+}
+
+type routeRequest struct {
+	Sender string `json:"sender"`
+	To     string `json:"to"`
+}
+
+func postRoute(host string, port int, senderID, toID string) error {
+	body, err := json.Marshal(routeRequest{Sender: senderID, To: toID})
+	if err != nil {
+		return err
+	}
+	url := fmt.Sprintf("http://%s:%d/route", host, port)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("relay client: post route: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("relay client: %s returned %s", url, resp.Status)
+	}
+	return nil
+}
+
+func deleteRoute(host string, port int, senderID string) error {
+	url := fmt.Sprintf("http://%s:%d/route?sender=%s", host, port, url.QueryEscape(senderID))
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("relay client: delete route: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("relay client: %s returned %s", url, resp.Status)
+	}
+	return nil
 }

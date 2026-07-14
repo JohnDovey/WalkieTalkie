@@ -517,7 +517,9 @@ struct PrivateChannelView: View {
 
     @State private var notesJSON = "[]"
     @State private var localStatus = ""
+    @State private var liveTalk = false
     @State private var liveMesh = false
+    @State private var liveRelay = false
     @State private var peerFocused = false
     private let recorder = ClipRecorder()
     private let player = VoiceNotePlayer()
@@ -526,6 +528,8 @@ struct PrivateChannelView: View {
     private var modeLabel: String {
         if liveMesh && peerFocused { return "Mode: live mesh (peer is here)" }
         if liveMesh { return "Mode: live mesh" }
+        if liveRelay && peerFocused { return "Mode: live relay (peer is here)" }
+        if liveRelay { return "Mode: live relay" }
         return "Mode: clip via Base Station"
     }
 
@@ -534,7 +538,7 @@ struct PrivateChannelView: View {
             Text("Private: \(peerName)").font(.headline)
             Text(modeLabel)
                 .font(.caption)
-                .foregroundStyle(liveMesh ? Color.green : .secondary)
+                .foregroundStyle(liveTalk ? Color.green : .secondary)
             List(VoiceNoteRow.parse(notesJSON)) { n in
                 HStack {
                     Text("\(n.fromId == node.selfID ? "You" : peerName) · \(n.status)")
@@ -548,8 +552,8 @@ struct PrivateChannelView: View {
                 }
             }
             Text(recording || node.isTalking
-                 ? (liveMesh ? "Live…" : "Recording clip…")
-                 : (liveMesh ? "Hold for live talk" : "Hold to record clip"))
+                 ? (liveTalk ? "Live…" : "Recording clip…")
+                 : (liveTalk ? "Hold for live talk" : "Hold to record clip"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Text(recording || node.isTalking ? "Talking…" : "Hold to Talk (channel)")
@@ -563,7 +567,7 @@ struct PrivateChannelView: View {
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { _ in
-                            if liveMesh {
+                            if liveTalk {
                                 guard !node.isTalking else { return }
                                 node.startTalkingTo(peerID: peerId)
                                 return
@@ -618,6 +622,8 @@ struct PrivateChannelView: View {
             while !Task.isCancelled {
                 notesJSON = node.listChannelNotesJSON(channelID: channelId)
                 liveMesh = node.isDirectlyConnected(peerID: peerId)
+                liveRelay = node.isRelayConnected(peerID: peerId)
+                liveTalk = node.isLiveTalkAvailable(peerID: peerId)
                 peerFocused = ChannelRow.peerFocused(
                     in: node.channelsJSON,
                     channelID: channelId,

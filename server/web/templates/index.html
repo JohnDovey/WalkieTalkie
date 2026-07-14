@@ -68,7 +68,7 @@
                 style="width: 140px; height: 140px;">Hold<br>to Talk</button>
       </div>
       <ul id="private-note-list" class="list-group mb-2"></ul>
-      <p class="text-muted small">Live unicast when the peer has a direct mesh link; otherwise clips queue via this Base Station until they focus the channel.</p>
+      <p class="text-muted small">Live unicast over direct mesh or the Base Station SFU when the peer is reachable that way; otherwise clips queue via this Base Station until they focus the channel.</p>
     </div>
 
     <h1 class="h4 mb-3">Devices</h1>
@@ -459,25 +459,40 @@
       .on('mousedown touchstart', function (e) { e.preventDefault(); startTalking(); })
       .on('mouseup mouseleave touchend touchcancel', function (e) { e.preventDefault(); stopTalking(); });
 
-    // Private channel: live unicast when peer has a direct mesh PC; else clip upload.
+    // Private channel: live unicast (direct mesh or SFU) when available; else clip.
     var privateChunks = [];
     var privateRecorder = null;
     var privateHolding = false;
     var privateLive = false;
+    var privateLiveMode = ''; // 'mesh' | 'relay' | ''
     var privateLiveHolding = false;
 
     function refreshPrivateMode() {
       if (!activeChannelPeer || !activeChannelPeer.id) {
         privateLive = false;
+        privateLiveMode = '';
         $('#private-mode').text('Mode: …');
         return;
       }
       $.getJSON('/api/talk/peer?id=' + encodeURIComponent(activeChannelPeer.id), function (info) {
-        privateLive = !!(info && info.direct);
-        $('#private-mode').text(privateLive ? 'Mode: live mesh' : 'Mode: clip via Base Station');
-        $('#private-talk-btn').html(privateLive ? 'Hold<br>live Talk' : 'Hold<br>to record');
+        privateLive = !!(info && info.live);
+        if (info && info.direct) privateLiveMode = 'mesh';
+        else if (info && info.relay) privateLiveMode = 'relay';
+        else privateLiveMode = '';
+        var label = 'Mode: clip via Base Station';
+        var btn = 'Hold<br>to record';
+        if (privateLiveMode === 'mesh') {
+          label = 'Mode: live mesh';
+          btn = 'Hold<br>live Talk';
+        } else if (privateLiveMode === 'relay') {
+          label = 'Mode: live relay';
+          btn = 'Hold<br>live Talk';
+        }
+        $('#private-mode').text(label);
+        $('#private-talk-btn').html(btn);
       }).fail(function () {
         privateLive = false;
+        privateLiveMode = '';
         $('#private-mode').text('Mode: clip via Base Station');
         $('#private-talk-btn').html('Hold<br>to record');
       });

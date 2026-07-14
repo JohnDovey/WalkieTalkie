@@ -13,24 +13,43 @@ import "sync/atomic"
 // it from PTChannelManager's transmit-start delegate callback instead of a
 // raw button (see the plan's iOS phase).
 func (mm *MeshManager) StartTalking() {
+	if atomic.LoadInt32(&mm.talking) == 1 {
+		return
+	}
+	mm.clearRelayRoute()
 	mm.mu.Lock()
 	mm.talkTarget = ""
 	mm.mu.Unlock()
 	mm.startTalkLoop()
 }
 
-// StartTalkingTo is like StartTalking but unicast frames to one direct peer
-// (private-channel live Talk). If already talking, this is a no-op — stop
-// first to switch targets. Peers only reachable via SFU should use clip
-// fallback instead (DirectConnected is false).
+// StartTalkingTo is like StartTalking but unicast frames to one peer
+// (private-channel live Talk). Uses a direct PeerConnection when available,
+// otherwise SFU Hub unicast when LiveTalkAvailable. Callers should check
+// LiveTalkAvailable first; otherwise keep using clip upload.
 func (mm *MeshManager) StartTalkingTo(peerID string) {
 	if peerID == "" {
 		mm.StartTalking()
 		return
 	}
+	if atomic.LoadInt32(&mm.talking) == 1 {
+		return
+	}
+	mm.clearRelayRoute()
 	mm.mu.Lock()
 	mm.talkTarget = peerID
+	direct := false
+	if _, ok := mm.peers[peerID]; ok {
+		direct = true
+	}
+	relay := false
+	if _, ok := mm.relayPeers[peerID]; ok {
+		relay = true
+	}
 	mm.mu.Unlock()
+	if !direct && relay && mm.OnRelaySetRoute != nil {
+		_ = mm.OnRelaySetRoute(peerID)
+	}
 	mm.startTalkLoop()
 }
 
@@ -54,7 +73,12 @@ func (mm *MeshManager) startTalkLoop() {
 // StopTalking stops the talk loop started by StartTalking / StartTalkingTo.
 // Safe to call even if not currently talking.
 func (mm *MeshManager) StopTalking() {
+	mm.clearRelayRoute()
 	if !atomic.CompareAndSwapInt32(&mm.talking, 1, 0) {
+		// Still clear talkTarget even if we weren't talking.
+		mm.mu.Lock()
+		mm.talkTarget = ""
+		mm.mu.Unlock()
 		return
 	}
 	mm.mu.Lock()
@@ -63,6 +87,12 @@ func (mm *MeshManager) StopTalking() {
 	mm.mu.Unlock()
 	if stop != nil {
 		close(stop)
+	}
+}
+
+func (mm *MeshManager) clearRelayRoute() {
+	if mm.OnRelayClearRoute != nil {
+		mm.OnRelayClearRoute()
 	}
 }
 
@@ -87,7 +117,15 @@ func (mm *MeshManager) talkLoop(stop chan struct{}) {
 		target := mm.talkTarget
 		mm.mu.Unlock()
 		if target != "" {
-			_ = mm.SendTo(target, frame)
+			if mm.SendTo(target, frame) {
+				continue
+			}
+			if mm.OnRelayUnicast != nil && mm.RelayConnected(target) {
+				mm.OnRelayUnicast(target, frame)
+				if mm.OnOpusFrameSent != nil {
+					mm.OnOpusFrameSent(len(frame), 1)
+				}
+			}
 		} else {
 			mm.Broadcast(frame)
 		}

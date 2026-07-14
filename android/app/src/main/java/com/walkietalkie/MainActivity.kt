@@ -767,7 +767,9 @@ private fun PrivateChannelScreen(
     val context = LocalContext.current
     var notesJson by remember { mutableStateOf("[]") }
     var talking by remember { mutableStateOf(false) }
+    var liveTalk by remember { mutableStateOf(false) }
     var liveMesh by remember { mutableStateOf(false) }
+    var liveRelay by remember { mutableStateOf(false) }
     var peerFocused by remember { mutableStateOf(false) }
     val recorder = remember { ClipRecorder(context) }
     val scope = rememberCoroutineScope()
@@ -791,6 +793,8 @@ private fun PrivateChannelScreen(
         while (true) {
             notesJson = PTTService.instance?.listChannelNotesJSON(channelId) ?: "[]"
             liveMesh = PTTService.instance?.isDirectlyConnected(peerId) == true
+            liveRelay = PTTService.instance?.isRelayConnected(peerId) == true
+            liveTalk = PTTService.instance?.isLiveTalkAvailable(peerId) == true
             peerFocused = channelPeerFocused(
                 PTTService.instance?.listChannelsJSON() ?: "[]",
                 channelId,
@@ -813,6 +817,8 @@ private fun PrivateChannelScreen(
     val modeLabel = when {
         liveMesh && peerFocused -> "Mode: live mesh (peer is here)"
         liveMesh -> "Mode: live mesh"
+        liveRelay && peerFocused -> "Mode: live relay (peer is here)"
+        liveRelay -> "Mode: live relay"
         else -> "Mode: clip via Base Station"
     }
 
@@ -833,7 +839,7 @@ private fun PrivateChannelScreen(
         Text(
             text = modeLabel,
             style = MaterialTheme.typography.bodySmall,
-            color = if (liveMesh) Color(0xFF1F6F43) else Color.Gray,
+            color = if (liveTalk) Color(0xFF1F6F43) else Color.Gray,
             modifier = Modifier.padding(top = 4.dp),
         )
 
@@ -846,11 +852,11 @@ private fun PrivateChannelScreen(
                     color = if (talking) Color(0xFFC0392B) else Color(0xFF1F6F43),
                     shape = CircleShape,
                 )
-                .pointerInput(liveMesh) {
+                .pointerInput(liveTalk) {
                     detectTapGestures(
                         onPress = {
                             talking = true
-                            if (liveMesh) {
+                            if (liveTalk) {
                                 PTTService.instance?.startTalkingTo(peerId)
                                 try {
                                     tryAwaitRelease()
@@ -884,9 +890,9 @@ private fun PrivateChannelScreen(
         ) {
             Text(
                 text = when {
-                    talking && liveMesh -> "Live…"
+                    talking && liveTalk -> "Live…"
                     talking -> "Recording…"
-                    liveMesh -> "Hold for live talk"
+                    liveTalk -> "Hold for live talk"
                     else -> "Hold to record clip"
                 },
                 color = Color.White,
@@ -895,7 +901,7 @@ private fun PrivateChannelScreen(
         }
 
         Text(
-            "Live when the peer is on direct Wi‑Fi mesh; otherwise clips queue until they focus this channel.",
+            "Live when the peer is on direct mesh or the Base Station SFU; otherwise clips queue until they focus this channel.",
             style = MaterialTheme.typography.bodySmall,
             color = Color.Gray,
         )

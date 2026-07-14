@@ -10,7 +10,7 @@ When both sender and recipient are online on the same LAN, transfer Opus clips p
 
 ## Live private-channel SFU rooms
 
-Phase 6 covers **direct unicast** on phones and the Base Station web UI. Still TODO: private-channel use of `core/relay` + `server/relay` Hub rooms when peers are SFU-only / force-relayed.
+✅ Shipped as Hub **unicast routes** in `server` 1.4.0 / android `1.2.0` / ios `0.4.0` (not full named rooms). Private Hold-to-Talk over the SFU uses `SetRoute` / `InjectTo` so Opus only reaches the target peer. See Phase 6 doc.
 
 ## Multi-Base-Station voice blob replication
 

@@ -198,6 +198,18 @@ class PTTService : LifecycleService() {
         } catch (_: Exception) {
             false
         }
+    fun isRelayConnected(peerID: String): Boolean =
+        try {
+            node?.isRelayConnected(peerID) == true
+        } catch (_: Exception) {
+            false
+        }
+    fun isLiveTalkAvailable(peerID: String): Boolean =
+        try {
+            node?.isLiveTalkAvailable(peerID) == true
+        } catch (_: Exception) {
+            false
+        }
     fun listDevicesJSON(): String = node?.listDevicesJSON() ?: "[]"
     fun selfId(): String = node?.selfID() ?: ""
     fun baseStationURL(): String = node?.baseStationURL() ?: ""

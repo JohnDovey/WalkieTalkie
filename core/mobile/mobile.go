@@ -120,6 +120,16 @@ func StartNode(dataDir, name, platform, appVersion string, source media.AudioSou
 	session.OnRelayBroadcast = func(frame []byte) {
 		rc.Broadcast(frame)
 	}
+	session.OnRelayUnicast = func(peerID string, frame []byte) {
+		// Hub route already armed via OnRelaySetRoute; same send track.
+		rc.Broadcast(frame)
+	}
+	session.OnRelaySetRoute = func(toID string) error {
+		return rc.SetRoute(toID)
+	}
+	session.OnRelayClearRoute = func() {
+		_ = rc.ClearRoute()
+	}
 
 	if _, err := store.UpsertFromDirectContact(selfID, name, platform, appVersion, []string{"audio"}, "direct", time.Now()); err != nil {
 		n.Stop()
@@ -372,9 +382,9 @@ func (n *Node) StartTalking() {
 	n.session.StartTalking()
 }
 
-// StartTalkingTo transmits mic audio only to peerID over a direct mesh
-// PeerConnection (private-channel live Talk). Prefer IsDirectlyConnected
-// first; otherwise keep using clip upload.
+// StartTalkingTo transmits mic audio only to peerID (private-channel live
+// Talk) over a direct mesh PeerConnection or the SFU Hub. Prefer
+// IsLiveTalkAvailable first; otherwise keep using clip upload.
 func (n *Node) StartTalkingTo(peerID string) {
 	n.session.StartTalkingTo(peerID)
 }
@@ -390,6 +400,22 @@ func (n *Node) IsDirectlyConnected(peerID string) bool {
 		return false
 	}
 	return n.session.DirectConnected(peerID)
+}
+
+// IsRelayConnected reports peerID is reached via the Base Station SFU.
+func (n *Node) IsRelayConnected(peerID string) bool {
+	if n.session == nil {
+		return false
+	}
+	return n.session.RelayConnected(peerID)
+}
+
+// IsLiveTalkAvailable reports private live Talk can reach peerID (direct or SFU).
+func (n *Node) IsLiveTalkAvailable(peerID string) bool {
+	if n.session == nil {
+		return false
+	}
+	return n.session.LiveTalkAvailable(peerID)
 }
 
 // UpdateLocation records a new GPS fix for this device and re-announces it

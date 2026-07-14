@@ -22,6 +22,8 @@ type Talker interface {
 	StartTalkingTo(peerID string)
 	StopTalking()
 	DirectConnected(peerID string) bool
+	RelayConnected(peerID string) bool
+	LiveTalkAvailable(peerID string) bool
 }
 
 // DeviceListEnricher optionally wraps GET /api/devices with extra fields
@@ -232,7 +234,13 @@ func (h *Handlers) talkPeer(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "id query required", http.StatusBadRequest)
 		return
 	}
-	writeJSON(w, map[string]bool{"direct": h.Talker.DirectConnected(id)})
+	direct := h.Talker.DirectConnected(id)
+	relay := h.Talker.RelayConnected(id)
+	writeJSON(w, map[string]bool{
+		"direct": direct,
+		"relay":  relay,
+		"live":   h.Talker.LiveTalkAvailable(id),
+	})
 }
 
 func (h *Handlers) about(w http.ResponseWriter, r *http.Request) {

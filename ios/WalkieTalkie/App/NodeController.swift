@@ -139,6 +139,14 @@ final class NodeController: ObservableObject {
         node?.isDirectlyConnected(peerID) ?? false
     }
 
+    func isRelayConnected(peerID: String) -> Bool {
+        node?.isRelayConnected(peerID) ?? false
+    }
+
+    func isLiveTalkAvailable(peerID: String) -> Bool {
+        node?.isLiveTalkAvailable(peerID) ?? false
+    }
+
     func updateNickname(_ name: String) {
         nickname = name
         NicknameStore.set(name)

@@ -112,12 +112,16 @@ func main() {
 		log.Fatalf("init SFU hub: %v", err)
 	}
 	defer hub.Close()
+	hub.OnParticipantJoined = session.MarkRelayPeer
 	hub.OnRemoteFrame = func(fromID string, payload []byte) {
 		session.MarkRelayPeer(fromID)
 		if session.OnOpusFrameReceived != nil {
 			session.OnOpusFrameReceived(fromID, len(payload))
 		}
-		// sink via MeshManager's own sink reference — pull through Broadcast path
+		// Private unicast to someone else must not play on the Base Station.
+		if to, routed := hub.RouteOf(fromID); routed && to != selfID {
+			return
+		}
 		if sink != nil {
 			_ = sink.WriteOpusFrame(fromID, payload)
 		}
@@ -130,6 +134,16 @@ func main() {
 	session.SetRelay(hostBridge)
 	session.OnRelayBroadcast = func(frame []byte) {
 		hub.InjectLocal(selfID, frame)
+	}
+	session.OnRelayUnicast = func(peerID string, frame []byte) {
+		hub.InjectTo(selfID, peerID, frame)
+	}
+	session.OnRelaySetRoute = func(toID string) error {
+		hub.SetRoute(selfID, toID)
+		return nil
+	}
+	session.OnRelayClearRoute = func() {
+		hub.ClearRoute(selfID)
 	}
 
 	relaySrv := relay.New(hub)

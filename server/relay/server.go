@@ -13,7 +13,7 @@ import (
 	corerelay "github.com/JohnDovey/WalkieTalkie/core/relay"
 )
 
-// Server hosts a Hub behind POST /offer.
+// Server hosts a Hub behind POST /offer and private-Talk POST/DELETE /route.
 type Server struct {
 	Hub  *corerelay.Hub
 	ln   net.Listener
@@ -27,6 +27,11 @@ type offerRequest struct {
 
 type offerResponse struct {
 	SDP string `json:"sdp"`
+}
+
+type routeRequest struct {
+	Sender string `json:"sender"`
+	To     string `json:"to"`
 }
 
 // New builds a Server around hub.
@@ -43,6 +48,8 @@ func (s *Server) Start(port int) (int, error) {
 	s.ln = ln
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /offer", s.handleOffer)
+	mux.HandleFunc("POST /route", s.handleSetRoute)
+	mux.HandleFunc("DELETE /route", s.handleClearRoute)
 	s.http = &http.Server{Handler: mux}
 	go func() {
 		if err := s.http.Serve(ln); err != nil && err != http.ErrServerClosed {
@@ -78,4 +85,28 @@ func (s *Server) handleOffer(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(offerResponse{SDP: answer})
+}
+
+func (s *Server) handleSetRoute(w http.ResponseWriter, r *http.Request) {
+	var req routeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if req.Sender == "" || req.To == "" {
+		http.Error(w, "sender and to required", http.StatusBadRequest)
+		return
+	}
+	s.Hub.SetRoute(req.Sender, req.To)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleClearRoute(w http.ResponseWriter, r *http.Request) {
+	sender := r.URL.Query().Get("sender")
+	if sender == "" {
+		http.Error(w, "sender query required", http.StatusBadRequest)
+		return
+	}
+	s.Hub.ClearRoute(sender)
+	w.WriteHeader(http.StatusNoContent)
 }

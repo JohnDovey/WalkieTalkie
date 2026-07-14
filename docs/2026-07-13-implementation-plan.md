@@ -180,7 +180,7 @@ This is deliberately a **different merge rule** from the existing `PeerReport` m
 - **Multi-Base-Station registry synchronization** — ✅ …
 - **Server GPS estimation** — ✅ …
 - **Web UI: network map page** — ✅ …
-- **Relay threshold + Base Station SFU** (`core/relay` + `server/relay`): mesh force-relay when `RelayEnabled` and peer count ≥ `RelayThreshold`; ICE-fail fallback to SFU when enabled. Advertised via mDNS `relay=` TXT. Private-channel live SFU remains deferred (see `TODO-p2p-voice-and-private-relay.md`).
+- **Relay threshold + Base Station SFU** (`core/relay` + `server/relay`): mesh force-relay when `RelayEnabled` and peer count ≥ `RelayThreshold`; ICE-fail fallback to SFU when enabled. Advertised via mDNS `relay=` TXT. Private-channel live SFU uses Hub unicast routes (Phase 6); named multi-party rooms remain deferred.
 - **Web UI: Talk control** — ✅ …
 - **Linux packaging**: `tools/build-linux-server.sh` (native Linux only; refuses macOS cross-compile).
 - **Verify**: registry sync, GPS estimate, map, Talk — ✅. Relay threshold forces SFU path when enabled — ✅ in software. Three-way Win+Mac+Linux mesh on real hardware **not** run in this environment (accepted gap; Windows/Linux scripts produce artifacts for off-box testing).
@@ -196,7 +196,7 @@ This is deliberately a **different merge rule** from the existing `PeerReport` m
 - **Verify (needs hardware)**: Wear on Wi-Fi joins Base Station mesh; Apple Watch Talk relays via iPhone.
 
 **Phase 6 — Private-channel live Talk** — 🟡 in progress (2026-07-14)
-- Unicast `StartTalkingTo` when peer is directly connected; clips otherwise. Multi-device `focused` set. Base Station web private panel live/clip parity. Multi-Base channel + voice-note blob sync (`server` 1.3.1). See `docs/2026-07-14-phase6-private-live-talk.md`.
+- Unicast `StartTalkingTo` when peer is directly connected **or** on the Base Station SFU (Hub unicast routes). Clips otherwise. Multi-device `focused` set. Base Station web private panel live/clip/relay parity. Multi-Base channel + voice-note blob sync. See `docs/2026-07-14-phase6-private-live-talk.md` (`server` 1.4.0, android `1.2.0`, ios `0.4.0`).
 
 ## Risks and tradeoffs
 

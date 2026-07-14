@@ -54,8 +54,18 @@ type MeshManager struct {
 	relayEnabled   bool // when false, DialViaRelay is never used
 
 	// OnRelayBroadcast, if set, receives every Broadcast frame so a local SFU
-	// host can InjectLocal into the Hub.
+	// host can InjectLocal into the Hub / client can write its SFU send track.
 	OnRelayBroadcast func(frame []byte)
+
+	// OnRelayUnicast, if set, receives private Talk frames when the target is
+	// SFU-only (Hub InjectTo or Client Broadcast after SetRoute).
+	OnRelayUnicast func(peerID string, frame []byte)
+
+	// OnRelaySetRoute arms Hub unicast isolation before private SFU Talk.
+	OnRelaySetRoute func(toID string) error
+
+	// OnRelayClearRoute restores Hub fan-out after private Talk ends.
+	OnRelayClearRoute func()
 
 	OnConnectionStateChange func(peerID string, state webrtc.PeerConnectionState)
 
@@ -169,11 +179,31 @@ func (mm *MeshManager) Connected(peerID string) bool {
 }
 
 // DirectConnected reports a direct PeerConnection (not SFU-only) for peerID.
-// Live private unicast Talk requires this; relay-only peers fall back to clips.
 func (mm *MeshManager) DirectConnected(peerID string) bool {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
 	_, ok := mm.peers[peerID]
+	return ok
+}
+
+// RelayConnected reports peerID is marked reachable via the SFU only.
+func (mm *MeshManager) RelayConnected(peerID string) bool {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+	_, ok := mm.relayPeers[peerID]
+	return ok
+}
+
+// LiveTalkAvailable is true when private live Talk can reach peerID over a
+// direct PeerConnection or the SFU Hub (relayPeers). Offline / unreachable
+// peers should keep using clip upload.
+func (mm *MeshManager) LiveTalkAvailable(peerID string) bool {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+	if _, ok := mm.peers[peerID]; ok {
+		return true
+	}
+	_, ok := mm.relayPeers[peerID]
 	return ok
 }
 
