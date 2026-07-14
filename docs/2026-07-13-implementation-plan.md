@@ -190,10 +190,13 @@ This is deliberately a **different merge rule** from the existing `PeerReport` m
 - `gomobile bind` xcframework; SwiftUI app with permissions, `PTChannelManager` + Hold-to-Talk, BLE, GPS, Ogg Opus voice notes / private channels, Wi-Fi mesh restart. See `docs/2026-07-14-ios-phase4.md`.
 - **Verify (pending hardware + paid Team ID)**: iPhone joins the Android+desktop mesh; `PTChannelManager`'s system UI reflects the active transmitter; PTT works with the screen locked.
 
-**Phase 5 — Wearables** — 🟡 in progress (2026-07-14)
+**Phase 5 — Wearables** — 🟡 software complete (hardware verify pending, 2026-07-14)
 - `android/wear` `0.2.0`: Talk / Settings / About pager over shared `:mesh` (`platform=wear`).
 - `ios/WalkieTalkieWatch`: WatchConnectivity relay + phone status push. See `docs/2026-07-14-phase5-wearables.md`.
 - **Verify (needs hardware)**: Wear on Wi-Fi joins Base Station mesh; Apple Watch Talk relays via iPhone.
+
+**Phase 6 — Private-channel live Talk** — 🟡 in progress (2026-07-14)
+- First slice of deferred live private audio: `MeshManager.SendTo` / `StartTalkingTo`; Android/iOS private Hold-to-Talk uses live unicast when the peer is directly connected, else clips. See `docs/2026-07-14-phase6-private-live-talk.md`.
 
 ## Risks and tradeoffs
 

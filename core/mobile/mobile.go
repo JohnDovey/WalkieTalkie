@@ -372,9 +372,24 @@ func (n *Node) StartTalking() {
 	n.session.StartTalking()
 }
 
+// StartTalkingTo transmits mic audio only to peerID over a direct mesh
+// PeerConnection (private-channel live Talk). Prefer IsDirectlyConnected
+// first; otherwise keep using clip upload.
+func (n *Node) StartTalkingTo(peerID string) {
+	n.session.StartTalkingTo(peerID)
+}
+
 // StopTalking stops transmitting (call on PTT-button-up).
 func (n *Node) StopTalking() {
 	n.session.StopTalking()
+}
+
+// IsDirectlyConnected reports a direct WebRTC path to peerID (not SFU-only).
+func (n *Node) IsDirectlyConnected(peerID string) bool {
+	if n.session == nil {
+		return false
+	}
+	return n.session.DirectConnected(peerID)
 }
 
 // UpdateLocation records a new GPS fix for this device and re-announces it

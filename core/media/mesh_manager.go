@@ -46,8 +46,9 @@ type MeshManager struct {
 	peers      map[string]*peerConn
 	relayPeers map[string]struct{} // peers reached only via SFU
 
-	talking  int32
-	stopTalk chan struct{}
+	talking    int32
+	stopTalk   chan struct{}
+	talkTarget string // empty = Broadcast (group PTT); set = unicast to that peer ID
 
 	relayThreshold int  // 0 = disabled
 	relayEnabled   bool // when false, DialViaRelay is never used
@@ -164,6 +165,15 @@ func (mm *MeshManager) Connected(peerID string) bool {
 		return true
 	}
 	_, ok := mm.relayPeers[peerID]
+	return ok
+}
+
+// DirectConnected reports a direct PeerConnection (not SFU-only) for peerID.
+// Live private unicast Talk requires this; relay-only peers fall back to clips.
+func (mm *MeshManager) DirectConnected(peerID string) bool {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+	_, ok := mm.peers[peerID]
 	return ok
 }
 
@@ -412,6 +422,25 @@ func (mm *MeshManager) Broadcast(frame []byte) {
 	if mm.OnOpusFrameSent != nil && n > 0 {
 		mm.OnOpusFrameSent(len(frame), n)
 	}
+}
+
+// SendTo writes one Opus frame to a single direct peer's send track.
+// Returns false if that peer has no direct PeerConnection (e.g. SFU-only).
+func (mm *MeshManager) SendTo(peerID string, frame []byte) bool {
+	mm.mu.Lock()
+	p, ok := mm.peers[peerID]
+	mm.mu.Unlock()
+	if !ok || p == nil || p.track == nil {
+		return false
+	}
+	sample := media.Sample{Data: frame, Duration: opusFrameDuration}
+	if err := p.track.WriteSample(sample); err != nil {
+		return false
+	}
+	if mm.OnOpusFrameSent != nil {
+		mm.OnOpusFrameSent(len(frame), 1)
+	}
+	return true
 }
 
 func (mm *MeshManager) isTalking() bool {

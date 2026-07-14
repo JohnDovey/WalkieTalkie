@@ -190,7 +190,14 @@ class PTTService : LifecycleService() {
     }
 
     fun startTalking() = node?.startTalking()
+    fun startTalkingTo(peerID: String) = node?.startTalkingTo(peerID)
     fun stopTalking() = node?.stopTalking()
+    fun isDirectlyConnected(peerID: String): Boolean =
+        try {
+            node?.isDirectlyConnected(peerID) == true
+        } catch (_: Exception) {
+            false
+        }
     fun listDevicesJSON(): String = node?.listDevicesJSON() ?: "[]"
     fun selfId(): String = node?.selfID() ?: ""
     fun baseStationURL(): String = node?.baseStationURL() ?: ""

@@ -125,9 +125,18 @@ final class NodeController: ObservableObject {
         isTalking = true
     }
 
+    func startTalkingTo(peerID: String) {
+        node?.startTalkingTo(peerID)
+        isTalking = true
+    }
+
     func stopTalking() {
         node?.stopTalking()
         isTalking = false
+    }
+
+    func isDirectlyConnected(peerID: String) -> Bool {
+        node?.isDirectlyConnected(peerID) ?? false
     }
 
     func updateNickname(_ name: String) {

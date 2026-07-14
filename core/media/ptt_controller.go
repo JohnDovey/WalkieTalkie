@@ -7,10 +7,34 @@ import "sync/atomic"
 // frames are sent while not talking. Safe to call repeatedly; a second call
 // while already talking is a no-op.
 //
+// Clears any prior StartTalkingTo target so this path is always mesh-wide.
+//
 // Platform wiring: Android/desktop call this on PTT-button-down; iOS calls
 // it from PTChannelManager's transmit-start delegate callback instead of a
 // raw button (see the plan's iOS phase).
 func (mm *MeshManager) StartTalking() {
+	mm.mu.Lock()
+	mm.talkTarget = ""
+	mm.mu.Unlock()
+	mm.startTalkLoop()
+}
+
+// StartTalkingTo is like StartTalking but unicast frames to one direct peer
+// (private-channel live Talk). If already talking, this is a no-op — stop
+// first to switch targets. Peers only reachable via SFU should use clip
+// fallback instead (DirectConnected is false).
+func (mm *MeshManager) StartTalkingTo(peerID string) {
+	if peerID == "" {
+		mm.StartTalking()
+		return
+	}
+	mm.mu.Lock()
+	mm.talkTarget = peerID
+	mm.mu.Unlock()
+	mm.startTalkLoop()
+}
+
+func (mm *MeshManager) startTalkLoop() {
 	if mm.source == nil {
 		return
 	}
@@ -27,14 +51,15 @@ func (mm *MeshManager) StartTalking() {
 	go mm.talkLoop(stop)
 }
 
-// StopTalking stops the talk loop started by StartTalking. Safe to call
-// even if not currently talking.
+// StopTalking stops the talk loop started by StartTalking / StartTalkingTo.
+// Safe to call even if not currently talking.
 func (mm *MeshManager) StopTalking() {
 	if !atomic.CompareAndSwapInt32(&mm.talking, 1, 0) {
 		return
 	}
 	mm.mu.Lock()
 	stop := mm.stopTalk
+	mm.talkTarget = ""
 	mm.mu.Unlock()
 	if stop != nil {
 		close(stop)
@@ -58,6 +83,13 @@ func (mm *MeshManager) talkLoop(stop chan struct{}) {
 		if err != nil {
 			return
 		}
-		mm.Broadcast(frame)
+		mm.mu.Lock()
+		target := mm.talkTarget
+		mm.mu.Unlock()
+		if target != "" {
+			_ = mm.SendTo(target, frame)
+		} else {
+			mm.Broadcast(frame)
+		}
 	}
 }

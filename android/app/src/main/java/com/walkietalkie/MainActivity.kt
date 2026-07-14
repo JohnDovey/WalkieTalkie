@@ -831,6 +831,17 @@ private fun PrivateChannelScreen(
                     detectTapGestures(
                         onPress = {
                             talking = true
+                            val live = PTTService.instance?.isDirectlyConnected(peerId) == true
+                            if (live) {
+                                PTTService.instance?.startTalkingTo(peerId)
+                                try {
+                                    tryAwaitRelease()
+                                } finally {
+                                    talking = false
+                                    PTTService.instance?.stopTalking()
+                                }
+                                return@detectTapGestures
+                            }
                             try {
                                 recorder.start()
                             } catch (_: Exception) {
@@ -861,7 +872,7 @@ private fun PrivateChannelScreen(
         }
 
         Text(
-            "Clips queue when the other party is not focused here.",
+            "Live when the peer is on Wi‑Fi mesh; otherwise clips queue until they focus this channel.",
             style = MaterialTheme.typography.bodySmall,
             color = Color.Gray,
         )

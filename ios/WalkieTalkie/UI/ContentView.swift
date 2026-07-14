@@ -536,20 +536,25 @@ struct PrivateChannelView: View {
                     }
                 }
             }
-            Text(recording ? "Recording clip…" : "Hold below to send a private clip")
+            Text(recording || node.isTalking ? "Live / recording…" : "Hold below — live if peer is on mesh, else clip")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Text(recording ? "Recording…" : "Hold to Talk (channel)")
+            Text(recording || node.isTalking ? "Talking…" : "Hold to Talk (channel)")
                 .font(.headline)
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 28)
-                .background(recording ? Color.red : Color.green)
+                .background((recording || node.isTalking) ? Color.red : Color.green)
                 .clipShape(Circle())
                 .padding(24)
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { _ in
+                            if node.isDirectlyConnected(peerID: peerId) {
+                                guard !node.isTalking else { return }
+                                node.startTalkingTo(peerID: peerId)
+                                return
+                            }
                             guard !recording else { return }
                             do {
                                 try recorder.start()
@@ -559,6 +564,10 @@ struct PrivateChannelView: View {
                             }
                         }
                         .onEnded { _ in
+                            if node.isTalking {
+                                node.stopTalking()
+                                return
+                            }
                             guard recording else { return }
                             recording = false
                             Task {

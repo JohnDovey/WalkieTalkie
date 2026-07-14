@@ -1,4 +1,6 @@
-# TODO: P2P voice notes and live private-channel relay
+# TODO: P2P voice notes and remaining private-relay work
+
+See also Phase 6 first slice: [`2026-07-14-phase6-private-live-talk.md`](2026-07-14-phase6-private-live-talk.md) (**live unicast** when the peer has a direct mesh PeerConnection — shipped in progress).
 
 Deferred from [`2026-07-13-voice-message-and-private-channels.md`](2026-07-13-voice-message-and-private-channels.md).
 
@@ -6,14 +8,9 @@ Deferred from [`2026-07-13-voice-message-and-private-channels.md`](2026-07-13-vo
 
 When both sender and recipient are online on the same LAN, transfer Opus clips peer-to-peer (data channel or short-lived HTTP between nodes) and bypass the Base Station inbox. Fall back to store-and-forward when the peer is unreachable.
 
-## Live private-channel WebRTC / SFU
+## Live private-channel SFU rooms
 
-While both participants are focused on a private channel, stream live Opus via:
-
-- Unicast WebRTC (reuse mesh `PeerConnection`, route frames only to that peer), or
-- Server SFU once private-channel wiring uses `core/relay` + `server/relay` (the **mesh** SFU for force-relay / ICE-fail landed in Phase 3; private-channel use of that Hub is still TODO).
-
-Clips / store-and-forward remain the fallback when a participant is not focused.
+Phase 6 covers **direct unicast** only. Still TODO: private-channel use of `core/relay` + `server/relay` Hub rooms when peers are SFU-only / force-relayed.
 
 ## Multi-Base-Station voice blob replication
 

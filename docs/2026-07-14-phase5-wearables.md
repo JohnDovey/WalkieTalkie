@@ -4,7 +4,7 @@ Started 2026-07-14. Wear OS standalone mesh participant + watchOS WatchConnectiv
 
 ## Status
 
-**In progress** — Wear OS `0.2.0` (Talk / Settings / About pager); watchOS relay stub with phone→watch status push.
+**Software complete** (hardware verify pending) — Wear OS `0.2.0` (Talk / Settings / About pager); watchOS relay stub with phone→watch status push.
 
 Software builds verified:
 - `./android-build.sh :mesh:assembleDebug :app:assembleDebug :wear:assembleDebug` ✅
