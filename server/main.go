@@ -303,6 +303,7 @@ func main() {
 	purgeStop := make(chan struct{})
 	defer close(purgeStop)
 	go voicenote.RunPurge(purgeStop, voiceStore)
+	go runGPSHistoryPurge(purgeStop, store)
 
 	usageHandlers := &usage.Handlers{Usage: usageStats, Reg: store}
 
@@ -453,6 +454,21 @@ func runStaleSweep(ctx context.Context, store *registry.Store, selfID string) {
 	}
 }
 
+func runGPSHistoryPurge(stop <-chan struct{}, store *registry.Store) {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			if n, err := store.PurgeGPSHistory(time.Now()); err == nil && n > 0 {
+				log.Printf("gps history: purged %d sample(s)", n)
+			}
+		}
+	}
+}
+
 func bridgeRoomToDirect(
 	voice *voicenote.Store,
 	hub *corerelay.Hub,
@@ -484,6 +500,9 @@ func bridgeRoomToDirect(
 	}
 	add(ch.ParticipantA)
 	add(ch.ParticipantB)
+	for _, id := range ch.OtherParticipants(fromID) {
+		add(id)
+	}
 	for _, id := range candidates {
 		if id == fromID || id == selfID {
 			continue
@@ -521,7 +540,9 @@ func channelLiveTalkPeers(voice *voicenote.Store, session *media.MeshManager, se
 		add(id)
 	}
 	if len(targets) == 0 {
-		add(ch.PeerOf(selfID))
+		for _, id := range ch.OtherParticipants(selfID) {
+			add(id)
+		}
 	}
 	return targets
 }

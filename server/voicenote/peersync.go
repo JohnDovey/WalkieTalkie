@@ -113,6 +113,23 @@ func (s *Store) UpsertChannelFromSync(remote Channel) (bool, error) {
 				changed = true
 			}
 		}
+		// Union participants.
+		remote.normalizeParticipants()
+		next.normalizeParticipants()
+		for _, id := range remote.Participants {
+			before := len(next.Participants)
+			next.addParticipant(id)
+			if len(next.Participants) != before {
+				changed = true
+			}
+		}
+		for _, id := range remote.PendingInvites {
+			before := len(next.PendingInvites)
+			next.addPendingInvite(id)
+			if len(next.PendingInvites) != before {
+				changed = true
+			}
+		}
 		if remote.CreatedAt.Before(next.CreatedAt) && !remote.CreatedAt.IsZero() {
 			next.CreatedAt = remote.CreatedAt
 			changed = true

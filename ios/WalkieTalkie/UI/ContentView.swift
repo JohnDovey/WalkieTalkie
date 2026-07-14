@@ -339,7 +339,7 @@ struct ChatsDrawerView: View {
                                 dismiss()
                             } label: {
                                 HStack {
-                                    Text(ch.peerName.isEmpty ? ch.peerId : ch.peerName)
+                                    Text(ch.displayName)
                                     if ch.status == "pending" { Text("(pending)").foregroundStyle(.secondary) }
                                     Spacer()
                                     if ch.unread > 0 {
@@ -535,7 +535,7 @@ struct PrivateChannelView: View {
 
     var body: some View {
         VStack {
-            Text("Private: \(peerName)").font(.headline)
+            Text("Private: \(ChannelRow.parse(node.channelsJSON).first(where: { $0.id == channelId })?.displayName ?? peerName)").font(.headline)
             Text(modeLabel)
                 .font(.caption)
                 .foregroundStyle(liveTalk ? Color.green : .secondary)

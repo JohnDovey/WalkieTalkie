@@ -62,6 +62,7 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/voice-notes/{id}", h.deleteNote)
 
 	mux.HandleFunc("POST /api/channels/invite", h.invite)
+	mux.HandleFunc("POST /api/channels/{id}/invite", h.inviteMore)
 	mux.HandleFunc("POST /api/channels/{id}/accept", h.accept)
 	mux.HandleFunc("GET /api/channels", h.listChannels)
 	mux.HandleFunc("POST /api/channels/{id}/close", h.closeChannel)
@@ -169,11 +170,40 @@ func (h *Handlers) upload(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "channel not found", http.StatusNotFound)
 			return
 		}
-		if ch.ParticipantA != fromID && ch.ParticipantB != fromID {
+		if !ch.isParticipant(fromID) {
 			http.Error(w, "not a participant", http.StatusForbidden)
 			return
 		}
-		toID = ch.PeerOf(fromID)
+		recipients := ch.OtherParticipants(fromID)
+		if len(recipients) == 0 {
+			http.Error(w, "no other participants", http.StatusBadRequest)
+			return
+		}
+		var notes []*Note
+		for _, rid := range recipients {
+			var n *Note
+			var nerr error
+			if noteID != "" && len(recipients) == 1 {
+				n, nerr = h.Voice.ImportNote(noteID, fromID, rid, channelID, createdAtFromRaw(createdAtRaw), opus)
+			} else {
+				n, nerr = h.Voice.SaveNote(fromID, rid, channelID, opus)
+			}
+			if nerr != nil {
+				http.Error(w, nerr.Error(), http.StatusBadRequest)
+				return
+			}
+			h.pushNote(n, opus)
+			notes = append(notes, n)
+		}
+		if h.Usage != nil {
+			h.Usage.VoiceNoteUploaded(int64(len(opus)), channelID)
+		}
+		if len(notes) == 1 {
+			writeJSON(w, notes[0])
+			return
+		}
+		writeJSON(w, notes)
+		return
 	}
 
 	var createdAt time.Time
@@ -201,6 +231,19 @@ func (h *Handlers) upload(w http.ResponseWriter, r *http.Request) {
 	}
 	h.pushNote(note, opus)
 	writeJSON(w, note)
+}
+
+func createdAtFromRaw(raw string) time.Time {
+	if raw == "" {
+		return time.Time{}
+	}
+	if t, err := time.Parse(time.RFC3339Nano, raw); err == nil {
+		return t
+	}
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		return t
+	}
+	return time.Time{}
 }
 
 func (h *Handlers) pushNote(note *Note, audio []byte) {
@@ -331,6 +374,39 @@ func (h *Handlers) invite(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, ch)
 }
 
+func (h *Handlers) inviteMore(w http.ResponseWriter, r *http.Request) {
+	var body inviteBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if body.To == "" {
+		http.Error(w, "to is required", http.StatusBadRequest)
+		return
+	}
+	if body.From == "" {
+		body.From = h.SelfID
+	}
+	peer, ok, err := h.Reg.Get(body.To)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !ok || peer.Status != registry.StatusConnected {
+		http.Error(w, "peer must be connected to invite", http.StatusConflict)
+		return
+	}
+	ch, err := h.Voice.InviteMore(r.PathValue("id"), body.From, body.To)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if h.Usage != nil {
+		h.Usage.ChannelInvite()
+	}
+	writeJSON(w, ch)
+}
+
 type deviceBody struct {
 	DeviceID string `json:"deviceId"`
 }
@@ -375,6 +451,11 @@ func (h *Handlers) listChannels(w http.ResponseWriter, r *http.Request) {
 		name := v.PeerID
 		if d, ok, _ := h.Reg.Get(v.PeerID); ok && d != nil {
 			name = d.Name
+		}
+		for i := range v.Peers {
+			if d, ok, _ := h.Reg.Get(v.Peers[i].ID); ok && d != nil {
+				v.Peers[i].Name = d.Name
+			}
 		}
 		out = append(out, channelDTO{ChannelView: v, PeerName: name})
 	}

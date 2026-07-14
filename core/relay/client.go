@@ -28,11 +28,16 @@ type Client struct {
 	joined   bool
 	peerIDs  map[string]struct{}
 	api      *webrtc.API
+	voiceDC  *webrtc.DataChannel
+	dcReady  chan struct{}
+	voiceRecv map[string]*voiceRecvBuf
 
 	// OnRemoteFrame delivers Opus from StreamID "wt-<fromID>".
 	OnRemoteFrame func(fromID string, payload []byte)
 	// OnJoined is called once after the SFU PeerConnection is up.
 	OnJoined func()
+	// OnVoiceNote delivers a complete note received over the SFU DataChannel.
+	OnVoiceNote func(meta VoiceNoteMeta, audio []byte)
 }
 
 type offerRequest struct {
@@ -160,6 +165,7 @@ func (c *Client) Close() {
 		c.pc = nil
 	}
 	c.send = nil
+	c.voiceDC = nil
 	c.joined = false
 	c.peerIDs = make(map[string]struct{})
 }
@@ -199,6 +205,17 @@ func (c *Client) join(host string, port int) error {
 		_ = pc.Close()
 		return err
 	}
+
+	dcReady := make(chan struct{})
+	c.mu.Lock()
+	c.dcReady = dcReady
+	c.mu.Unlock()
+	dc, err := pc.CreateDataChannel(voiceNoteDCLabel, nil)
+	if err != nil {
+		_ = pc.Close()
+		return fmt.Errorf("relay client: create voicenote DC: %w", err)
+	}
+	c.attachVoiceDC(dc)
 
 	pc.OnTrack(func(remote *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
 		fromID := remote.StreamID()

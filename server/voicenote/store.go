@@ -42,13 +42,18 @@ type Note struct {
 	Status    string    `json:"status"`
 }
 
-// Channel is a 1:1 private invite session between two devices.
+// Channel is a private invite session among one or more devices.
 type Channel struct {
 	ID           string    `json:"id"`
-	ParticipantA string    `json:"participantA"`
-	ParticipantB string    `json:"participantB"`
-	CreatedAt    time.Time `json:"createdAt"`
-	Status       string    `json:"status"`
+	ParticipantA string    `json:"participantA"` // derived: participants[0] for older readers
+	ParticipantB string    `json:"participantB"` // derived: participants[1] when present
+	// Participants is the canonical membership list (N-party).
+	Participants []string `json:"participants,omitempty"`
+	// PendingInvites lists device IDs invited to join an active channel
+	// who have not Accepted yet.
+	PendingInvites []string  `json:"pendingInvites,omitempty"`
+	CreatedAt      time.Time `json:"createdAt"`
+	Status         string    `json:"status"`
 	// Focused lists device IDs currently viewing this channel (both parties
 	// may be focused at once). FocusedBy remains the most recent focus for
 	// older clients / tooling that only read a single string.
@@ -58,11 +63,18 @@ type Channel struct {
 	UnreadFor int `json:"unreadFor,omitempty"`
 }
 
+// PeerInfo is one other participant for ChannelView UIs.
+type PeerInfo struct {
+	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
+}
+
 // ChannelView is ListChannels output including peer name hints from the caller.
 type ChannelView struct {
 	Channel
-	PeerID    string `json:"peerId"`
-	UnreadFor int    `json:"unreadFor"`
+	PeerID    string     `json:"peerId"` // first other peer (1:1 compat)
+	Peers     []PeerInfo `json:"peers,omitempty"`
+	UnreadFor int        `json:"unreadFor"`
 }
 
 // Store persists notes + channels in the shared registry bbolt DB and Opus
@@ -121,7 +133,94 @@ func (s *Store) getChannel(tx *bbolt.Tx, id string) (*Channel, bool) {
 		return nil, false
 	}
 	c.normalizeFocus()
+	c.normalizeParticipants()
 	return &c, true
+}
+
+func (c *Channel) normalizeParticipants() {
+	if len(c.Participants) == 0 {
+		if c.ParticipantA != "" {
+			c.Participants = append(c.Participants, c.ParticipantA)
+		}
+		if c.ParticipantB != "" && c.ParticipantB != c.ParticipantA {
+			c.Participants = append(c.Participants, c.ParticipantB)
+		}
+	}
+	// Dedup while preserving order.
+	seen := map[string]struct{}{}
+	out := c.Participants[:0]
+	for _, id := range c.Participants {
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	c.Participants = out
+	if len(c.Participants) > 0 {
+		c.ParticipantA = c.Participants[0]
+	} else {
+		c.ParticipantA = ""
+	}
+	if len(c.Participants) > 1 {
+		c.ParticipantB = c.Participants[1]
+	} else {
+		c.ParticipantB = ""
+	}
+}
+
+func (c *Channel) isParticipant(deviceID string) bool {
+	c.normalizeParticipants()
+	for _, id := range c.Participants {
+		if id == deviceID {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Channel) addParticipant(deviceID string) bool {
+	if deviceID == "" || c.isParticipant(deviceID) {
+		return false
+	}
+	c.Participants = append(c.Participants, deviceID)
+	c.normalizeParticipants()
+	return true
+}
+
+func (c *Channel) addPendingInvite(deviceID string) bool {
+	if deviceID == "" || c.isParticipant(deviceID) {
+		return false
+	}
+	for _, id := range c.PendingInvites {
+		if id == deviceID {
+			return false
+		}
+	}
+	c.PendingInvites = append(c.PendingInvites, deviceID)
+	return true
+}
+
+func (c *Channel) removePendingInvite(deviceID string) {
+	out := c.PendingInvites[:0]
+	for _, id := range c.PendingInvites {
+		if id != deviceID {
+			out = append(out, id)
+		}
+	}
+	c.PendingInvites = out
+}
+
+func (c *Channel) isPendingInvite(deviceID string) bool {
+	for _, id := range c.PendingInvites {
+		if id == deviceID {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Channel) normalizeFocus() {
@@ -454,8 +553,20 @@ func (s *Store) Invite(fromID, toID string) (*Channel, error) {
 			if c.Status == ChannelClosed {
 				return nil
 			}
-			pair := (c.ParticipantA == fromID && c.ParticipantB == toID) ||
-				(c.ParticipantA == toID && c.ParticipantB == fromID)
+			pair := false
+			c.normalizeParticipants()
+			hasFrom, hasTo := false, false
+			for _, id := range c.Participants {
+				if id == fromID {
+					hasFrom = true
+				}
+				if id == toID {
+					hasTo = true
+				}
+			}
+			if hasFrom && hasTo && len(c.Participants) == 2 {
+				pair = true
+			}
 			if pair {
 				cp := c
 				existing = &cp
@@ -472,15 +583,46 @@ func (s *Store) Invite(fromID, toID string) (*Channel, error) {
 
 	c := &Channel{
 		ID:           uuid.NewString(),
-		ParticipantA: fromID,
-		ParticipantB: toID,
+		Participants: []string{fromID, toID},
 		CreatedAt:    time.Now(),
 		Status:       ChannelPending,
 	}
+	c.normalizeParticipants()
 	err = s.db.Update(func(tx *bbolt.Tx) error {
 		return s.putChannel(tx, c)
 	})
 	return c, err
+}
+
+// InviteMore adds toID as a pending invite on an existing channel. fromID must
+// already be a participant. Accept moves them into Participants.
+func (s *Store) InviteMore(channelID, fromID, toID string) (*Channel, error) {
+	if toID == "" || fromID == "" || channelID == "" {
+		return nil, fmt.Errorf("voicenote: invite requires ids")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out *Channel
+	err := s.db.Update(func(tx *bbolt.Tx) error {
+		c, ok := s.getChannel(tx, channelID)
+		if !ok {
+			return fmt.Errorf("voicenote: channel not found")
+		}
+		if !c.isParticipant(fromID) {
+			return fmt.Errorf("voicenote: not a participant")
+		}
+		if c.Status == ChannelClosed {
+			return fmt.Errorf("voicenote: channel closed")
+		}
+		if c.isParticipant(toID) {
+			out = c
+			return nil
+		}
+		c.addPendingInvite(toID)
+		out = c
+		return s.putChannel(tx, c)
+	})
+	return out, err
 }
 
 // Accept marks a pending channel active. acceptor must be a participant.
@@ -493,11 +635,15 @@ func (s *Store) Accept(channelID, acceptorID string) (*Channel, error) {
 		if !ok {
 			return fmt.Errorf("voicenote: channel not found")
 		}
-		if c.ParticipantA != acceptorID && c.ParticipantB != acceptorID {
+		if !c.isParticipant(acceptorID) && !c.isPendingInvite(acceptorID) {
 			return fmt.Errorf("voicenote: not a participant")
 		}
 		if c.Status == ChannelClosed {
 			return fmt.Errorf("voicenote: channel closed")
+		}
+		if c.isPendingInvite(acceptorID) {
+			c.removePendingInvite(acceptorID)
+			c.addParticipant(acceptorID)
 		}
 		c.Status = ChannelActive
 		out = c
@@ -515,12 +661,13 @@ func (s *Store) CloseChannel(channelID, actorID string) error {
 		if !ok {
 			return fmt.Errorf("voicenote: channel not found")
 		}
-		if c.ParticipantA != actorID && c.ParticipantB != actorID {
+		if !c.isParticipant(actorID) {
 			return fmt.Errorf("voicenote: not a participant")
 		}
 		c.Status = ChannelClosed
 		c.Focused = nil
 		c.FocusedBy = ""
+		c.PendingInvites = nil
 		return s.putChannel(tx, c)
 	})
 }
@@ -535,7 +682,7 @@ func (s *Store) SetFocus(channelID, deviceID string, focused bool) error {
 		if !ok {
 			return fmt.Errorf("voicenote: channel not found")
 		}
-		if c.ParticipantA != deviceID && c.ParticipantB != deviceID {
+		if !c.isParticipant(deviceID) {
 			return fmt.Errorf("voicenote: not a participant")
 		}
 		if focused {
@@ -574,7 +721,7 @@ func (s *Store) ListChannels(deviceID string) ([]ChannelView, error) {
 			if c.Status == ChannelClosed {
 				return nil
 			}
-			if c.ParticipantA != deviceID && c.ParticipantB != deviceID {
+			if !c.isParticipant(deviceID) && !c.isPendingInvite(deviceID) {
 				return nil
 			}
 			channels = append(channels, c)
@@ -587,9 +734,17 @@ func (s *Store) ListChannels(deviceID string) ([]ChannelView, error) {
 
 	var views []ChannelView
 	for _, c := range channels {
-		peer := c.ParticipantB
-		if c.ParticipantA != deviceID {
-			peer = c.ParticipantA
+		c.normalizeParticipants()
+		var peers []PeerInfo
+		var peerID string
+		for _, id := range c.Participants {
+			if id == deviceID {
+				continue
+			}
+			peers = append(peers, PeerInfo{ID: id})
+			if peerID == "" {
+				peerID = id
+			}
 		}
 		unread := 0
 		_ = s.db.View(func(tx *bbolt.Tx) error {
@@ -606,7 +761,8 @@ func (s *Store) ListChannels(deviceID string) ([]ChannelView, error) {
 		})
 		views = append(views, ChannelView{
 			Channel:   c,
-			PeerID:    peer,
+			PeerID:    peerID,
+			Peers:     peers,
 			UnreadFor: unread,
 		})
 	}
@@ -616,12 +772,27 @@ func (s *Store) ListChannels(deviceID string) ([]ChannelView, error) {
 	return views, nil
 }
 
-// PeerOf returns the other participant.
+// PeerOf returns another participant (first other), for 1:1-compatible callers.
 func (c *Channel) PeerOf(selfID string) string {
-	if c.ParticipantA == selfID {
-		return c.ParticipantB
+	c.normalizeParticipants()
+	for _, id := range c.Participants {
+		if id != selfID {
+			return id
+		}
 	}
-	return c.ParticipantA
+	return ""
+}
+
+// OtherParticipants returns every member except selfID.
+func (c *Channel) OtherParticipants(selfID string) []string {
+	c.normalizeParticipants()
+	var out []string
+	for _, id := range c.Participants {
+		if id != selfID {
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 // PurgeExpired deletes notes past ExpiresAt and removes blob files.

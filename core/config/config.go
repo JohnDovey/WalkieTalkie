@@ -47,6 +47,12 @@ type Settings struct {
 	// safely above that to avoid flapping a present device to
 	// disconnected between re-sightings.
 	StaleAfterSeconds int `json:"staleAfterSeconds"`
+
+	// SyncClockSkewSeconds: remote LastSeen must be ahead of local by more
+	// than this many seconds to win a Multi-Base merge (soft floor against
+	// near-equal clock noise). Also see HTTP Date offset correction in
+	// server/sync before merge.
+	SyncClockSkewSeconds int `json:"syncClockSkewSeconds"`
 }
 
 // DefaultPort is the default port the server's web UI/API listens on.
@@ -60,7 +66,8 @@ func Default() Settings {
 		RelayEnabled:        true,
 		SyncIntervalSeconds: 30,
 		RelayThreshold:      10,
-		StaleAfterSeconds:   180,
+		StaleAfterSeconds:     180,
+		SyncClockSkewSeconds:  3,
 	}
 }
 

@@ -101,12 +101,19 @@ func (s *Syncer) loop(stop <-chan struct{}, peerID, host string, apiPort int) {
 
 func (s *Syncer) syncOnce(peerID, host string, apiPort int) {
 	url := fmt.Sprintf("http://%s:%d/api/devices", host, apiPort)
+	fetchedAt := time.Now()
 	resp, err := s.client.Get(url)
 	if err != nil {
 		log.Printf("sync: fetch %s (Base Station %s): %v", url, peerID, err)
 		return
 	}
 	defer resp.Body.Close()
+
+	// Estimate peer clock offset from HTTP Date (or /api/time fallback).
+	offset := peerClockOffset(resp.Header.Get("Date"), fetchedAt)
+	if offset == 0 {
+		offset = s.fetchTimeOffset(host, apiPort)
+	}
 
 	var devices []*registry.Device
 	if err := json.NewDecoder(resp.Body).Decode(&devices); err != nil {
@@ -117,6 +124,21 @@ func (s *Syncer) syncOnce(peerID, host string, apiPort int) {
 	flat := make([]registry.Device, len(devices))
 	for i, d := range devices {
 		flat[i] = *d
+		if offset != 0 {
+			flat[i].LastSeen = flat[i].LastSeen.Add(-offset)
+			if flat[i].CurrentLocation != nil {
+				ts := flat[i].CurrentLocation.Timestamp.Add(-offset)
+				p := *flat[i].CurrentLocation
+				p.Timestamp = ts
+				flat[i].CurrentLocation = &p
+			}
+			if flat[i].LastKnownLocation != nil {
+				ts := flat[i].LastKnownLocation.Timestamp.Add(-offset)
+				p := *flat[i].LastKnownLocation
+				p.Timestamp = ts
+				flat[i].LastKnownLocation = &p
+			}
+		}
 	}
 
 	updated, err := s.store.MergeRemoteRegistry(flat)
@@ -142,6 +164,38 @@ func (s *Syncer) syncOnce(peerID, host string, apiPort int) {
 	if chN > 0 || noteN > 0 {
 		log.Printf("sync: imported %d channel(s), %d voice note(s) from Base Station %s", chN, noteN, peerID)
 	}
+}
+
+// peerClockOffset returns peerNow - localNow estimated from an HTTP Date header.
+func peerClockOffset(dateHeader string, localNow time.Time) time.Duration {
+	if dateHeader == "" {
+		return 0
+	}
+	peerTime, err := http.ParseTime(dateHeader)
+	if err != nil {
+		return 0
+	}
+	return peerTime.Sub(localNow)
+}
+
+func (s *Syncer) fetchTimeOffset(host string, apiPort int) time.Duration {
+	url := fmt.Sprintf("http://%s:%d/api/time", host, apiPort)
+	before := time.Now()
+	resp, err := s.client.Get(url)
+	after := time.Now()
+	if err != nil {
+		return 0
+	}
+	defer resp.Body.Close()
+	var body struct {
+		UnixMs int64 `json:"unixMs"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil || body.UnixMs == 0 {
+		return 0
+	}
+	peerMid := time.UnixMilli(body.UnixMs)
+	localMid := before.Add(after.Sub(before) / 2)
+	return peerMid.Sub(localMid)
 }
 
 // Stop cancels every peer's sync loop.

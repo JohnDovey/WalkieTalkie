@@ -29,9 +29,10 @@ Focusing a private channel joins Hub room `channelID` (empty room = group mesh).
 | Condition | Behaviour |
 |-----------|-----------|
 | Peer **DirectConnected** | Opus over `"voicenote"` DataChannel → recipient local inbox; best-effort mirror-upload to Base |
+| Else on **SFU** | Same framing over Hub `"voicenote"` DC (`toId` or room fan-out); mirror to Base |
 | Otherwise | `POST /api/voice-notes` store-and-forward; Base **pushes** to recipient via DataChannel when DirectConnected (mixed-topology bridge) |
 
-List/download/ack merge local inbox + Base Station. Upload accepts optional `id`/`createdAt` for stable P2P mirror IDs (`ImportNote`).
+List/download/ack merge local inbox + Base Station. Upload accepts optional `id`/`createdAt` for stable P2P mirror IDs (`ImportNote`). Channel uploads fan out one Note per other participant (`1.8.0+`).
 
 ### Base Station web
 

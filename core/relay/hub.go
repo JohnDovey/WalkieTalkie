@@ -29,6 +29,8 @@ type Hub struct {
 	// rooms maps participant (or local publisher) ID → room name.
 	// Empty room is the group mesh. Non-empty rooms only fan out within the room.
 	rooms map[string]string
+	// noteRoutes maps sender → note ToID while a voicenote transfer is in flight.
+	noteRoutes map[string]string
 
 	// OnRemoteFrame is called for every Opus payload from a remote
 	// participant (Base Station local playback / accounting). Callers should
@@ -44,6 +46,7 @@ type participant struct {
 	id       string
 	pc       *webrtc.PeerConnection
 	outbound *webrtc.TrackLocalStaticSample // audio from everyone else → this peer
+	dc       *webrtc.DataChannel            // voicenote DataChannel
 }
 
 // NewHub builds an empty SFU hub.
@@ -57,6 +60,7 @@ func NewHub() (*Hub, error) {
 		participants: make(map[string]*participant),
 		routes:       make(map[string]string),
 		rooms:        make(map[string]string),
+		noteRoutes:   make(map[string]string),
 	}, nil
 }
 
@@ -104,6 +108,13 @@ func (h *Hub) HandleOffer(senderID, offerSDP string) (answerSDP string, err erro
 	}
 
 	p := &participant{id: senderID, pc: pc, outbound: out}
+
+	pc.OnDataChannel(func(dc *webrtc.DataChannel) {
+		if dc.Label() != voiceNoteDCLabel {
+			return
+		}
+		h.attachVoiceNoteDC(senderID, p, dc)
+	})
 
 	pc.OnTrack(func(remote *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
 		go h.forwardFrom(senderID, remote)
@@ -275,6 +286,7 @@ func (h *Hub) Remove(id string) {
 	}
 	delete(h.routes, id)
 	delete(h.rooms, id)
+	delete(h.noteRoutes, id)
 	for from, to := range h.routes {
 		if to == id {
 			delete(h.routes, from)
@@ -292,4 +304,5 @@ func (h *Hub) Close() {
 	}
 	h.routes = make(map[string]string)
 	h.rooms = make(map[string]string)
+	h.noteRoutes = make(map[string]string)
 }

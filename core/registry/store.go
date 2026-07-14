@@ -13,12 +13,18 @@ import (
 )
 
 var (
-	devicesBucket    = []byte("devices")
-	configBucket     = []byte("config")
-	settingsKey      = []byte("settings")
-	voiceNotesBucket = []byte("voice_notes")
-	channelsBucket   = []byte("private_channels")
-	usageStatsBucket = []byte("usage_stats")
+	devicesBucket     = []byte("devices")
+	configBucket      = []byte("config")
+	settingsKey       = []byte("settings")
+	voiceNotesBucket  = []byte("voice_notes")
+	channelsBucket    = []byte("private_channels")
+	usageStatsBucket  = []byte("usage_stats")
+	gpsHistoryBucket  = []byte("gps_history")
+)
+
+const (
+	gpsHistoryMaxPerDevice = 500
+	gpsHistoryRetention    = 7 * 24 * time.Hour
 )
 
 // Store is a bbolt-backed registry of every device this node has seen,
@@ -38,7 +44,7 @@ func Open(path string) (*Store, error) {
 		return nil, fmt.Errorf("registry: open %s: %w", path, err)
 	}
 	err = db.Update(func(tx *bbolt.Tx) error {
-		for _, name := range [][]byte{devicesBucket, configBucket, voiceNotesBucket, channelsBucket, usageStatsBucket} {
+		for _, name := range [][]byte{devicesBucket, configBucket, voiceNotesBucket, channelsBucket, usageStatsBucket, gpsHistoryBucket} {
 			if _, err := tx.CreateBucketIfNotExists(name); err != nil {
 				return err
 			}
@@ -66,6 +72,9 @@ func ChannelsBucket() []byte { return channelsBucket }
 
 // UsageStatsBucket is the bbolt bucket name for hourly usage counters.
 func UsageStatsBucket() []byte { return usageStatsBucket }
+
+// GPSHistoryBucket is the bbolt bucket name for per-device GPS sample trails.
+func GPSHistoryBucket() []byte { return gpsHistoryBucket }
 
 // Close closes the underlying database.
 func (s *Store) Close() error {
@@ -226,7 +235,8 @@ func (s *Store) SetName(id, name string, now time.Time) error {
 	})
 }
 
-// SetLocation records a GPS reading self-reported directly by device id.
+// SetLocation records a GPS reading self-reported directly by device id
+// and appends a sample to the gps_history trail.
 func (s *Store) SetLocation(id string, point proto.GeoPoint) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -241,8 +251,169 @@ func (s *Store) SetLocation(id string, point proto.GeoPoint) error {
 		d.CurrentLocation = &p
 		d.LastKnownLocation = &p
 		d.LastSeen = point.Timestamp
-		return s.put(tx, d)
+		if err := s.put(tx, d); err != nil {
+			return err
+		}
+		return s.appendGPSHistory(tx, id, point)
 	})
+}
+
+func gpsHistoryKey(deviceID string, ts time.Time) []byte {
+	return []byte(fmt.Sprintf("%s/%020d", deviceID, ts.UnixNano()))
+}
+
+func (s *Store) appendGPSHistory(tx *bbolt.Tx, deviceID string, point proto.GeoPoint) error {
+	b := tx.Bucket(gpsHistoryBucket)
+	if b == nil {
+		return nil
+	}
+	ts := point.Timestamp
+	if ts.IsZero() {
+		ts = time.Now()
+		point.Timestamp = ts
+	}
+	// Dedupe near-identical samples within ~GPSIntervalSeconds of the latest.
+	dedupeWindow := 30 * time.Second
+	if raw := tx.Bucket(configBucket).Get(settingsKey); raw != nil {
+		var settings config.Settings
+		if json.Unmarshal(raw, &settings) == nil && settings.GPSIntervalSeconds > 0 {
+			dedupeWindow = time.Duration(settings.GPSIntervalSeconds) * time.Second
+		}
+	}
+	prefix := []byte(deviceID + "/")
+	c := b.Cursor()
+	var lastV []byte
+	for k, v := c.Seek(prefix); k != nil && hasPrefix(k, prefix); k, v = c.Next() {
+		lastV = v
+	}
+	if lastV != nil {
+		var prev proto.GeoPoint
+		if json.Unmarshal(lastV, &prev) == nil && !prev.Timestamp.IsZero() {
+			if ts.Sub(prev.Timestamp) < dedupeWindow && almostSameGPS(prev, point) {
+				return nil
+			}
+		}
+	}
+	raw, err := json.Marshal(point)
+	if err != nil {
+		return err
+	}
+	if err := b.Put(gpsHistoryKey(deviceID, ts), raw); err != nil {
+		return err
+	}
+	return trimGPSHistory(tx, deviceID)
+}
+
+func hasPrefix(b, p []byte) bool {
+	return len(b) >= len(p) && string(b[:len(p)]) == string(p)
+}
+
+func almostSameGPS(a, b proto.GeoPoint) bool {
+	const eps = 1e-5
+	return abs(a.Lat-b.Lat) < eps && abs(a.Lon-b.Lon) < eps
+}
+
+func abs(x float64) float64 {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
+func trimGPSHistory(tx *bbolt.Tx, deviceID string) error {
+	b := tx.Bucket(gpsHistoryBucket)
+	if b == nil {
+		return nil
+	}
+	prefix := []byte(deviceID + "/")
+	var keys [][]byte
+	c := b.Cursor()
+	for k, _ := c.Seek(prefix); k != nil && hasPrefix(k, prefix); k, _ = c.Next() {
+		keys = append(keys, append([]byte(nil), k...))
+	}
+	if len(keys) <= gpsHistoryMaxPerDevice {
+		return nil
+	}
+	drop := len(keys) - gpsHistoryMaxPerDevice
+	for i := 0; i < drop; i++ {
+		if err := b.Delete(keys[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ListGPSHistory returns chronological (oldest→newest) GPS samples for deviceID.
+func (s *Store) ListGPSHistory(deviceID string, limit int) ([]proto.GeoPoint, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if limit <= 0 {
+		limit = 200
+	}
+	if limit > gpsHistoryMaxPerDevice {
+		limit = gpsHistoryMaxPerDevice
+	}
+	var all []proto.GeoPoint
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(gpsHistoryBucket)
+		if b == nil {
+			return nil
+		}
+		prefix := []byte(deviceID + "/")
+		c := b.Cursor()
+		for k, v := c.Seek(prefix); k != nil && hasPrefix(k, prefix); k, v = c.Next() {
+			var p proto.GeoPoint
+			if err := json.Unmarshal(v, &p); err != nil {
+				continue
+			}
+			all = append(all, p)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(all) > limit {
+		all = all[len(all)-limit:]
+	}
+	return all, nil
+}
+
+// PurgeGPSHistory deletes samples older than gpsHistoryRetention. Returns count deleted.
+func (s *Store) PurgeGPSHistory(now time.Time) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cutoff := now.Add(-gpsHistoryRetention)
+	deleted := 0
+	err := s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(gpsHistoryBucket)
+		if b == nil {
+			return nil
+		}
+		var doomed [][]byte
+		err := b.ForEach(func(k, v []byte) error {
+			var p proto.GeoPoint
+			if err := json.Unmarshal(v, &p); err != nil {
+				doomed = append(doomed, append([]byte(nil), k...))
+				return nil
+			}
+			if p.Timestamp.Before(cutoff) {
+				doomed = append(doomed, append([]byte(nil), k...))
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		for _, k := range doomed {
+			if err := b.Delete(k); err != nil {
+				return err
+			}
+			deleted++
+		}
+		return nil
+	})
+	return deleted, err
 }
 
 // SetDisconnected marks device id disconnected and freezes its last-known
@@ -398,25 +569,59 @@ func (s *Store) SetSettings(settings config.Settings) error {
 }
 
 // MergeRemoteRegistry reconciles this Base Station's registry against
-// another Base Station's full device list, per
-// docs/2026-07-13-implementation-plan.md ("Multi-Base-Station
-// synchronization"). Unlike UpsertFromReport (one device vouching for a
-// single peer, where direct contact always outranks secondhand reports),
-// this is two equally-authoritative registries reconciling their entire
-// device lists against each other — so the rule here is simply
-// last-seen-wins, wholesale: for each incoming device, replace the local
-// record if the incoming one is unknown locally or has a strictly newer
-// LastSeen; otherwise leave the local record untouched. Returns how many
-// local records were updated.
+// another Base Station's full device list using last-seen-wins with a
+// soft clock-skew floor (SyncClockSkewSeconds from settings, default 3s):
+// remote must be strictly newer by more than the skew to replace local.
 func (s *Store) MergeRemoteRegistry(remote []Device) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	skew := 3 * time.Second
+	if settings, err := s.GetSettingsUnlocked(); err == nil && settings.SyncClockSkewSeconds > 0 {
+		skew = time.Duration(settings.SyncClockSkewSeconds) * time.Second
+	}
+	return s.mergeRemoteRegistryLocked(remote, skew)
+}
 
+// GetSettingsUnlocked is like GetSettings but assumes the caller already
+// holds s.mu (used by MergeRemoteRegistry). Prefer GetSettings otherwise.
+func (s *Store) GetSettingsUnlocked() (config.Settings, error) {
+	var settings config.Settings
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		raw := tx.Bucket(configBucket).Get(settingsKey)
+		if raw == nil {
+			settings = config.Default()
+			return nil
+		}
+		return json.Unmarshal(raw, &settings)
+	})
+	if err != nil {
+		return config.Default(), err
+	}
+	if settings.Port == 0 {
+		settings = config.Default()
+	}
+	if settings.SyncClockSkewSeconds <= 0 {
+		settings.SyncClockSkewSeconds = config.Default().SyncClockSkewSeconds
+	}
+	return settings, nil
+}
+
+// MergeRemoteRegistryWithSkew is MergeRemoteRegistry with an explicit skew floor.
+func (s *Store) MergeRemoteRegistryWithSkew(remote []Device, skew time.Duration) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.mergeRemoteRegistryLocked(remote, skew)
+}
+
+func (s *Store) mergeRemoteRegistryLocked(remote []Device, skew time.Duration) (int, error) {
+	if skew < 0 {
+		skew = 0
+	}
 	updated := 0
 	err := s.db.Update(func(tx *bbolt.Tx) error {
 		for _, incoming := range remote {
 			local, ok := s.get(tx, incoming.ID)
-			if ok && !incoming.LastSeen.After(local.LastSeen) {
+			if ok && !incoming.LastSeen.After(local.LastSeen.Add(skew)) {
 				continue
 			}
 			d := incoming

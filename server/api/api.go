@@ -6,6 +6,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/JohnDovey/WalkieTalkie/core/config"
@@ -79,6 +80,8 @@ type AboutInfo struct {
 func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/devices", h.listDevices)
 	mux.HandleFunc("GET /api/devices/{id}", h.getDevice)
+	mux.HandleFunc("GET /api/devices/{id}/gps-history", h.gpsHistory)
+	mux.HandleFunc("GET /api/time", h.serverTime)
 	mux.HandleFunc("POST /api/devices/announce", h.announce)
 	mux.HandleFunc("POST /api/devices/{id}/location", h.updateLocation)
 	mux.HandleFunc("PUT /api/devices/{id}/name", h.updateName)
@@ -134,6 +137,30 @@ func (h *Handlers) getDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, d)
+}
+
+func (h *Handlers) gpsHistory(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	limit := 200
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
+			limit = n
+		}
+	}
+	pts, err := h.Store.ListGPSHistory(id, limit)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	writeJSON(w, pts)
+}
+
+func (h *Handlers) serverTime(w http.ResponseWriter, r *http.Request) {
+	now := time.Now().UTC()
+	writeJSON(w, map[string]any{
+		"unixMs":  now.UnixMilli(),
+		"rfc3339": now.Format(time.RFC3339Nano),
+	})
 }
 
 func (h *Handlers) announce(w http.ResponseWriter, r *http.Request) {

@@ -26,18 +26,27 @@ type Note struct {
 	Status    string    `json:"status"`
 }
 
+// ChannelPeer is one other member shown in N-party channel UIs.
+type ChannelPeer struct {
+	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
+}
+
 // Channel mirrors the server channel list entry.
 type Channel struct {
-	ID           string    `json:"id"`
-	ParticipantA string    `json:"participantA"`
-	ParticipantB string    `json:"participantB"`
-	CreatedAt    time.Time `json:"createdAt"`
-	Status       string    `json:"status"`
-	PeerID       string    `json:"peerId"`
-	PeerName     string    `json:"peerName"`
-	UnreadFor    int       `json:"unreadFor"`
-	Focused      []string  `json:"focused,omitempty"`
-	FocusedBy    string    `json:"focusedBy,omitempty"`
+	ID             string        `json:"id"`
+	ParticipantA   string        `json:"participantA"`
+	ParticipantB   string        `json:"participantB"`
+	Participants   []string      `json:"participants,omitempty"`
+	PendingInvites []string      `json:"pendingInvites,omitempty"`
+	CreatedAt      time.Time     `json:"createdAt"`
+	Status         string        `json:"status"`
+	PeerID         string        `json:"peerId"`
+	PeerName       string        `json:"peerName"`
+	Peers          []ChannelPeer `json:"peers,omitempty"`
+	UnreadFor      int           `json:"unreadFor"`
+	Focused        []string      `json:"focused,omitempty"`
+	FocusedBy      string        `json:"focusedBy,omitempty"`
 }
 
 // Client talks to one Base Station's REST API.
@@ -216,6 +225,32 @@ func (c *Client) Invite(toID string) (*Channel, error) {
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("voicenote: invite %s: %s", resp.Status, string(body))
+	}
+	var ch Channel
+	if err := json.Unmarshal(body, &ch); err != nil {
+		return nil, err
+	}
+	return &ch, nil
+}
+
+// InviteMore invites another peer onto an existing N-party channel (pending until accept).
+func (c *Client) InviteMore(channelID, toID string) (*Channel, error) {
+	if err := c.requireBase(); err != nil {
+		return nil, err
+	}
+	payload, _ := json.Marshal(map[string]string{"from": c.DeviceID, "to": toID})
+	resp, err := c.http().Post(
+		c.BaseURL+"/api/channels/"+url.PathEscape(channelID)+"/invite",
+		"application/json",
+		bytes.NewReader(payload),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("voicenote: invite-more %s: %s", resp.Status, string(body))
 	}
 	var ch Channel
 	if err := json.Unmarshal(body, &ch); err != nil {

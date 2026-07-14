@@ -133,6 +133,14 @@ func StartNode(dataDir, name, platform, appVersion string, source media.AudioSou
 			_ = sink.WriteOpusFrame(fromID, payload)
 		}
 	}
+	rc.OnVoiceNote = func(meta corerelay.VoiceNoteMeta, audio []byte) {
+		note := voicenote.Note{
+			ID: meta.ID, FromID: meta.FromID, ToID: meta.ToID, ChannelID: meta.ChannelID,
+			CreatedAt: meta.CreatedAt, Size: meta.Size, Status: voicenote.StatusQueued,
+		}
+		_ = inbox.Put(note, audio)
+		n.mirrorNoteToBase(note, audio)
+	}
 	n.relayClient = rc
 	session.SetRelay(rc)
 	session.OnRelayBroadcast = func(frame []byte) {
@@ -255,15 +263,29 @@ func (n *Node) BaseStationURL() string {
 	return n.baseURL
 }
 
-// SendVoiceNote delivers an async clip to toDeviceID via direct DataChannel when
-// possible, otherwise via the Base Station inbox. Successful P2P sends are also
-// mirrored to the Base Station (best-effort) so multi-Base sync can see them.
+// SendVoiceNote delivers an async clip via Direct DataChannel, else SFU
+// DataChannel when joined to the Hub, else Base Station HTTP upload.
+// Successful Direct/SFU sends are mirrored to Base (best-effort).
 func (n *Node) SendVoiceNote(toDeviceID string, audio []byte) error {
+	meta := media.VoiceNoteMeta{
+		ID: voicenote.NewID(), FromID: n.selfID, ToID: toDeviceID, CreatedAt: time.Now(),
+	}
 	if n.session != nil && n.session.DirectConnected(toDeviceID) {
-		meta := media.VoiceNoteMeta{
-			ID: voicenote.NewID(), FromID: n.selfID, ToID: toDeviceID, CreatedAt: time.Now(),
-		}
 		if err := n.session.SendVoiceNoteP2P(meta, audio); err == nil {
+			note := voicenote.Note{
+				ID: meta.ID, FromID: meta.FromID, ToID: meta.ToID,
+				CreatedAt: meta.CreatedAt, Size: int64(len(audio)), Status: voicenote.StatusQueued,
+			}
+			_ = n.inbox.Put(note, audio)
+			n.mirrorNoteToBase(note, audio)
+			return nil
+		}
+	}
+	if n.relayClient != nil && n.relayClient.Joined() {
+		rmeta := corerelay.VoiceNoteMeta{
+			ID: meta.ID, FromID: meta.FromID, ToID: meta.ToID, CreatedAt: meta.CreatedAt,
+		}
+		if err := n.relayClient.SendVoiceNote(rmeta, audio); err == nil {
 			note := voicenote.Note{
 				ID: meta.ID, FromID: meta.FromID, ToID: meta.ToID,
 				CreatedAt: meta.CreatedAt, Size: int64(len(audio)), Status: voicenote.StatusQueued,
@@ -281,18 +303,33 @@ func (n *Node) SendVoiceNote(toDeviceID string, audio []byte) error {
 	return err
 }
 
-// SendChannelClip delivers a private-channel clip via DataChannel when the peer
-// is DirectConnected, otherwise via the Base Station. Successful P2P sends are
-// mirrored to the Base Station best-effort.
+// SendChannelClip delivers a private-channel clip via Direct DC (1:1 when the
+// peer is mesh-connected), SFU room fan-out when joined, or Base HTTP upload
+// (which fans out one Note per other participant).
 func (n *Node) SendChannelClip(channelID string, audio []byte) error {
 	peerID := n.channelPeerID(channelID)
+	meta := media.VoiceNoteMeta{
+		ID: voicenote.NewID(), FromID: n.selfID, ToID: peerID, ChannelID: channelID, CreatedAt: time.Now(),
+	}
 	if peerID != "" && n.session != nil && n.session.DirectConnected(peerID) {
-		meta := media.VoiceNoteMeta{
-			ID: voicenote.NewID(), FromID: n.selfID, ToID: peerID, ChannelID: channelID, CreatedAt: time.Now(),
-		}
 		if err := n.session.SendVoiceNoteP2P(meta, audio); err == nil {
 			note := voicenote.Note{
 				ID: meta.ID, FromID: meta.FromID, ToID: meta.ToID, ChannelID: channelID,
+				CreatedAt: meta.CreatedAt, Size: int64(len(audio)), Status: voicenote.StatusQueued,
+			}
+			_ = n.inbox.Put(note, audio)
+			n.mirrorNoteToBase(note, audio)
+			return nil
+		}
+	}
+	if n.relayClient != nil && n.relayClient.Joined() {
+		// Empty ToID → Hub fans out within the focused channel room.
+		rmeta := corerelay.VoiceNoteMeta{
+			ID: meta.ID, FromID: meta.FromID, ChannelID: channelID, CreatedAt: meta.CreatedAt,
+		}
+		if err := n.relayClient.SendVoiceNote(rmeta, audio); err == nil {
+			note := voicenote.Note{
+				ID: meta.ID, FromID: meta.FromID, ToID: peerID, ChannelID: channelID,
 				CreatedAt: meta.CreatedAt, Size: int64(len(audio)), Status: voicenote.StatusQueued,
 			}
 			_ = n.inbox.Put(note, audio)
@@ -437,6 +474,20 @@ func (n *Node) InviteChannel(toDeviceID string) (string, error) {
 		return "", err
 	}
 	ch, err := c.Invite(toDeviceID)
+	if err != nil {
+		return "", err
+	}
+	raw, err := json.Marshal(ch)
+	return string(raw), err
+}
+
+// InviteChannelMore invites another peer onto an existing channel (pending until accept).
+func (n *Node) InviteChannelMore(channelID, toDeviceID string) (string, error) {
+	c, err := n.client()
+	if err != nil {
+		return "", err
+	}
+	ch, err := c.InviteMore(channelID, toDeviceID)
 	if err != nil {
 		return "", err
 	}

@@ -18,6 +18,8 @@ Deferred from [`2026-07-13-voice-message-and-private-channels.md`](2026-07-13-vo
 
 ✅ Room-scoped channel Talk + Hub→direct room bridge + Base→DirectConnected voice-note push in `server` 1.7.0 / android `1.5.0` / ios `0.7.0`. See Phase 6 doc.
 
+✅ GPS history + true N-party channels + SFU voicenote DataChannel + Multi-Base clock skew in `server` 1.8.0 / android `1.6.0` / ios `0.8.0`. See [`2026-07-14-gps-history-nparty-sfu-notes.md`](2026-07-14-gps-history-nparty-sfu-notes.md).
+
 ## Multi-Base-Station voice blob replication
 
 ✅ Shipped in `server` 1.3.1 — see Phase 6 doc. After each device-registry pull, peer Base Stations also pull `GET /api/sync/channels` and `GET /api/sync/voice-notes` (plus audio blobs for new notes).

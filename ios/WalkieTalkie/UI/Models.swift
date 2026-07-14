@@ -31,12 +31,25 @@ struct DeviceRow: Identifiable {
     }
 }
 
+struct ChannelPeer: Identifiable {
+    let id: String
+    let name: String
+}
+
 struct ChannelRow: Identifiable {
     let id: String
     let peerId: String
     let peerName: String
     let status: String
     let unread: Int
+    let peers: [ChannelPeer]
+
+    var displayName: String {
+        if peers.count > 1 {
+            return peers.map { $0.name.isEmpty ? $0.id : $0.name }.joined(separator: ", ")
+        }
+        return peerName.isEmpty ? peerId : peerName
+    }
 
     static func parse(_ json: String) -> [ChannelRow] {
         guard let data = json.data(using: .utf8),
@@ -45,12 +58,20 @@ struct ChannelRow: Identifiable {
         }
         return arr.compactMap { dict in
             guard let id = dict["id"] as? String else { return nil }
+            var peers: [ChannelPeer] = []
+            if let rawPeers = dict["peers"] as? [[String: Any]] {
+                peers = rawPeers.compactMap { p in
+                    guard let pid = p["id"] as? String else { return nil }
+                    return ChannelPeer(id: pid, name: p["name"] as? String ?? pid)
+                }
+            }
             return ChannelRow(
                 id: id,
                 peerId: dict["peerId"] as? String ?? "",
                 peerName: dict["peerName"] as? String ?? "",
                 status: dict["status"] as? String ?? "",
-                unread: dict["unreadFor"] as? Int ?? 0
+                unread: dict["unreadFor"] as? Int ?? 0,
+                peers: peers
             )
         }
     }

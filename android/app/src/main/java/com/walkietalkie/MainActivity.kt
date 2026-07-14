@@ -265,7 +265,7 @@ private fun AppScreen(
                         ) {
                             Text(
                                 buildString {
-                                    append(ch.peerName.ifBlank { ch.peerId })
+                                    append(ch.displayName)
                                     if (ch.status == "pending") append(" (pending)")
                                 },
                             )
@@ -771,6 +771,7 @@ private fun PrivateChannelScreen(
     var liveMesh by remember { mutableStateOf(false) }
     var liveRelay by remember { mutableStateOf(false) }
     var peerFocused by remember { mutableStateOf(false) }
+    var peersLabel by remember { mutableStateOf(peerName) }
     val recorder = remember { ClipRecorder(context) }
     val scope = rememberCoroutineScope()
     var player by remember { mutableStateOf<MediaPlayer?>(null) }
@@ -800,6 +801,8 @@ private fun PrivateChannelScreen(
                 channelId,
                 peerId,
             )
+            peersLabel = parseChannels(PTTService.instance?.listChannelsJSON() ?: "[]")
+                .firstOrNull { it.id == channelId }?.displayName ?: peerName
             val notes = parseNotes(notesJson)
             val selfId = PTTService.instance?.selfId() ?: ""
             notes.filter { it.toId == selfId && it.status == "queued" }.forEach { n ->
@@ -832,7 +835,7 @@ private fun PrivateChannelScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             TextButton(onClick = onBack) { Text("← Group") }
-            Text("Private: $peerName", style = MaterialTheme.typography.titleMedium)
+            Text("Private: $peersLabel", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.width(48.dp))
         }
 
@@ -941,13 +944,23 @@ private fun PrivateChannelScreen(
 
 private data class DeviceRow(val id: String, val name: String, val status: String)
 
+private data class ChannelPeer(val id: String, val name: String)
+
 private data class ChannelRow(
     val id: String,
     val peerId: String,
     val peerName: String,
     val status: String,
     val unread: Int,
-)
+    val peers: List<ChannelPeer> = emptyList(),
+) {
+    /** Display label: peer names joined for N-party, else peerName. */
+    val displayName: String
+        get() = when {
+            peers.size > 1 -> peers.joinToString(", ") { it.name.ifBlank { it.id } }
+            else -> peerName.ifBlank { peerId }
+        }
+}
 
 private data class NoteRow(
     val id: String,
@@ -979,12 +992,23 @@ private fun parseChannels(json: String): List<ChannelRow> {
         val arr = JSONArray(json)
         (0 until arr.length()).map { i ->
             val obj = arr.getJSONObject(i)
+            val peersArr = obj.optJSONArray("peers")
+            val peers = if (peersArr != null) {
+                (0 until peersArr.length()).map { j ->
+                    val p = peersArr.getJSONObject(j)
+                    ChannelPeer(
+                        id = p.optString("id"),
+                        name = p.optString("name").ifBlank { p.optString("id") },
+                    )
+                }
+            } else emptyList()
             ChannelRow(
                 id = obj.optString("id"),
                 peerId = obj.optString("peerId"),
                 peerName = obj.optString("peerName").ifBlank { obj.optString("peerId") },
                 status = obj.optString("status"),
                 unread = obj.optInt("unreadFor", 0),
+                peers = peers,
             )
         }
     } catch (_: Exception) {

@@ -53,6 +53,11 @@
         <input type="number" class="form-control" id="staleAfter" min="30" required>
         <div class="form-text">A device not seen for this long (no direct contact, mDNS re-sighting, or peer report) is marked Disconnected, even without a graceful disconnect.</div>
       </div>
+      <div class="mb-3">
+        <label class="form-label" for="syncClockSkew">Sync clock skew floor (seconds)</label>
+        <input type="number" class="form-control" id="syncClockSkew" min="0" required>
+        <div class="form-text">Multi-Base merge: remote LastSeen must be ahead of local by more than this many seconds to win (soft floor against near-equal clocks). Peer HTTP Date is also used to offset timestamps before merge.</div>
+      </div>
       <button type="submit" class="btn btn-primary">Save</button>
     </form>
   </div>
@@ -68,6 +73,7 @@
         $('#relayThreshold').val(s.relayThreshold);
         $('#relayEnabled').prop('checked', !!s.relayEnabled);
         $('#staleAfter').val(s.staleAfterSeconds);
+        $('#syncClockSkew').val(s.syncClockSkewSeconds != null ? s.syncClockSkewSeconds : 3);
       });
     }
 
@@ -80,7 +86,8 @@
         syncIntervalSeconds: parseInt($('#syncInterval').val(), 10),
         relayThreshold: parseInt($('#relayThreshold').val(), 10),
         relayEnabled: $('#relayEnabled').is(':checked'),
-        staleAfterSeconds: parseInt($('#staleAfter').val(), 10)
+        staleAfterSeconds: parseInt($('#staleAfter').val(), 10),
+        syncClockSkewSeconds: parseInt($('#syncClockSkew').val(), 10)
       };
       $.ajax({
         url: '/api/settings',
