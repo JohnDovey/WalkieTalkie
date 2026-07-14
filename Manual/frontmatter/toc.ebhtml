@@ -1,13 +1,12 @@
 <h1>Table of Contents</h1>
 <ul>
 <li><a href="frontmatter/title-page.ebhtml">Title Page</a></li>
-<li><a href="chapters/001-Getting-Started-(Desktop-Base-Station).ebhtml">Chapter 1: Getting Started (Desktop Base Station)</a></li>
-<li><a href="chapters/002-Getting-Started.ebhtml">Chapter 2: Getting Started </a></li>
-<li><a href="chapters/003-Windows-Builds.ebhtml">Chapter 3: Windows Builds</a></li>
-<li><a href="chapters/004-Android-Client.ebhtml">Chapter 4: Android Client</a></li>
-<li><a href="chapters/005-macOS-builds.ebhtml">Chapter 5: macOS builds</a></li>
-<li><a href="chapters/006-Android-Client.ebhtml">Chapter 6: Android Client</a></li>
-<li><a href="chapters/007-The-iPhone-app.ebhtml">Chapter 7: The iPhone app</a></li>
-<li><a href="chapters/008-The-Base-Station.ebhtml">Chapter 8: The Base Station</a></li>
+<li><a href="chapters/001-Getting-Started.ebhtml">Chapter 1: Getting Started </a></li>
+<li><a href="chapters/002-Windows-Builds.ebhtml">Chapter 2: Windows Builds</a></li>
+<li><a href="chapters/003-Android-Client.ebhtml">Chapter 3: Android Client</a></li>
+<li><a href="chapters/004-macOS-builds.ebhtml">Chapter 4: macOS builds</a></li>
+<li><a href="chapters/005-Android-Client.ebhtml">Chapter 5: Android Client</a></li>
+<li><a href="chapters/006-The-iPhone-app.ebhtml">Chapter 6: The iPhone app</a></li>
+<li><a href="chapters/007-The-Base-Station.ebhtml">Chapter 7: The Base Station</a></li>
 <li><a href="backmatter/new-back-matter-page-7b0c5c30.ebhtml">Notes</a></li>
 </ul>
