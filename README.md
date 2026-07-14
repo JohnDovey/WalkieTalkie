@@ -12,9 +12,9 @@ Build priority is Android first, then desktop, then iPhone, then wearables last 
 - **Phase 2 — Android**: ✅ working on real hardware (live WebRTC Opus PTT, mDNS + BLE presence, GPS, voice notes / private channels via Base Station).
 - **Phase 3 (desktop hardening + multi-Base-Station registry sync)**: ✅ done (registry sync, map, Old Nodes, Windows/macOS/Linux packaging scripts, system tray, Base Station mesh SFU / relay threshold). Three-OS hardware mesh not run on this Mac-only setup.
 - **Phase 4 (iPhone)**: 🟡 in progress — SwiftUI shell + bind/Opus + voice notes/private channels (`0.2.0`); `iphoneos` build verified. Device mesh / locked-screen PTT needs Team ID + hardware. See `docs/2026-07-14-ios-phase4.md`.
-- **Phase 5 (wearables)**: 🟡 in progress — Wear OS standalone Hold-to-Talk (`0.1.0`) + watchOS WatchConnectivity relay stub. See `docs/2026-07-14-phase5-wearables.md`.
+- **Phase 5 (wearables)**: 🟡 in progress — Wear OS `0.2.0` (Talk/Settings/About) + watchOS WatchConnectivity relay. See `docs/2026-07-14-phase5-wearables.md`.
 
-**Current release track:** server `1.2.0` (mesh SFU + tray + Linux script), android `1.0.0`, wear `0.1.0`, ios `0.2.0` (Phase 4 voice/chats parity).
+**Current release track:** server `1.2.0` (mesh SFU + tray + Linux script), android `1.0.0`, wear `0.2.0`, ios `0.2.0` (Phase 4 voice/chats parity).
 
 ## Repo layout
 

@@ -191,8 +191,8 @@ This is deliberately a **different merge rule** from the existing `PeerReport` m
 - **Verify (pending hardware + paid Team ID)**: iPhone joins the Android+desktop mesh; `PTChannelManager`'s system UI reflects the active transmitter; PTT works with the screen locked.
 
 **Phase 5 — Wearables** — 🟡 in progress (2026-07-14)
-- `android/wear`: Wear OS standalone mesh participant (`platform=wear`), shared `:mesh` with phone; Hold to Talk UI. VERSION `0.1.0`.
-- `ios/WalkieTalkieWatch`: WatchConnectivity relay stub (no gomobile on watch). Decision: phone owns Core/Opus/BLE/GPS. See `docs/2026-07-14-phase5-wearables.md`.
+- `android/wear` `0.2.0`: Talk / Settings / About pager over shared `:mesh` (`platform=wear`).
+- `ios/WalkieTalkieWatch`: WatchConnectivity relay + phone status push. See `docs/2026-07-14-phase5-wearables.md`.
 - **Verify (needs hardware)**: Wear on Wi-Fi joins Base Station mesh; Apple Watch Talk relays via iPhone.
 
 ## Risks and tradeoffs

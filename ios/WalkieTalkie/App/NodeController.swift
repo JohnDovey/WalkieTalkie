@@ -226,6 +226,7 @@ final class NodeController: ObservableObject {
         inboxJSON = node.listVoiceNotesJSON("", error: &error)
         baseStationURL = node.baseStationURL()
         selfID = node.selfID()
+        WatchConnectivityBridge.shared.pushStatusToWatch()
     }
 
     private func stopNodeOnly() {

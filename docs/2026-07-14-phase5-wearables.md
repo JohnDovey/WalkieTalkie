@@ -1,12 +1,12 @@
 # Phase 5 — Wearables
 
-Started 2026-07-14. First slice: **Wear OS** standalone mesh participant (embeds the same `core.aar` as the phone) + **watchOS** WatchConnectivity relay stub.
+Started 2026-07-14. Wear OS standalone mesh participant + watchOS WatchConnectivity relay.
 
 ## Status
 
-**In progress** — Wear OS `:wear` + shared `:mesh` library; watchOS WatchConnectivity relay stub under `ios/WalkieTalkieWatch/`.
+**In progress** — Wear OS `0.2.0` (Talk / Settings / About pager); watchOS relay stub with phone→watch status push.
 
-Software builds verified 2026-07-14:
+Software builds verified:
 - `./android-build.sh :mesh:assembleDebug :app:assembleDebug :wear:assembleDebug` ✅
 - `xcodegen generate` + `xcodebuild` (iphoneos + embedded Watch, `CODE_SIGNING_ALLOWED=NO`) ✅
 
@@ -16,17 +16,15 @@ Software builds verified 2026-07-14:
 - Wear OS is a full Android runtime → reuse `android/mesh/libs/core.aar` via shared `:mesh` library.
 - Platform string passed to Go: `wear`.
 - Watch app id: `com.walkietalkie.wear` (separate install from phone; both can join the LAN mesh over Wi‑Fi).
-- First UI: Hold to Talk + short device status (peer count / Base Station). GPS/BLE reuse phone mesh helpers where hardware permits.
-- Shared Kotlin lives under `android/mesh/` (audio, PTT service, BLE, location, nickname) so phone and watch don’t diverge.
+- UI: horizontal pager — Hold to Talk, nickname Settings, About (tappable Base Station URL + mesh blurb).
+- Shared Kotlin lives under `android/mesh/` (audio, PTT service, BLE, location, nickname).
 - Phone and wear each set `MeshIdentity` in their `Application` (`android` / `wear` + `VERSION`).
 
 ### watchOS (research spike)
-- **Confirmed direction:** do **not** embed `Core.xcframework` on the Watch. `gomobile bind -target=ios` does not produce a watchOS slice; pion/WebRTC + mDNS on watchOS would be a poor fit anyway (battery, networking).
-- **Watch role:** thin UI over **WatchConnectivity** to the paired iPhone:
-  - Watch → phone: `startTalking` / `stopTalking` (and later VM stubs).
-  - Phone → watch: device list snippet / talking indicator / errors.
-- Phone keeps owning `Mobile.startNode`, Opus codec, BLE, GPS.
-- Scaffold: `ios/WalkieTalkieWatch/` + phone `WatchConnectivityBridge.swift` (regenerate Xcodeproj via `xcodegen`).
+- **Confirmed direction:** do **not** embed `Core.xcframework` on the Watch.
+- **Watch role:** thin UI over **WatchConnectivity** to the paired iPhone (`startTalking` / `stopTalking`).
+- Phone pushes status on the mesh poll timer (`WatchConnectivityBridge.pushStatusToWatch`).
+- Scaffold: `ios/WalkieTalkieWatch/` + phone `WatchConnectivityBridge.swift`.
 
 ## Build
 
@@ -37,11 +35,10 @@ cd android
 ./android-build.sh :app:assembleDebug
 ```
 
-Wear VERSION: `android/wear/VERSION` → `0.1.0`.
+Wear VERSION: `android/wear/VERSION` → `0.2.0`.
 
 ```bash
 cd ios && xcodegen generate
-# Watch target embeds with the iPhone app; needs Team ID for device.
 ```
 
 ## Verify (needs hardware)

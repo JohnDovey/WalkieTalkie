@@ -6,10 +6,17 @@ numberOverride:
 ---
 
 <h2 id="wear-os">Wear OS</h2>
-<p>The Wear OS app is a standalone mesh participant: it embeds the same Go core as the phone, announces itself with platform <code>wear</code>, and joins the LAN over Wi‑Fi. Install it separately from the phone app (<code>com.walkietalkie.wear</code>).</p>
-<p>The watch face is intentionally small: peer count, Base Station status, and a large <strong>Hold to talk</strong> control. Grant microphone, location, and Bluetooth permissions when asked — the foreground service keeps the mesh and mic alive while your wrist is down.</p>
+<p>The Wear OS app is a standalone mesh participant: it embeds the same Go core as the phone, announces itself with platform <code>wear</code>, and joins the LAN over Wi‑Fi. Install it separately from the phone app (<code>com.walkietalkie.wear</code>). Current track: <code>0.2.0</code>.</p>
+<p>Swipe sideways between three pages:</p>
+<ul>
+<li><strong>Talk</strong> — peer count, Base Station hint, and a large <strong>Hold to talk</strong> control.</li>
+<li><strong>Settings</strong> — nickname for this watch (same idea as the phone).</li>
+<li><strong>About</strong> — version, device id, a tappable Base Station URL (opens the web UI when a browser is available), and a short explanation of the mesh.</li>
+</ul>
+<p>Grant microphone, location, and Bluetooth permissions when asked — the foreground service keeps the mesh and mic alive while your wrist is down.</p>
 <p>Voice notes and private-channel UI stay on the phone for now; the watch is for quick group Talk.</p>
+<p>The watch and the Base Station must be on the <strong>same Wi‑Fi LAN</strong> (same SSID/subnet). Different guest networks or secondary SSIDs will not discover each other over mDNS.</p>
 
 <h2 id="apple-watch">Apple Watch</h2>
-<p>Apple Watch does not run the Go mesh itself. The watch app is a thin remote control: it uses WatchConnectivity to tell the paired iPhone to start and stop transmitting. Keep the iPhone app open (or recently used) on the same Wi‑Fi mesh so audio path, BLE, and GPS stay on the phone.</p>
+<p>Apple Watch does not run the Go mesh itself. The watch app is a thin remote control: it uses WatchConnectivity to tell the paired iPhone to start and stop transmitting, and the phone pushes a short status line back (mesh / talking). Keep the iPhone app open (or recently used) on the same Wi‑Fi mesh so audio path, BLE, and GPS stay on the phone.</p>
 <p>If the watch says the iPhone is unreachable, unlock the phone and open WalkieTalkie once, then try Hold to talk again.</p>
