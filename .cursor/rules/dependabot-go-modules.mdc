@@ -1,0 +1,26 @@
+---
+description: Keep every go.mod patched — Dependabot ignores go.work; stale sibling pins caused WalkieTalkie's ~22 alerts
+globs: "**/go.mod,**/go.sum,go.work,go.work.sum"
+alwaysApply: true
+---
+
+# Go Dependabot / module hygiene
+
+## What went wrong (WalkieTalkie, 2026-07)
+
+GitHub Dependabot reported ~22 vulnerabilities on `main` (mostly critical/high `golang.org/x/crypto` and moderate `golang.org/x/net`).
+
+**Cause:** `go.work` unified the *build* to patched versions from `core/`, but **`server/go.mod` still pinned** `golang.org/x/crypto v0.33.0` and `golang.org/x/net v0.35.0`. Dependabot scans **each `go.mod` / `go.sum` independently** — workspace resolution does not clear alerts.
+
+**Fix applied:** bump Go to **1.26.5**, upgrade those pins (crypto **≥ 0.54**, net **≥ 0.57**), tidy both modules, `replace` local `core`, patch server to **1.1.1**. See commit `66855b5`.
+
+## Rules (always)
+
+1. After any Go dependency change, release prep, or Dependabot complaint: check **every** module with `GOWORK=off`, not only the workspace view.
+2. Bump vulnerable `x/crypto` / `x/net` (and other flagged modules) in **each** `go.mod`, then `go mod tidy` + `go work sync`.
+3. Keep the Go `toolchain` / `go` directive on the current patch of the active series (stdlib vulns need point releases).
+4. Verify with `govulncheck ./...` on that toolchain; OSV/`GHSA` counts on the versions **written in go.mod** matter for Dependabot.
+5. Unfixable noise: `GO-2026-5932` (`x/crypto/openpgp` unmaintained) — dismiss in GitHub if unused; do not block releases on it alone.
+6. Patch-bump the affected app `VERSION` when shipping the security bump.
+
+Never assume "builds fine under `go.work`" means Dependabot is clean.
