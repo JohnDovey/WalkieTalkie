@@ -15,7 +15,7 @@ Build priority is Android first, then desktop, then iPhone, then wearables last 
 - **Phase 5 (wearables)**: 🟡 software complete — Wear OS `0.2.0` + watchOS WatchConnectivity relay; hardware verify pending. See `docs/2026-07-14-phase5-wearables.md`.
 - **Phase 6 (private live Talk)**: ✅ software complete — live unicast (mesh/SFU), named Hub rooms, room-scoped channel Talk, Hub→direct Talk/note bridges, multi-Base voice sync, P2P notes + Base mirror. See `docs/2026-07-14-phase6-private-live-talk.md`.
 
-**Current release track:** server `1.8.0`, android `1.6.0`, wear `0.2.0`, ios `0.8.0` (GitHub release `v1.8.0`). MeshBridge companion on `main`: `0.1.1` (not yet in a numbered product release zip).
+**Current release track:** server `1.9.0`, android `1.7.0`, wear `0.2.0`, ios `0.9.0`. Companions on `main`: MeshBridge `0.1.2`, MeshSniff `0.1.0`.
 
 ## Repo layout
 
@@ -24,10 +24,11 @@ core/      shared Go module (registry, discovery, WebRTC mesh, signaling) — no
 server/    the Go desktop app AND the "Base Station" server: bbolt registry, REST API, Bootstrap/jQuery dashboard
 android/   Kotlin/Compose phone + Wear OS apps; shared `:mesh` library consumes core via gomobile AAR
 ios/       SwiftUI iPhone app (+ WatchConnectivity watch stub); Core XCFramework (see docs/2026-07-14-ios-phase4.md)
-tools/     dev scripts: Go env setup, gomobile→Android AAR / iOS XCFramework, Opus iOS, Windows/macOS/Linux server + MeshBridge builds
-docs/      plans and design docs (including voice messages / private channels / MeshBridge)
+tools/     dev scripts: Go env setup, gomobile→Android AAR / iOS XCFramework, Opus iOS, Windows/macOS/Linux server + MeshBridge + MeshSniff builds
+docs/      plans and design docs (including voice messages / private channels / MeshBridge / MeshSniff)
 Manual/    the end-user manual (.ebhtml format — see Manual/README.md)
-meshbridge/ companion process: bridge Base Stations across LAN/WAN — live Talk stays local (see meshbridge/README.md)
+meshbridge/ companion: bridge Base Stations across LAN/WAN (see meshbridge/README.md)
+meshsniff/  companion: LAN discovery map — MeshBridge seed, ARP/TCP/ICMP/mDNS, MAC↔meshId (see meshsniff/README.md)
 ```
 
 ## MeshBridge
@@ -50,6 +51,19 @@ go run ./meshbridge/cmd/meshbridge
 ```
 
 Details: [`meshbridge/README.md`](meshbridge/README.md), [`docs/2026-07-14-meshbridge-plan.md`](docs/2026-07-14-meshbridge-plan.md), Manual chapter **MeshBridge**.
+
+## MeshSniff
+
+LAN discovery map next to the Base Station. Seeds from MeshBridge inventory, then ARP / TCP / mDNS / optional ICMP; correlates MAC addresses to Mesh IDs via `GET /sniff`. Click a node for a detail modal.
+
+```sh
+source tools/go-env.sh
+go run ./meshsniff/cmd/meshsniff
+# UI: http://127.0.0.1:9096
+./tools/build-macos-meshsniff.sh
+```
+
+Details: [`meshsniff/README.md`](meshsniff/README.md), [`docs/2026-07-14-meshsniff-plan.md`](docs/2026-07-14-meshsniff-plan.md), Manual chapter **MeshSniff**.
 
 ## Building the iOS app
 
@@ -97,4 +111,4 @@ Requires the Android SDK/NDK at `$ANDROID_HOME` (see `.cursor/rules/dev-environm
 
 ## Versioning
 
-Each app is versioned independently via a `VERSION` file in its own directory (`server/VERSION`, `android/VERSION`, `android/wear/VERSION`, `ios/VERSION`, `meshbridge/VERSION`, …) using Major.Minor.Patch: patch for a bug fix, minor for a new feature (including completing a plan phase), major reserved for actual releases.
+Each app is versioned independently via a `VERSION` file in its own directory (`server/VERSION`, `android/VERSION`, `android/wear/VERSION`, `ios/VERSION`, `meshbridge/VERSION`, `meshsniff/VERSION`, …) using Major.Minor.Patch: patch for a bug fix, minor for a new feature (including completing a plan phase), major reserved for actual releases.

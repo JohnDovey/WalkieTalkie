@@ -22,7 +22,7 @@ Deferred from [`2026-07-13-voice-message-and-private-channels.md`](2026-07-13-vo
 
 ## MeshBridge (dual-LAN / punch)
 
-✅ Companion module `meshbridge/` **0.1.1** on `main` — manual / ethernet / wifi / punch transports; Base Station Remote Users + ingest APIs. Live Talk stays local. See [`2026-07-14-meshbridge-plan.md`](2026-07-14-meshbridge-plan.md) and Manual → MeshBridge.
+✅ Companion module `meshbridge/` **0.1.2** + **MeshSniff** `0.1.0` on `main` — dual-LAN sync and LAN discovery map (identify `/sniff`, MAC↔meshId). See [`2026-07-14-meshbridge-plan.md`](2026-07-14-meshbridge-plan.md) and [`2026-07-14-meshsniff-plan.md`](2026-07-14-meshsniff-plan.md).
 
 ## Multi-Base-Station voice blob replication
 

@@ -85,7 +85,7 @@ func main() {
 		}
 		cli.OnBaseURL = func(peerID string, payload punch.BaseURLPayload) {
 			log.Printf("meshbridge: peer %s advertised Base %s", peerID, payload.URL)
-			if err := local.SyncRemoteBase(payload.URL, payload.ID, payload.Name); err != nil {
+			if _, _, _, err := local.SyncRemoteBase(payload.URL, payload.ID, payload.Name); err != nil {
 				log.Printf("meshbridge punch sync: %v", err)
 			}
 		}
@@ -104,6 +104,7 @@ func main() {
 	pipe := &bridge.Pipeline{
 		Settings: settings,
 		Local:    &bridge.LocalClient{BaseURL: settings.LocalBaseURL},
+		NodeID:   settings.NodeID,
 	}
 	go pipe.Run(ctx)
 
@@ -113,7 +114,7 @@ func main() {
 		fmt.Fprintf(w, `<!doctype html><title>MeshBridge %s</title>
 <h1>MeshBridge %s</h1>
 <p>Local Base: %s</p>
-<p><a href="/api/status">/api/status</a></p>
+<p><a href="/api/status">/api/status</a> · <a href="/api/inventory">/api/inventory</a> · <a href="/sniff">/sniff</a></p>
 <p>Config: %s</p>`, ver.Version, ver.Version, settings.LocalBaseURL, cfgPath)
 	})
 	mux.HandleFunc("GET /api/status", func(w http.ResponseWriter, r *http.Request) {
@@ -124,6 +125,25 @@ func main() {
 			"localBaseURL": settings.LocalBaseURL,
 			"transports":   pipe.StatusSnapshot(),
 			"runHub":       settings.RunHub,
+		})
+	})
+	mux.HandleFunc("GET /api/inventory", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(pipe.InventorySnapshot())
+	})
+	mux.HandleFunc("GET /sniff", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"meshId":     settings.NodeID,
+			"name":       "MeshBridge",
+			"platform":   "meshbridge",
+			"appVersion": ver.Version,
+			"urls": map[string]string{
+				"status": fmt.Sprintf("http://127.0.0.1:%d/", settings.StatusPort),
+			},
+			"services": []map[string]any{
+				{"name": "status", "port": settings.StatusPort},
+			},
 		})
 	})
 

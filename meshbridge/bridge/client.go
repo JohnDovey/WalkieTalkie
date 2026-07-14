@@ -103,10 +103,11 @@ func (c *LocalClient) PushVoice(remoteURL string) error {
 }
 
 // SyncRemoteBase pulls devices+voice from remoteURL and pushes into local Base.
-func (c *LocalClient) SyncRemoteBase(remoteURL, remoteBaseID, remoteBaseName string) error {
+// Returns the pulled device list for MeshSniff inventory.
+func (c *LocalClient) SyncRemoteBase(remoteURL, remoteBaseID, remoteBaseName string) ([]registry.Device, string, string, error) {
 	devices, aboutID, aboutName, err := FetchRemoteDevices(c.http(), remoteURL)
 	if err != nil {
-		return err
+		return nil, "", "", err
 	}
 	if remoteBaseID == "" {
 		remoteBaseID = aboutID
@@ -118,9 +119,9 @@ func (c *LocalClient) SyncRemoteBase(remoteURL, remoteBaseID, remoteBaseName str
 		remoteBaseID = remoteURL
 	}
 	if err := c.PushDevices(remoteBaseID, remoteBaseName, devices); err != nil {
-		return err
+		return devices, remoteBaseID, remoteBaseName, err
 	}
-	return c.PushVoice(remoteURL)
+	return devices, remoteBaseID, remoteBaseName, c.PushVoice(remoteURL)
 }
 
 // FetchRemoteDevices loads GET /api/devices and GET /api/about from a Base.

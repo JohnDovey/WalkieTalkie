@@ -63,6 +63,9 @@ type Handlers struct {
 	// Station can recompute its mean location estimate.
 	OnLocationUpdated func(deviceID string)
 
+	// SniffIdentify, when set, serves GET /api/sniff for MeshSniff probes.
+	SniffIdentify func() any
+
 	// ChannelTalkPeers, when set, returns LiveTalk peers for a private channel
 	// (other focused participants, else the channel peer), excluding SelfID.
 	ChannelTalkPeers func(channelID string) []string
@@ -89,6 +92,7 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/settings", h.getSettings)
 	mux.HandleFunc("PUT /api/settings", h.putSettings)
 	mux.HandleFunc("GET /api/about", h.about)
+	mux.HandleFunc("GET /api/sniff", h.sniffIdentify)
 	mux.HandleFunc("POST /api/talk/start", h.talkStart)
 	mux.HandleFunc("POST /api/talk/stop", h.talkStop)
 	mux.HandleFunc("GET /api/talk/peer", h.talkPeer)
@@ -175,6 +179,9 @@ func (h *Handlers) announce(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		serverError(w, err)
 		return
+	}
+	if len(payload.MacAddresses) > 0 {
+		_ = h.Store.SetMacAddresses(payload.ID, payload.MacAddresses, time.Now())
 	}
 	if h.OnDeviceSeen != nil {
 		h.OnDeviceSeen(created)
@@ -298,6 +305,14 @@ func (h *Handlers) talkPeer(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) about(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, AboutInfo{ID: h.SelfID, Name: h.SelfName, Platform: h.Platform, Version: h.Version})
+}
+
+func (h *Handlers) sniffIdentify(w http.ResponseWriter, r *http.Request) {
+	if h.SniffIdentify == nil {
+		http.Error(w, "sniff not configured", http.StatusNotFound)
+		return
+	}
+	writeJSON(w, h.SniffIdentify())
 }
 
 func (h *Handlers) getSettings(w http.ResponseWriter, r *http.Request) {

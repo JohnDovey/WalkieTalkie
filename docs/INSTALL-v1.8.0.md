@@ -102,7 +102,7 @@ Details: Manual → The iPhone app, and `docs/2026-07-14-ios-phase4.md`.
 
 Full notes: `docs/2026-07-14-gps-history-nparty-sfu-notes.md` and Manual PDF/EPUB.
 
-**After this zip (on `main`):** optional **MeshBridge** companion (`meshbridge/` **0.1.1**) syncs devices + voice notes across dual LAN / punch into the Base Station **Remote Users** tab — not live Talk. See Manual → MeshBridge and `docs/2026-07-14-meshbridge-plan.md`. Not included in the `v1.8.0` binary zip.
+**After this zip (on `main`):** optional **MeshBridge** (`0.1.2`) and **MeshSniff** (`0.1.0`) companions — dual-LAN sync and a LAN discovery map with MAC↔meshId. See Manual chapters MeshBridge / MeshSniff. Not included in the `v1.8.0` binary zip.
 
 
 ## Docs included

@@ -56,6 +56,9 @@ type AnnounceInfo struct {
 	// means "no SFU" and is omitted from TXT. Mobile/desktop clients use
 	// this for DialViaRelay force-threshold / ICE-fail fallback.
 	RelayPort int
+
+	// PrimaryMAC is optional MeshSniff correlation (mDNS TXT mac=).
+	PrimaryMAC string
 }
 
 // Peer is a sighting of another node, decoded from its TXT record.
@@ -72,6 +75,7 @@ type Peer struct {
 	IPv4       []net.IP
 	IPv6       []net.IP
 	GPS        *proto.GeoPoint
+	PrimaryMAC string
 }
 
 func buildTXT(info AnnounceInfo) []string {
@@ -96,10 +100,13 @@ func buildTXT(info AnnounceInfo) []string {
 	if info.RelayPort != 0 {
 		txt = append(txt, "relay="+strconv.Itoa(info.RelayPort))
 	}
+	if info.PrimaryMAC != "" {
+		txt = append(txt, "mac="+strings.ToLower(info.PrimaryMAC))
+	}
 	return txt
 }
 
-func parseTXT(text []string) (id, name, plat, appVersion string, ver, sig, api, relay int, gps *proto.GeoPoint) {
+func parseTXT(text []string) (id, name, plat, appVersion, mac string, ver, sig, api, relay int, gps *proto.GeoPoint) {
 	var lat, lon, acc float64
 	var hasLat, hasLon bool
 	for _, kv := range text {
@@ -118,6 +125,8 @@ func parseTXT(text []string) (id, name, plat, appVersion string, ver, sig, api, 
 			plat = parts[1]
 		case "appver":
 			appVersion = parts[1]
+		case "mac":
+			mac = strings.ToLower(parts[1])
 		case "ver":
 			ver, _ = strconv.Atoi(parts[1])
 		case "sig":
@@ -315,7 +324,7 @@ func browseOnce(ctx context.Context, selfID string, onFound func(Peer)) error {
 	entries := make(chan *zeroconf.ServiceEntry)
 	go func() {
 		for entry := range entries {
-			id, name, plat, appVersion, ver, sig, api, relay, gps := parseTXT(entry.Text)
+			id, name, plat, appVersion, mac, ver, sig, api, relay, gps := parseTXT(entry.Text)
 			if id == "" || id == selfID {
 				continue
 			}
@@ -332,6 +341,7 @@ func browseOnce(ctx context.Context, selfID string, onFound func(Peer)) error {
 				IPv4:       entry.AddrIPv4,
 				IPv6:       entry.AddrIPv6,
 				GPS:        gps,
+				PrimaryMAC: mac,
 			})
 		}
 	}()

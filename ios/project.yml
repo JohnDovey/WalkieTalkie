@@ -34,7 +34,7 @@ targets:
         CODE_SIGN_ENTITLEMENTS: WalkieTalkie/WalkieTalkie.entitlements
         PRODUCT_NAME: WalkieTalkie
         PRODUCT_BUNDLE_IDENTIFIER: com.walkietalkie
-        MARKETING_VERSION: "0.8.0"
+        MARKETING_VERSION: "0.9.0"
         CURRENT_PROJECT_VERSION: "8"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_BITCODE: NO

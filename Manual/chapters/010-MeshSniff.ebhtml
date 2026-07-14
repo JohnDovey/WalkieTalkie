@@ -1,0 +1,34 @@
+---
+title: MeshSniff
+subtitle: Network discovery map
+numberMode: Auto
+numberOverride:
+---
+<h1 id="meshsniff">MeshSniff</h1>
+<p><strong>MeshSniff</strong> is a companion process that discovers devices on your LAN (and devices MeshBridge already knows) and draws them on a live network map. Click any node for a modal with everything discovered: IPs, MACs, Mesh ID, nickname, GPS, open ports, services, and URLs.</p>
+<p>It does <strong>not</strong> replace the Base Station GPS <strong>Map</strong> page, and it does not bridge live Talk.</p>
+
+<h2 id="running-meshsniff">Running MeshSniff</h2>
+<p>Start the Base Station (and MeshBridge if you use it), then:</p>
+<pre><code>source tools/go-env.sh
+go run ./meshsniff/cmd/meshsniff</code></pre>
+<p>Open <strong>http://127.0.0.1:9096</strong>. Settings: <code>~/Library/Application Support/WalkieTalkie/meshsniff/settings.json</code> on macOS (Linux/Windows use the OS config directory under <code>WalkieTalkie/meshsniff</code>). Build with <code>./tools/build-macos-meshsniff.sh</code>.</p>
+
+<h2 id="seed-then-discover">Seed, then discover</h2>
+<ol>
+<li>MeshSniff first asks <strong>MeshBridge</strong> for its inventory (remote Bases and users), placing them on the map even with minimal info.</li>
+<li>It then loads local Base Station devices and Remote Users.</li>
+<li>It continuously scans: interface/subnets, ARP cache, TCP service probes, WalkieTalkie mDNS, and optional ICMP when run as root.</li>
+<li>Open WalkieTalkie ports are probed with <code>GET /sniff</code> (signaling) or <code>GET /api/sniff</code> (Base Station) so MAC addresses can be tied to each device's Mesh ID.</li>
+</ol>
+<p>The map updates live as new hosts and details appear.</p>
+
+<h2 id="what-you-see">What you see</h2>
+<ul>
+<li><strong>Networks / subnets</strong> — local interfaces and CIDRs</li>
+<li><strong>Routers</strong> — default gateway and common <code>.1</code> / admin-port hosts</li>
+<li><strong>Hosts</strong> — ARP/TCP-discovered devices</li>
+<li><strong>WalkieTalkie devices</strong> — phones, Base Stations, Wear that answer identify or appear in mDNS</li>
+<li><strong>MeshBridge / remote hints</strong> — bridged remotes (dashed) until reached on L3</li>
+</ul>
+<p>Status strip shows MeshBridge/Base reachability, ICMP on/off, and last scan duration.</p>

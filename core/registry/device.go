@@ -41,6 +41,9 @@ type Device struct {
 	// that were never reachable for a WebRTC session.
 	Capabilities []string `json:"capabilities"`
 
+	// Best-effort hardware addresses for MeshSniff correlation (may be empty).
+	MacAddresses []string `json:"macAddresses,omitempty"`
+
 	ProtocolVersion int `json:"protocolVersion"`
 
 	// directSeen is true once the server has heard from this device itself

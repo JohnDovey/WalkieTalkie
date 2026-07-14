@@ -46,6 +46,7 @@ type AnnouncePayload struct {
 	AppVersion   string   `json:"appVersion"` // the announcing app's own Major.Minor.Patch version
 	Capabilities []string `json:"capabilities"`
 	SignalPort   int      `json:"signalPort"`
+	MacAddresses []string `json:"macAddresses,omitempty"`
 }
 
 // GPSUpdatePayload is sent by a device on a configurable interval.

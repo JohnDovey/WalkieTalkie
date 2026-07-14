@@ -4,5 +4,5 @@ subtitle: ''
 numberMode: Auto
 numberOverride:
 ---
-<p>For dual-LAN or remote Base-to-Base sync of devices and voice notes (not live Talk), see the <strong>MeshBridge</strong> chapter. Design notes live under <code>docs/2026-07-14-meshbridge-plan.md</code> in the source tree.</p>
+<p>For dual-LAN or remote Base-to-Base sync of devices and voice notes (not live Talk), see the <strong>MeshBridge</strong> chapter. For a LAN discovery network map (MAC ↔ Mesh ID), see <strong>MeshSniff</strong>. Design notes live under <code>docs/2026-07-14-meshbridge-plan.md</code> and <code>docs/2026-07-14-meshsniff-plan.md</code> in the source tree.</p>
 

@@ -29,7 +29,8 @@ alwaysApply: false
 | Getting Started | Short intro only |
 | The Base Station | Desktop dashboard, map, settings, tray, multi-BS, Remote Users, voice notes |
 | MeshBridge | Dual-LAN / Ethernet / Wi‑Fi NIC / punch companion; not live Talk |
-| Windows Builds / macOS builds | Platform packaging (incl. MeshBridge build scripts) |
+| MeshSniff | LAN discovery map; MeshBridge seed; MAC↔meshId; node modal |
+| Windows Builds / macOS builds | Platform packaging (incl. MeshBridge / MeshSniff build scripts) |
 | Android Client | Phone app usage and quirks |
 | The iPhone app | iOS app usage and quirks |
 | Wearables | Wear OS / Apple Watch |

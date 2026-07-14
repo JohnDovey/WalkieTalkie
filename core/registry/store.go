@@ -236,6 +236,25 @@ func (s *Store) SetName(id, name string, now time.Time) error {
 	})
 }
 
+// SetMacAddresses stores best-effort MAC addresses reported by a device
+// (MeshSniff correlation). Empty slice is a no-op.
+func (s *Store) SetMacAddresses(id string, macs []string, now time.Time) error {
+	if len(macs) == 0 {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		d, ok := s.get(tx, id)
+		if !ok {
+			d = &Device{ID: id, ProtocolVersion: proto.Version}
+		}
+		d.MacAddresses = macs
+		d.LastSeen = now
+		return s.put(tx, d)
+	})
+}
+
 // SetLocation records a GPS reading self-reported directly by device id
 // and appends a sample to the gps_history trail.
 func (s *Store) SetLocation(id string, point proto.GeoPoint) error {

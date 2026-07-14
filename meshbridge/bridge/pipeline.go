@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/JohnDovey/WalkieTalkie/core/registry"
 	"github.com/JohnDovey/WalkieTalkie/meshbridge/config"
 	"github.com/JohnDovey/WalkieTalkie/meshbridge/discovery"
 	"github.com/JohnDovey/WalkieTalkie/meshbridge/wifi"
@@ -16,10 +17,12 @@ import (
 type Pipeline struct {
 	Settings config.Settings
 	Local    *LocalClient
+	NodeID   string
 
-	mu      sync.Mutex
-	targets map[string]remoteTarget // key = remote base URL or id
-	status  []TransportStatus
+	mu        sync.Mutex
+	targets   map[string]remoteTarget // key = remote base URL or id
+	status    []TransportStatus
+	inventory Inventory
 }
 
 type remoteTarget struct {
@@ -38,6 +41,33 @@ type TransportStatus struct {
 	LastErr string `json:"lastError,omitempty"`
 }
 
+// InventoryDevice is a compact device row for MeshSniff seeding.
+type InventoryDevice struct {
+	ID         string  `json:"id"`
+	Name       string  `json:"name"`
+	Platform   string  `json:"platform"`
+	AppVersion string  `json:"appVersion"`
+	MACs       []string `json:"macs,omitempty"`
+	Lat        float64 `json:"lat,omitempty"`
+	Lon        float64 `json:"lon,omitempty"`
+}
+
+// InventoryRemote groups devices under a remote Base.
+type InventoryRemote struct {
+	RemoteBaseID   string            `json:"remoteBaseId"`
+	RemoteBaseName string            `json:"remoteBaseName"`
+	Devices        []InventoryDevice `json:"devices"`
+}
+
+// Inventory is MeshBridge's last-synced remote snapshot for MeshSniff.
+type Inventory struct {
+	NodeID       string            `json:"nodeId"`
+	LocalBaseURL string            `json:"localBaseURL"`
+	Transports   []TransportStatus `json:"transports"`
+	Remotes      []InventoryRemote `json:"remotes"`
+	UpdatedAt    time.Time         `json:"updatedAt"`
+}
+
 // StatusSnapshot returns current transport health.
 func (p *Pipeline) StatusSnapshot() []TransportStatus {
 	p.mu.Lock()
@@ -45,6 +75,17 @@ func (p *Pipeline) StatusSnapshot() []TransportStatus {
 	out := make([]TransportStatus, len(p.status))
 	copy(out, p.status)
 	return out
+}
+
+// InventorySnapshot returns the last-known remote inventory.
+func (p *Pipeline) InventorySnapshot() Inventory {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	inv := p.inventory
+	inv.Transports = append([]TransportStatus(nil), p.status...)
+	inv.NodeID = p.NodeID
+	inv.LocalBaseURL = p.Settings.LocalBaseURL
+	return inv
 }
 
 // Run loops until ctx is done.
@@ -66,6 +107,24 @@ func (p *Pipeline) Run(ctx context.Context) {
 func (p *Pipeline) tick(ctx context.Context) {
 	var statuses []TransportStatus
 	bridgeCount := 0
+	remotes := map[string]*InventoryRemote{}
+
+	record := func(baseID, baseName string, devices []registry.Device) {
+		if baseID == "" {
+			return
+		}
+		ir := remotes[baseID]
+		if ir == nil {
+			ir = &InventoryRemote{RemoteBaseID: baseID, RemoteBaseName: baseName}
+			remotes[baseID] = ir
+		}
+		if baseName != "" {
+			ir.RemoteBaseName = baseName
+		}
+		for _, d := range devices {
+			ir.Devices = append(ir.Devices, toInvDevice(d))
+		}
+	}
 
 	for _, m := range p.Settings.Manual {
 		st := TransportStatus{Kind: "manual", Name: m.Name, Detail: m.URL}
@@ -77,13 +136,14 @@ func (p *Pipeline) tick(ctx context.Context) {
 		if m.Name == "" {
 			st.Name = m.URL
 		}
-		err := p.Local.SyncRemoteBase(m.URL, "", m.Name)
+		devices, baseID, baseName, err := p.Local.SyncRemoteBase(m.URL, "", m.Name)
 		if err != nil {
 			st.LastErr = err.Error()
 			log.Printf("meshbridge manual %s: %v", m.URL, err)
 		} else {
 			st.OK = true
 			bridgeCount++
+			record(baseID, baseName, devices)
 		}
 		statuses = append(statuses, st)
 	}
@@ -101,7 +161,7 @@ func (p *Pipeline) tick(ctx context.Context) {
 			statuses = append(statuses, st)
 			continue
 		}
-		found, err := p.discoverAndSync(ctx, w.Interface)
+		found, err := p.discoverAndSync(ctx, w.Interface, record)
 		if err != nil {
 			st.LastErr = err.Error()
 			log.Printf("meshbridge wifi sync: %v", err)
@@ -124,7 +184,7 @@ func (p *Pipeline) tick(ctx context.Context) {
 		if e.Name == "" {
 			st.Name = e.Interface
 		}
-		found, err := p.discoverAndSync(ctx, e.Interface)
+		found, err := p.discoverAndSync(ctx, e.Interface, record)
 		if err != nil {
 			st.LastErr = err.Error()
 			log.Printf("meshbridge ethernet %s: %v", e.Interface, err)
@@ -137,13 +197,11 @@ func (p *Pipeline) tick(ctx context.Context) {
 		statuses = append(statuses, st)
 	}
 
-	// Punch peers: URLs may be published out-of-band via punch package into Local sync.
 	for _, pb := range p.Settings.Punch {
 		st := TransportStatus{Kind: "punch", Name: pb.Name, Detail: pb.HubHost}
 		if pb.Name == "" {
 			st.Name = pb.PeerID
 		}
-		// Actual punch session is owned by punch.Manager; pipeline records configured entries.
 		st.Detail = fmt.Sprintf("hub=%s:%d peer=%s", pb.HubHost, pb.HubPort, pb.PeerID)
 		st.OK = pb.HubHost != "" && pb.PeerID != ""
 		if !st.OK {
@@ -154,8 +212,20 @@ func (p *Pipeline) tick(ctx context.Context) {
 		statuses = append(statuses, st)
 	}
 
+	var remList []InventoryRemote
+	for _, r := range remotes {
+		remList = append(remList, *r)
+	}
+
 	p.mu.Lock()
 	p.status = statuses
+	p.inventory = Inventory{
+		NodeID:       p.NodeID,
+		LocalBaseURL: p.Settings.LocalBaseURL,
+		Transports:   statuses,
+		Remotes:      remList,
+		UpdatedAt:    time.Now(),
+	}
 	p.mu.Unlock()
 
 	errMsg := ""
@@ -168,18 +238,42 @@ func (p *Pipeline) tick(ctx context.Context) {
 	_ = p.Local.Heartbeat(bridgeCount, errMsg)
 }
 
+func toInvDevice(d registry.Device) InventoryDevice {
+	out := InventoryDevice{
+		ID:         d.ID,
+		Name:       d.Name,
+		Platform:   d.Platform,
+		AppVersion: d.AppVersion,
+		MACs:       d.MacAddresses,
+	}
+	if d.CurrentLocation != nil {
+		out.Lat = d.CurrentLocation.Lat
+		out.Lon = d.CurrentLocation.Lon
+	} else if d.LastKnownLocation != nil {
+		out.Lat = d.LastKnownLocation.Lat
+		out.Lon = d.LastKnownLocation.Lon
+	}
+	return out
+}
+
+type recordFn func(baseID, baseName string, devices []registry.Device)
+
 // discoverAndSync browses mDNS on iface and syncs every Base (api≠0) found.
-func (p *Pipeline) discoverAndSync(ctx context.Context, iface string) (int, error) {
+func (p *Pipeline) discoverAndSync(ctx context.Context, iface string, record recordFn) (int, error) {
 	bctx, cancel := discovery.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
 	found := 0
 	var lastErr error
 	_ = discovery.BrowseBases(bctx, iface, func(bp discovery.BasePeer) {
 		url := fmt.Sprintf("http://%s:%d", bp.Host, bp.APIPort)
-		if err := p.Local.SyncRemoteBase(url, bp.ID, bp.Name); err != nil {
+		devices, baseID, baseName, err := p.Local.SyncRemoteBase(url, bp.ID, bp.Name)
+		if err != nil {
 			log.Printf("meshbridge sync %s: %v", url, err)
 			lastErr = err
 			return
+		}
+		if record != nil {
+			record(baseID, baseName, devices)
 		}
 		found++
 	})

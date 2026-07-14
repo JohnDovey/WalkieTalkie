@@ -6,6 +6,8 @@
 // gathers usable host candidates directly (no STUN/TURN needed on a pure
 // LAN), a single-round-trip, non-trickle SDP exchange is enough to start:
 // the caller POSTs its offer and gets the answer back in the same response.
+//
+// GET /sniff returns MeshSniff identify JSON when Identify is set.
 package signaling
 
 import (
@@ -15,7 +17,10 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sync"
 	"time"
+
+	"github.com/JohnDovey/WalkieTalkie/core/sniff"
 )
 
 // OnOffer is called with the sender's device ID and an incoming SDP offer
@@ -23,6 +28,9 @@ import (
 // answer. Implemented by core/media, which needs the sender ID to attribute
 // the resulting peer connection to the right Device.
 type OnOffer func(senderID, offerSDP string) (answerSDP string, err error)
+
+// IdentifyFunc returns the current MeshSniff identify payload for GET /sniff.
+type IdentifyFunc func() sniff.IdentifyPayload
 
 type offerRequest struct {
 	Sender string `json:"sender"`
@@ -35,15 +43,24 @@ type offerResponse struct {
 
 // Server is one node's signaling listener.
 type Server struct {
-	onOffer OnOffer
-	ln      net.Listener
-	http    *http.Server
+	onOffer  OnOffer
+	identify IdentifyFunc
+	mu       sync.RWMutex
+	ln       net.Listener
+	http     *http.Server
 }
 
 // NewServer creates a signaling server that calls onOffer for every incoming
 // offer. Call Start to bind and begin serving.
 func NewServer(onOffer OnOffer) *Server {
 	return &Server{onOffer: onOffer}
+}
+
+// SetIdentify registers the MeshSniff GET /sniff handler payload source.
+func (s *Server) SetIdentify(fn IdentifyFunc) {
+	s.mu.Lock()
+	s.identify = fn
+	s.mu.Unlock()
 }
 
 // Start binds an OS-assigned free TCP port (unless port is non-zero) and
@@ -58,6 +75,7 @@ func (s *Server) Start(port int) (int, error) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /offer", s.handleOffer)
+	mux.HandleFunc("GET /sniff", s.handleSniff)
 	s.http = &http.Server{Handler: mux}
 
 	go s.http.Serve(ln)
@@ -71,6 +89,18 @@ func (s *Server) Shutdown(ctx context.Context) error {
 		return nil
 	}
 	return s.http.Shutdown(ctx)
+}
+
+func (s *Server) handleSniff(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	fn := s.identify
+	s.mu.RUnlock()
+	if fn == nil {
+		http.Error(w, "sniff identify not configured", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(fn())
 }
 
 func (s *Server) handleOffer(w http.ResponseWriter, r *http.Request) {

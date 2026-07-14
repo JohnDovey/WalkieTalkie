@@ -28,6 +28,7 @@ import (
 	"github.com/JohnDovey/WalkieTalkie/core/proto"
 	"github.com/JohnDovey/WalkieTalkie/core/registry"
 	corerelay "github.com/JohnDovey/WalkieTalkie/core/relay"
+	"github.com/JohnDovey/WalkieTalkie/core/sniff"
 	"github.com/JohnDovey/WalkieTalkie/core/voicenote"
 )
 
@@ -99,6 +100,28 @@ func StartNode(dataDir, name, platform, appVersion string, source media.AudioSou
 		name:       name,
 		dataDir:    dataDir,
 	}
+	_ = store.SetMacAddresses(selfID, sniff.LocalMACs(), time.Now())
+	session.SetIdentify(func() sniff.IdentifyPayload {
+		n.mu.Lock()
+		defer n.mu.Unlock()
+		urls := map[string]string{}
+		var services []sniff.Service
+		if n.sigPort > 0 {
+			u := fmt.Sprintf("http://127.0.0.1:%d/", n.sigPort)
+			urls["signaling"] = u
+			services = append(services, sniff.Service{Name: "signaling", Port: n.sigPort, URL: u})
+		}
+		return sniff.IdentifyPayload{
+			MeshID:     n.selfID,
+			Name:       n.name,
+			Platform:   n.platform,
+			AppVersion: n.appVersion,
+			MACs:       sniff.LocalMACs(),
+			GPS:        sniff.Stamp(n.lastGPS),
+			URLs:       urls,
+			Services:   services,
+		}
+	})
 	inbox, err := voicenote.OpenLocalInbox(dataDir)
 	if err != nil {
 		n.Stop()
@@ -217,6 +240,9 @@ func (n *Node) onPeerFound(p mdns.Peer) {
 	_, _ = n.store.UpsertFromDirectContact(p.ID, p.Name, p.Platform, p.AppVersion, []string{"audio"}, "mdns", time.Now())
 	if p.GPS != nil {
 		_ = n.store.SetLocation(p.ID, *p.GPS)
+	}
+	if p.PrimaryMAC != "" {
+		_ = n.store.SetMacAddresses(p.ID, []string{p.PrimaryMAC}, time.Now())
 	}
 	if p.APIPort != 0 && len(p.IPv4) > 0 {
 		n.setBaseStation(fmt.Sprintf("http://%s:%d", p.IPv4[0].String(), p.APIPort))
@@ -685,6 +711,7 @@ func (n *Node) reannounce(gps *proto.GeoPoint) error {
 		Port:       n.sigPort,
 		SignalPort: n.sigPort,
 		GPS:        gps,
+		PrimaryMAC: sniff.PrimaryMAC(),
 	}
 
 	if n.mdnsSrv != nil {

@@ -8,6 +8,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -23,6 +24,7 @@ import (
 	"github.com/JohnDovey/WalkieTalkie/core/proto"
 	"github.com/JohnDovey/WalkieTalkie/core/registry"
 	corerelay "github.com/JohnDovey/WalkieTalkie/core/relay"
+	"github.com/JohnDovey/WalkieTalkie/core/sniff"
 	"github.com/JohnDovey/WalkieTalkie/server/api"
 	"github.com/JohnDovey/WalkieTalkie/server/audio"
 	"github.com/JohnDovey/WalkieTalkie/server/relay"
@@ -193,6 +195,16 @@ func main() {
 		log.Fatalf("start signaling: %v", err)
 	}
 
+	selfMACs := sniff.LocalMACs()
+	_ = store.SetMacAddresses(selfID, selfMACs, time.Now())
+	session.SetIdentify(func() sniff.IdentifyPayload {
+		port := int(dashboardPort.Load())
+		if port == 0 {
+			port = settings.Port
+		}
+		return buildIdentify(selfID, selfName, platformName(), Version, sigPort, port, relayPort, store, selfMACs)
+	})
+
 	now := time.Now()
 	selfCreated, err := store.UpsertFromDirectContact(selfID, selfName, platformName(), Version, []string{"audio"}, "direct", now)
 	if err != nil {
@@ -200,6 +212,10 @@ func main() {
 	}
 	usageStats.DeviceSeen(selfCreated)
 
+	primaryMAC := ""
+	if len(selfMACs) > 0 {
+		primaryMAC = selfMACs[0]
+	}
 	mdnsSrv, err := mdns.Register(mdns.AnnounceInfo{
 		ID:         selfID,
 		Name:       selfName,
@@ -210,6 +226,7 @@ func main() {
 		SignalPort: sigPort,
 		APIPort:    settings.Port, // marks this node as a Base Station for peer sync — see server/sync
 		RelayPort:  relayPort,
+		PrimaryMAC: primaryMAC,
 	})
 	if err != nil {
 		log.Fatalf("mdns register: %v", err)
@@ -227,6 +244,7 @@ func main() {
 			SignalPort: sigPort,
 			APIPort:    port,
 			RelayPort:  relayPort,
+			PrimaryMAC: primaryMAC,
 		}
 	}
 
@@ -254,6 +272,9 @@ func main() {
 					log.Printf("registry location update for %s: %v", p.ID, err)
 				}
 				updateServerLocationEstimate(store, selfID)
+			}
+			if p.PrimaryMAC != "" {
+				_ = store.SetMacAddresses(p.ID, []string{p.PrimaryMAC}, discoveredAt)
 			}
 			if p.APIPort != 0 && len(p.IPv4) > 0 {
 				syncer.EnsureSyncing(p.ID, p.IPv4[0].String(), p.APIPort)
@@ -313,6 +334,13 @@ func main() {
 		OnDeviceSeen: usageStats.DeviceSeen,
 		OnLocationUpdated: func(string) {
 			updateServerLocationEstimate(store, selfID)
+		},
+		SniffIdentify: func() any {
+			port := int(dashboardPort.Load())
+			if port == 0 {
+				port = settings.Port
+			}
+			return buildIdentify(selfID, selfName, platformName(), Version, sigPort, port, relayPort, store, selfMACs)
 		},
 		ChannelTalkPeers: func(channelID string) []string {
 			return channelLiveTalkPeers(voiceStore, session.MeshManager, selfID, channelID)
@@ -512,6 +540,43 @@ func bridgeRoomToDirect(
 		if !hub.Has(id) && session.DirectConnected(id) {
 			_ = session.SendTo(id, payload)
 		}
+	}
+}
+
+func buildIdentify(selfID, selfName, platform, version string, sigPort, apiPort, relayPort int, store *registry.Store, macs []string) sniff.IdentifyPayload {
+	var gps *proto.GeoPoint
+	if d, ok, err := store.Get(selfID); err == nil && ok && d != nil {
+		gps = d.CurrentLocation
+		if len(d.MacAddresses) > 0 {
+			macs = d.MacAddresses
+		}
+	}
+	urls := map[string]string{}
+	var services []sniff.Service
+	if sigPort > 0 {
+		u := fmt.Sprintf("http://127.0.0.1:%d/", sigPort)
+		urls["signaling"] = u
+		services = append(services, sniff.Service{Name: "signaling", Port: sigPort, URL: u})
+	}
+	if apiPort > 0 {
+		u := fmt.Sprintf("http://127.0.0.1:%d/", apiPort)
+		urls["api"] = u
+		services = append(services, sniff.Service{Name: "api", Port: apiPort, URL: u})
+	}
+	if relayPort > 0 {
+		u := fmt.Sprintf("http://127.0.0.1:%d/", relayPort)
+		urls["relay"] = u
+		services = append(services, sniff.Service{Name: "relay", Port: relayPort, URL: u})
+	}
+	return sniff.IdentifyPayload{
+		MeshID:     selfID,
+		Name:       selfName,
+		Platform:   platform,
+		AppVersion: version,
+		MACs:       macs,
+		GPS:        sniff.Stamp(gps),
+		URLs:       urls,
+		Services:   services,
 	}
 }
 

@@ -30,7 +30,7 @@ numberOverride:
 <p>This is a real screenshot from an actual test session: a Base Station running on a Mac, talking to a real Android phone over Wi-Fi.</p>
 
 <h2 id="remote-users">Remote Users</h2>
-<p>The <strong>Remote Users</strong> page (<code>/remote-users</code>) lists devices synced from <em>other</em> Base Stations by the optional <strong>MeshBridge</strong> companion — across separate Wi‑Fi routers or via punch — grouped by their origin Base. Live Talk does not cross that bridge; voice notes and private-channel clips do. Same-LAN Multi-Base sync (below) already merges peer lists without MeshBridge. See the MeshBridge chapter for setup.</p>
+<p>The <strong>Remote Users</strong> page (<code>/remote-users</code>) lists devices synced from <em>other</em> Base Stations by the optional <strong>MeshBridge</strong> companion — across separate Wi‑Fi routers or via punch — grouped by their origin Base. Live Talk does not cross that bridge; voice notes and private-channel clips do. Same-LAN Multi-Base sync (below) already merges peer lists without MeshBridge. See the MeshBridge chapter for setup. For a live topology of every LAN host (routers, phones, Mesh IDs), run the <strong>MeshSniff</strong> companion.</p>
 
 <h2 id="old-nodes">Old Nodes</h2>
 <p>Any device not seen in over 2 hours moves off the main device list onto its own <strong>Old Nodes</strong> page (<code>/old-nodes</code>) instead of cluttering up the main page or disappearing entirely — this is where a device that crashed, went out of range, or was leftover test data ends up, still sorted most-recently-seen first. The moment that device is seen again, it moves straight back to the main page on its own; nothing needs to be done manually.</p>

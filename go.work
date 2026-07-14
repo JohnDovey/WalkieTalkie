@@ -6,4 +6,5 @@ use (
 	./core
 	./server
 	./meshbridge
+	./meshsniff
 )

@@ -44,6 +44,8 @@ type MeshManager struct {
 
 	sig *signaling.Server
 
+	identify signaling.IdentifyFunc
+
 	mu         sync.Mutex
 	peers      map[string]*peerConn
 	relayPeers map[string]struct{} // peers reached only via SFU
@@ -148,7 +150,19 @@ func NewMeshManager(selfID string, source AudioSource, sink AudioSink) (*MeshMan
 	}, nil
 }
 
-// SetRelay wires in a relay fallback (see RelayDialer). Optional.
+// SetIdentify registers MeshSniff GET /sniff on the signaling HTTP server.
+func (mm *MeshManager) SetIdentify(fn signaling.IdentifyFunc) {
+	mm.mu.Lock()
+	mm.identify = fn
+	sig := mm.sig
+	mm.mu.Unlock()
+	if sig != nil {
+		sig.SetIdentify(fn)
+	}
+}
+
+// SetRelay bridges peers via the Base Station SFU when direct P2P is
+// skipped (force-relay) or fails. Optional.
 func (mm *MeshManager) SetRelay(r RelayDialer) {
 	mm.relay = r
 }
@@ -156,6 +170,12 @@ func (mm *MeshManager) SetRelay(r RelayDialer) {
 // Start begins listening for incoming offers on the given port.
 func (mm *MeshManager) Start(signalPort int) (int, error) {
 	mm.sig = signaling.NewServer(mm.handleIncomingOffer)
+	mm.mu.Lock()
+	fn := mm.identify
+	mm.mu.Unlock()
+	if fn != nil {
+		mm.sig.SetIdentify(fn)
+	}
 	return mm.sig.Start(signalPort)
 }
 
