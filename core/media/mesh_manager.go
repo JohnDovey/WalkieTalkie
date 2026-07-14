@@ -50,9 +50,10 @@ type MeshManager struct {
 	voiceRecv  map[string]*voiceRecvBuf
 	pendingDC  map[string]*webrtc.DataChannel // open before storePeer
 
-	talking    int32
-	stopTalk   chan struct{}
-	talkTarget string // empty = Broadcast (group PTT); set = unicast to that peer ID
+	talking     int32
+	stopTalk    chan struct{}
+	talkTargets []string // empty = mesh-wide Broadcast; set = scoped Talk peers
+	talkRoute   bool     // true: 1:1 Hub SetRoute/Unicast; false: room Broadcast
 
 	relayThreshold int  // 0 = disabled
 	relayEnabled   bool // when false, DialViaRelay is never used

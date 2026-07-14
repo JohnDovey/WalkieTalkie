@@ -569,7 +569,7 @@ struct PrivateChannelView: View {
                         .onChanged { _ in
                             if liveTalk {
                                 guard !node.isTalking else { return }
-                                node.startTalkingTo(peerID: peerId)
+                                node.startTalkingChannel(channelID: channelId)
                                 return
                             }
                             guard !recording else { return }

@@ -186,7 +186,7 @@ This is deliberately a **different merge rule** from the existing `PeerReport` m
 - **Verify**: registry sync, GPS estimate, map, Talk — ✅. Relay threshold forces SFU path when enabled — ✅ in software. Three-way Win+Mac+Linux mesh on real hardware **not** run in this environment (accepted gap; Windows/Linux scripts produce artifacts for off-box testing).
 - **Sync verification detail (2026-07-13)**: …
 
-**Phase 4 — iPhone** — 🟡 in progress (scaffold + voice/chats parity `0.2.0`, 2026-07-14)
+**Phase 4 — iPhone** — 🟡 in progress (scaffold + voice/chats/live Talk parity through `0.6.0`, 2026-07-14)
 - `gomobile bind` xcframework; SwiftUI app with permissions, `PTChannelManager` + Hold-to-Talk, BLE, GPS, Ogg Opus voice notes / private channels, Wi-Fi mesh restart. See `docs/2026-07-14-ios-phase4.md`.
 - **Verify (pending hardware + paid Team ID)**: iPhone joins the Android+desktop mesh; `PTChannelManager`'s system UI reflects the active transmitter; PTT works with the screen locked.
 
@@ -196,7 +196,7 @@ This is deliberately a **different merge rule** from the existing `PeerReport` m
 - **Verify (needs hardware)**: Wear on Wi-Fi joins Base Station mesh; Apple Watch Talk relays via iPhone.
 
 **Phase 6 — Private-channel live Talk** — ✅ software complete (2026-07-14)
-- Unicast `StartTalkingTo` (direct or SFU Hub unicast). Named Hub rooms on channel focus. Hub→direct Talk bridge for mixed topology. Clips otherwise. Multi-Base channel/voice sync. P2P voice-note DataChannel when DirectConnected, with best-effort Base mirror-upload (`server` 1.6.0, android `1.4.0`, ios `0.6.0`). See `docs/2026-07-14-phase6-private-live-talk.md`.
+- Unicast `StartTalkingTo` / room-scoped `StartTalkingChannel`. Named Hub rooms on focus. Hub→direct Talk + Base→DirectConnected note push. Multi-Base channel/voice sync. P2P voice-note DataChannel + Base mirror (`server` 1.7.0, android `1.5.0`, ios `0.7.0`). See `docs/2026-07-14-phase6-private-live-talk.md`.
 
 ## Risks and tradeoffs
 

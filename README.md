@@ -11,11 +11,11 @@ Build priority is Android first, then desktop, then iPhone, then wearables last 
 - **Phase 1 — shared Go core + desktop server**: ✅ done and verified.
 - **Phase 2 — Android**: ✅ working on real hardware (live WebRTC Opus PTT, mDNS + BLE presence, GPS, voice notes / private channels via Base Station).
 - **Phase 3 (desktop hardening + multi-Base-Station registry sync)**: ✅ done (registry sync, map, Old Nodes, Windows/macOS/Linux packaging scripts, system tray, Base Station mesh SFU / relay threshold). Three-OS hardware mesh not run on this Mac-only setup.
-- **Phase 4 (iPhone)**: 🟡 in progress — SwiftUI shell + bind/Opus + voice notes/private channels (`0.3.0` adds live private Talk); `iphoneos` build verified. Device mesh / locked-screen PTT needs Team ID + hardware. See `docs/2026-07-14-ios-phase4.md`.
+- **Phase 4 (iPhone)**: 🟡 in progress — SwiftUI shell + bind/Opus + voice notes/private channels with live Talk; `iphoneos` build verified. Device mesh / locked-screen PTT needs Team ID + hardware. See `docs/2026-07-14-ios-phase4.md`.
 - **Phase 5 (wearables)**: 🟡 software complete — Wear OS `0.2.0` + watchOS WatchConnectivity relay; hardware verify pending. See `docs/2026-07-14-phase5-wearables.md`.
-- **Phase 6 (private live Talk)**: ✅ software complete — live unicast (mesh/SFU), named Hub rooms, Hub→direct Talk bridge, multi-Base voice sync, P2P voice notes + Base mirror. See `docs/2026-07-14-phase6-private-live-talk.md`.
+- **Phase 6 (private live Talk)**: ✅ software complete — live unicast (mesh/SFU), named Hub rooms, room-scoped channel Talk, Hub→direct Talk/note bridges, multi-Base voice sync, P2P notes + Base mirror. See `docs/2026-07-14-phase6-private-live-talk.md`.
 
-**Current release track:** server `1.6.0`, android `1.4.0`, wear `0.2.0`, ios `0.6.0`.
+**Current release track:** server `1.7.0`, android `1.5.0`, wear `0.2.0`, ios `0.7.0`.
 
 ## Repo layout
 
@@ -68,7 +68,7 @@ Release-style binaries (full audio):
 tools/gomobile-bind-android.sh   # → android/mesh/libs/core.aar
 cd android
 ./android-build.sh :app:assembleDebug    # phone
-./android-build.sh :wear:assembleDebug   # Wear OS Hold-to-Talk (0.1.0)
+./android-build.sh :wear:assembleDebug   # Wear OS Hold-to-Talk (0.2.0)
 ```
 
 Requires the Android SDK/NDK at `$ANDROID_HOME` (see `.cursor/rules/dev-environment.mdc`) and `libopus`/`libopusfile` installed on the build machine (`brew install opus opusfile` on macOS) for the desktop server's audio codec.

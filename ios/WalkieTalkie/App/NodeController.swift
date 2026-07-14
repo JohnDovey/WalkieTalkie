@@ -130,6 +130,11 @@ final class NodeController: ObservableObject {
         isTalking = true
     }
 
+    func startTalkingChannel(channelID: String) {
+        node?.startTalkingChannel(channelID)
+        isTalking = true
+    }
+
     func stopTalking() {
         node?.stopTalking()
         isTalking = false

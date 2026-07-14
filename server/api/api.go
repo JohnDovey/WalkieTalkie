@@ -20,6 +20,7 @@ import (
 type Talker interface {
 	StartTalking()
 	StartTalkingTo(peerID string)
+	StartTalkingToPeers(peerIDs []string)
 	StopTalking()
 	DirectConnected(peerID string) bool
 	RelayConnected(peerID string) bool
@@ -60,6 +61,10 @@ type Handlers struct {
 	// OnLocationUpdated is called after a successful GPS POST so the Base
 	// Station can recompute its mean location estimate.
 	OnLocationUpdated func(deviceID string)
+
+	// ChannelTalkPeers, when set, returns LiveTalk peers for a private channel
+	// (other focused participants, else the channel peer), excluding SelfID.
+	ChannelTalkPeers func(channelID string) []string
 }
 
 // AboutInfo is the response shape for GET /api/about.
@@ -199,13 +204,34 @@ func (h *Handlers) talkStart(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "audio unavailable on this Base Station", http.StatusServiceUnavailable)
 		return
 	}
+	channelID := r.URL.Query().Get("channel")
+	if channelID != "" && h.ChannelTalkPeers != nil {
+		peers := h.ChannelTalkPeers(channelID)
+		if len(peers) > 0 {
+			h.Talker.StartTalkingToPeers(peers)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+	}
 	to := r.URL.Query().Get("to")
 	if to == "" {
 		var body struct {
-			To string `json:"to"`
+			To      string `json:"to"`
+			Channel string `json:"channel"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		to = body.To
+		if channelID == "" {
+			channelID = body.Channel
+		}
+		if channelID != "" && h.ChannelTalkPeers != nil {
+			peers := h.ChannelTalkPeers(channelID)
+			if len(peers) > 0 {
+				h.Talker.StartTalkingToPeers(peers)
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+		}
 	}
 	if to != "" {
 		h.Talker.StartTalkingTo(to)

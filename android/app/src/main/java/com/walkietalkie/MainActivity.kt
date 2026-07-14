@@ -857,7 +857,7 @@ private fun PrivateChannelScreen(
                         onPress = {
                             talking = true
                             if (liveTalk) {
-                                PTTService.instance?.startTalkingTo(peerId)
+                                PTTService.instance?.startTalkingChannel(channelId)
                                 try {
                                     tryAwaitRelease()
                                 } finally {

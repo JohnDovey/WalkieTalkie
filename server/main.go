@@ -113,6 +113,7 @@ func main() {
 	}
 	defer hub.Close()
 	hub.OnParticipantJoined = session.MarkRelayPeer
+	var voiceStore *voicenote.Store
 	hub.OnRemoteFrame = func(fromID string, payload []byte) {
 		session.MarkRelayPeer(fromID)
 		if session.OnOpusFrameReceived != nil {
@@ -126,10 +127,14 @@ func main() {
 			}
 			return
 		}
-		// Named Hub rooms: skip Base Station speaker when this publisher is in
-		// a private channel room we are not focused on.
-		if room := hub.RoomOf(fromID); room != "" && hub.RoomOf(selfID) != room {
-			return
+		// Named Hub rooms: bridge room Opus to DirectConnected participants
+		// who are not on the Hub, and skip Base Station speaker when we are
+		// not focused on that channel room.
+		if room := hub.RoomOf(fromID); room != "" {
+			bridgeRoomToDirect(voiceStore, hub, session, fromID, room, selfID, payload)
+			if hub.RoomOf(selfID) != room {
+				return
+			}
 		}
 		if sink != nil {
 			_ = sink.WriteOpusFrame(fromID, payload)
@@ -269,7 +274,7 @@ func main() {
 		}
 	}()
 
-	voiceStore, err := voicenote.NewStore(store, dataDir)
+	voiceStore, err = voicenote.NewStore(store, dataDir)
 	if err != nil {
 		log.Fatalf("init voice-note store: %v", err)
 	}
@@ -283,6 +288,7 @@ func main() {
 			usageStats.VoiceNoteUploaded(n.Size, n.ChannelID)
 		}
 		log.Printf("P2P voice note %s stored (%d bytes)", n.ID, n.Size)
+		pushVoiceNoteToDirect(session, n, audio)
 	}
 	syncer.SetVoice(voiceStore)
 	voiceHandlers := &voicenote.Handlers{
@@ -290,6 +296,7 @@ func main() {
 		OnSelfHubRoom: func(roomID string) {
 			hostBridge.SetRoom(roomID)
 		},
+		Pusher: session,
 	}
 	purgeStop := make(chan struct{})
 	defer close(purgeStop)
@@ -303,6 +310,9 @@ func main() {
 		OnDeviceSeen: usageStats.DeviceSeen,
 		OnLocationUpdated: func(string) {
 			updateServerLocationEstimate(store, selfID)
+		},
+		ChannelTalkPeers: func(channelID string) []string {
+			return channelLiveTalkPeers(voiceStore, session, selfID, channelID)
 		},
 	}
 	webHandlers, err := web.New()
@@ -425,6 +435,94 @@ func runStaleSweep(ctx context.Context, store *registry.Store, selfID string) {
 				log.Printf("stale sweep: marked %d device(s) disconnected", swept)
 			}
 		}
+	}
+}
+
+func bridgeRoomToDirect(
+	voice *voicenote.Store,
+	hub *corerelay.Hub,
+	session *media.MeshManager,
+	fromID, room, selfID string,
+	payload []byte,
+) {
+	if voice == nil || room == "" {
+		return
+	}
+	ch, ok, err := voice.GetChannel(room)
+	if err != nil || !ok || ch == nil {
+		return
+	}
+	seen := map[string]struct{}{}
+	var candidates []string
+	add := func(id string) {
+		if id == "" {
+			return
+		}
+		if _, dup := seen[id]; dup {
+			return
+		}
+		seen[id] = struct{}{}
+		candidates = append(candidates, id)
+	}
+	for _, id := range ch.Focused {
+		add(id)
+	}
+	add(ch.ParticipantA)
+	add(ch.ParticipantB)
+	for _, id := range candidates {
+		if id == fromID || id == selfID {
+			continue
+		}
+		if !hub.Has(id) && session.DirectConnected(id) {
+			_ = session.SendTo(id, payload)
+		}
+	}
+}
+
+func channelLiveTalkPeers(voice *voicenote.Store, session *media.MeshManager, selfID, channelID string) []string {
+	if voice == nil || session == nil || channelID == "" {
+		return nil
+	}
+	ch, ok, err := voice.GetChannel(channelID)
+	if err != nil || !ok || ch == nil {
+		return nil
+	}
+	var targets []string
+	seen := map[string]struct{}{}
+	add := func(id string) {
+		if id == "" || id == selfID {
+			return
+		}
+		if _, dup := seen[id]; dup {
+			return
+		}
+		if !session.LiveTalkAvailable(id) {
+			return
+		}
+		seen[id] = struct{}{}
+		targets = append(targets, id)
+	}
+	for _, id := range ch.Focused {
+		add(id)
+	}
+	if len(targets) == 0 {
+		add(ch.PeerOf(selfID))
+	}
+	return targets
+}
+
+func pushVoiceNoteToDirect(session *media.MeshManager, n *voicenote.Note, audio []byte) {
+	if session == nil || n == nil || n.ToID == "" {
+		return
+	}
+	if !session.DirectConnected(n.ToID) {
+		return
+	}
+	meta := media.VoiceNoteMeta{
+		ID: n.ID, FromID: n.FromID, ToID: n.ToID, ChannelID: n.ChannelID, CreatedAt: n.CreatedAt,
+	}
+	if err := session.SendVoiceNoteP2P(meta, audio); err != nil {
+		log.Printf("voice note bridge to %s: %v", n.ToID, err)
 	}
 }
 

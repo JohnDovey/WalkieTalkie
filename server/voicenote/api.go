@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/JohnDovey/WalkieTalkie/core/media"
 	"github.com/JohnDovey/WalkieTalkie/core/registry"
 )
 
@@ -24,6 +25,15 @@ type Handlers struct {
 	// blurs a private channel so the local SFU publisher can join/leave that
 	// Hub room (roomID empty = group mesh).
 	OnSelfHubRoom func(roomID string)
+	// Pusher, when set, best-effort delivers a newly stored note to a
+	// DirectConnected recipient over the mesh DataChannel (mixed-topology bridge).
+	Pusher VoiceNotePusher
+}
+
+// VoiceNotePusher pushes a stored note to an online DirectConnected peer.
+type VoiceNotePusher interface {
+	DirectConnected(peerID string) bool
+	SendVoiceNoteP2P(meta media.VoiceNoteMeta, audio []byte) error
 }
 
 // UsageRecorder is the narrow stats surface voicenote needs (implemented by
@@ -189,7 +199,22 @@ func (h *Handlers) upload(w http.ResponseWriter, r *http.Request) {
 	if h.Usage != nil {
 		h.Usage.VoiceNoteUploaded(int64(len(opus)), channelID)
 	}
+	h.pushNote(note, opus)
 	writeJSON(w, note)
+}
+
+func (h *Handlers) pushNote(note *Note, audio []byte) {
+	if h.Pusher == nil || note == nil || note.ToID == "" || len(audio) == 0 {
+		return
+	}
+	if !h.Pusher.DirectConnected(note.ToID) {
+		return
+	}
+	meta := media.VoiceNoteMeta{
+		ID: note.ID, FromID: note.FromID, ToID: note.ToID,
+		ChannelID: note.ChannelID, CreatedAt: note.CreatedAt,
+	}
+	_ = h.Pusher.SendVoiceNoteP2P(meta, audio)
 }
 
 func (h *Handlers) listNotes(w http.ResponseWriter, r *http.Request) {

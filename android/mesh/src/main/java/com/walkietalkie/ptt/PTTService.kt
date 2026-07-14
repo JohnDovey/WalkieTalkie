@@ -191,6 +191,7 @@ class PTTService : LifecycleService() {
 
     fun startTalking() = node?.startTalking()
     fun startTalkingTo(peerID: String) = node?.startTalkingTo(peerID)
+    fun startTalkingChannel(channelID: String) = node?.startTalkingChannel(channelID)
     fun stopTalking() = node?.stopTalking()
     fun isDirectlyConnected(peerID: String): Boolean =
         try {

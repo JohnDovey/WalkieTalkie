@@ -36,6 +36,8 @@ type Channel struct {
 	PeerID       string    `json:"peerId"`
 	PeerName     string    `json:"peerName"`
 	UnreadFor    int       `json:"unreadFor"`
+	Focused      []string  `json:"focused,omitempty"`
+	FocusedBy    string    `json:"focusedBy,omitempty"`
 }
 
 // Client talks to one Base Station's REST API.

@@ -4,7 +4,7 @@ Started 2026-07-14. Slices of [`TODO-p2p-voice-and-private-relay.md`](TODO-p2p-v
 
 ## Status
 
-**Software complete** — live unicast (direct + SFU Hub), named Hub rooms on channel focus, Hub→direct Talk bridge, multi-Base voice sync, P2P voice-note DataChannel + Base mirror.
+**Software complete** — live unicast (direct + SFU Hub), named Hub rooms, room-scoped channel Talk, Hub→direct Talk + note bridges, multi-Base voice sync, P2P voice-note DataChannel + Base mirror.
 
 ## Behaviour
 
@@ -13,8 +13,9 @@ Started 2026-07-14. Slices of [`TODO-p2p-voice-and-private-relay.md`](TODO-p2p-v
 | Condition | Behaviour |
 |-----------|-----------|
 | Peer has **direct** mesh PeerConnection | Live unicast Opus |
-| Peer reachable via **Base Station SFU** | Live Hub unicast (`SetRoute` / `InjectTo`) |
-| Peer on Hub talks to a **DirectConnected-only** peer | Base Station bridges Hub→direct (`SendTo`) |
+| Peer reachable via **Base Station SFU** | Live Hub unicast (`SetRoute` / `InjectTo`) or room Broadcast |
+| Focused channel (`StartTalkingChannel`) | Targets focused/live peers: `SendTo` + Hub room Broadcast (no mesh-wide leak) |
+| Peer on Hub talks to a **DirectConnected-only** peer | Base Station bridges Hub→direct (`SendTo`) for routes and rooms |
 | Peer offline / not reachable live | Clip upload via Base Station |
 
 UI: **Mode: live mesh** / **Mode: live relay** / **Mode: clip via Base Station**.
@@ -27,17 +28,17 @@ Focusing a private channel joins Hub room `channelID` (empty room = group mesh).
 
 | Condition | Behaviour |
 |-----------|-----------|
-| Peer **DirectConnected** | Opus over `"voicenote"` DataChannel → recipient local inbox (phones) or Base Station store; then best-effort mirror-upload to Base with the same note ID |
-| Otherwise | Existing `POST /api/voice-notes` store-and-forward |
+| Peer **DirectConnected** | Opus over `"voicenote"` DataChannel → recipient local inbox; best-effort mirror-upload to Base |
+| Otherwise | `POST /api/voice-notes` store-and-forward; Base **pushes** to recipient via DataChannel when DirectConnected (mixed-topology bridge) |
 
 List/download/ack merge local inbox + Base Station. Upload accepts optional `id`/`createdAt` for stable P2P mirror IDs (`ImportNote`).
 
 ### Base Station web
 
 - `GET /api/talk/peer` → `{direct, relay, live}`
+- `POST /api/talk/start?channel=` → room-scoped channel Talk
 - Private panel live mesh / live relay / clip
 - Receives P2P notes into the same voice-note store as HTTP uploads
-- Focus/blur joins/leaves the Hub room for the Base Station publisher
 
 ### Multi-Base voice sync (`1.3.1+`)
 
@@ -45,9 +46,9 @@ Registry sync tick also pulls `/api/sync/channels` and `/api/sync/voice-notes` (
 
 ## Versions
 
-- Android phone `1.4.0`
-- iOS `0.6.0`
-- Server `1.6.0`
+- Android phone `1.5.0`
+- iOS `0.7.0`
+- Server `1.7.0`
 
 ## Build
 

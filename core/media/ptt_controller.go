@@ -7,7 +7,7 @@ import "sync/atomic"
 // frames are sent while not talking. Safe to call repeatedly; a second call
 // while already talking is a no-op.
 //
-// Clears any prior StartTalkingTo target so this path is always mesh-wide.
+// Clears any prior scoped Talk targets so this path is always mesh-wide.
 //
 // Platform wiring: Android/desktop call this on PTT-button-down; iOS calls
 // it from PTChannelManager's transmit-start delegate callback instead of a
@@ -18,13 +18,14 @@ func (mm *MeshManager) StartTalking() {
 	}
 	mm.clearRelayRoute()
 	mm.mu.Lock()
-	mm.talkTarget = ""
+	mm.talkTargets = nil
+	mm.talkRoute = false
 	mm.mu.Unlock()
 	mm.startTalkLoop()
 }
 
 // StartTalkingTo is like StartTalking but unicast frames to one peer
-// (private-channel live Talk). Uses a direct PeerConnection when available,
+// (private-channel 1:1 live Talk). Uses a direct PeerConnection when available,
 // otherwise SFU Hub unicast when LiveTalkAvailable. Callers should check
 // LiveTalkAvailable first; otherwise keep using clip upload.
 func (mm *MeshManager) StartTalkingTo(peerID string) {
@@ -37,7 +38,8 @@ func (mm *MeshManager) StartTalkingTo(peerID string) {
 	}
 	mm.clearRelayRoute()
 	mm.mu.Lock()
-	mm.talkTarget = peerID
+	mm.talkTargets = []string{peerID}
+	mm.talkRoute = true
 	direct := false
 	if _, ok := mm.peers[peerID]; ok {
 		direct = true
@@ -50,6 +52,37 @@ func (mm *MeshManager) StartTalkingTo(peerID string) {
 	if !direct && relay && mm.OnRelaySetRoute != nil {
 		_ = mm.OnRelaySetRoute(peerID)
 	}
+	mm.startTalkLoop()
+}
+
+// StartTalkingToPeers scopes Talk to the given peers without Hub SetRoute.
+// Direct peers get SendTo; any SFU-reachable targets share one
+// OnRelayBroadcast (Hub room isolation applies when the caller has SetRoom).
+func (mm *MeshManager) StartTalkingToPeers(peerIDs []string) {
+	clean := make([]string, 0, len(peerIDs))
+	seen := make(map[string]struct{}, len(peerIDs))
+	for _, id := range peerIDs {
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		clean = append(clean, id)
+	}
+	if len(clean) == 0 {
+		mm.StartTalking()
+		return
+	}
+	if atomic.LoadInt32(&mm.talking) == 1 {
+		return
+	}
+	mm.clearRelayRoute()
+	mm.mu.Lock()
+	mm.talkTargets = clean
+	mm.talkRoute = false
+	mm.mu.Unlock()
 	mm.startTalkLoop()
 }
 
@@ -70,20 +103,21 @@ func (mm *MeshManager) startTalkLoop() {
 	go mm.talkLoop(stop)
 }
 
-// StopTalking stops the talk loop started by StartTalking / StartTalkingTo.
-// Safe to call even if not currently talking.
+// StopTalking stops the talk loop started by StartTalking / StartTalkingTo /
+// StartTalkingToPeers. Safe to call even if not currently talking.
 func (mm *MeshManager) StopTalking() {
 	mm.clearRelayRoute()
 	if !atomic.CompareAndSwapInt32(&mm.talking, 1, 0) {
-		// Still clear talkTarget even if we weren't talking.
 		mm.mu.Lock()
-		mm.talkTarget = ""
+		mm.talkTargets = nil
+		mm.talkRoute = false
 		mm.mu.Unlock()
 		return
 	}
 	mm.mu.Lock()
 	stop := mm.stopTalk
-	mm.talkTarget = ""
+	mm.talkTargets = nil
+	mm.talkRoute = false
 	mm.mu.Unlock()
 	if stop != nil {
 		close(stop)
@@ -114,9 +148,15 @@ func (mm *MeshManager) talkLoop(stop chan struct{}) {
 			return
 		}
 		mm.mu.Lock()
-		target := mm.talkTarget
+		targets := append([]string(nil), mm.talkTargets...)
+		useRoute := mm.talkRoute
 		mm.mu.Unlock()
-		if target != "" {
+		if len(targets) == 0 {
+			mm.Broadcast(frame)
+			continue
+		}
+		if useRoute && len(targets) == 1 {
+			target := targets[0]
 			if mm.SendTo(target, frame) {
 				continue
 			}
@@ -126,8 +166,28 @@ func (mm *MeshManager) talkLoop(stop chan struct{}) {
 					mm.OnOpusFrameSent(len(frame), 1)
 				}
 			}
-		} else {
-			mm.Broadcast(frame)
+			continue
+		}
+		// Room / multi-peer path: SendTo each direct peer; one Hub Broadcast
+		// for anyone still needing SFU (Hub room scopes fan-out).
+		needRelay := false
+		sent := 0
+		for _, id := range targets {
+			if mm.SendTo(id, frame) {
+				sent++
+				continue
+			}
+			if mm.RelayConnected(id) {
+				needRelay = true
+			}
+		}
+		if needRelay && mm.OnRelayBroadcast != nil {
+			mm.OnRelayBroadcast(frame)
+			sent++
+		}
+		if mm.OnOpusFrameSent != nil && sent > 0 && needRelay {
+			// SendTo already counted direct peers; count one for the SFU hop.
+			mm.OnOpusFrameSent(len(frame), 1)
 		}
 	}
 }

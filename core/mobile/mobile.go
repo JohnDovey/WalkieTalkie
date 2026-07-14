@@ -508,11 +508,60 @@ func (n *Node) StartTalking() {
 	n.session.StartTalking()
 }
 
-// StartTalkingTo transmits mic audio only to peerID (private-channel live
+// StartTalkingTo transmits mic audio only to peerID (private-channel 1:1 live
 // Talk) over a direct mesh PeerConnection or the SFU Hub. Prefer
 // IsLiveTalkAvailable first; otherwise keep using clip upload.
 func (n *Node) StartTalkingTo(peerID string) {
 	n.session.StartTalkingTo(peerID)
+}
+
+// StartTalkingChannel transmits mic audio to other live peers in a focused
+// private channel (DirectConnected SendTo + Hub room Broadcast, no SetRoute).
+// Assumes FocusChannel already ran for channelID. Falls back to StartTalkingTo
+// with the channel peer when the focused set is empty.
+func (n *Node) StartTalkingChannel(channelID string) {
+	if n.session == nil || channelID == "" {
+		return
+	}
+	targets := n.channelTalkTargets(channelID)
+	if len(targets) == 0 {
+		return
+	}
+	n.session.StartTalkingToPeers(targets)
+}
+
+func (n *Node) channelTalkTargets(channelID string) []string {
+	c, err := n.client()
+	self := n.selfID
+	var targets []string
+	if err == nil {
+		chs, lerr := c.ListChannels()
+		if lerr == nil {
+			for _, ch := range chs {
+				if ch.ID != channelID {
+					continue
+				}
+				for _, id := range ch.Focused {
+					if id == "" || id == self {
+						continue
+					}
+					if n.session.LiveTalkAvailable(id) {
+						targets = append(targets, id)
+					}
+				}
+				if len(targets) == 0 && ch.PeerID != "" && ch.PeerID != self && n.session.LiveTalkAvailable(ch.PeerID) {
+					targets = append(targets, ch.PeerID)
+				}
+				break
+			}
+		}
+	}
+	if len(targets) == 0 {
+		if peer := n.channelPeerID(channelID); peer != "" && n.session.LiveTalkAvailable(peer) {
+			targets = append(targets, peer)
+		}
+	}
+	return targets
 }
 
 // StopTalking stops transmitting (call on PTT-button-up).

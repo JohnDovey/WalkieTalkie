@@ -504,7 +504,7 @@
       if (privateLive && activeChannelPeer && activeChannelPeer.id) {
         privateLiveHolding = true;
         $('#private-talk-btn').removeClass('btn-success').addClass('btn-danger').html('Live&hellip;');
-        $.post('/api/talk/start?to=' + encodeURIComponent(activeChannelPeer.id));
+        $.post('/api/talk/start?channel=' + encodeURIComponent(activeChannelId));
         return;
       }
       privateLiveHolding = false;

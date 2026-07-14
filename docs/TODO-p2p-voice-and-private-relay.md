@@ -14,7 +14,9 @@ Deferred from [`2026-07-13-voice-message-and-private-channels.md`](2026-07-13-vo
 
 ✅ Shipped as Hub **unicast routes** in `server` 1.4.0 / android `1.2.0` / ios `0.4.0`. Private Hold-to-Talk over the SFU uses `SetRoute` / `InjectTo`.
 
-✅ Named multi-party Hub rooms + Hub→direct Talk bridge in `server` 1.6.0 / android `1.4.0` / ios `0.6.0`: focus joins room=`channelID`; SFU fan-out is room-scoped; Base Station bridges routed Hub audio to DirectConnected-only recipients. See Phase 6 doc.
+✅ Named multi-party Hub rooms + Hub→direct Talk bridge in `server` 1.6.0 / android `1.4.0` / ios `0.6.0`.
+
+✅ Room-scoped channel Talk + Hub→direct room bridge + Base→DirectConnected voice-note push in `server` 1.7.0 / android `1.5.0` / ios `0.7.0`. See Phase 6 doc.
 
 ## Multi-Base-Station voice blob replication
 
