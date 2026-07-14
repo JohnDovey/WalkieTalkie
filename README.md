@@ -13,9 +13,9 @@ Build priority is Android first, then desktop, then iPhone, then wearables last 
 - **Phase 3 (desktop hardening + multi-Base-Station registry sync)**: ✅ done (registry sync, map, Old Nodes, Windows/macOS/Linux packaging scripts, system tray, Base Station mesh SFU / relay threshold). Three-OS hardware mesh not run on this Mac-only setup.
 - **Phase 4 (iPhone)**: 🟡 in progress — SwiftUI shell + bind/Opus + voice notes/private channels (`0.3.0` adds live private Talk); `iphoneos` build verified. Device mesh / locked-screen PTT needs Team ID + hardware. See `docs/2026-07-14-ios-phase4.md`.
 - **Phase 5 (wearables)**: 🟡 software complete — Wear OS `0.2.0` + watchOS WatchConnectivity relay; hardware verify pending. See `docs/2026-07-14-phase5-wearables.md`.
-- **Phase 6 (private live Talk)**: 🟡 in progress — unicast when peer is on direct mesh; clips otherwise. See `docs/2026-07-14-phase6-private-live-talk.md`.
+- **Phase 6 (private live Talk)**: 🟡 in progress — unicast when peer is on direct mesh; clips otherwise; multi-Base channel/voice-note sync. See `docs/2026-07-14-phase6-private-live-talk.md`.
 
-**Current release track:** server `1.2.1`, android `1.1.1`, wear `0.2.0`, ios `0.3.1`.
+**Current release track:** server `1.3.1`, android `1.1.1`, wear `0.2.0`, ios `0.3.1`.
 
 ## Repo layout
 

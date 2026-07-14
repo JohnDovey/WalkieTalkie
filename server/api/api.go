@@ -16,10 +16,12 @@ import (
 // Talker is the narrow interface the Talk control (see
 // docs/2026-07-13-implementation-plan.md, "Web UI: Talk control") needs —
 // satisfied by *media.PTTSession, kept as an interface here so api doesn't
-// need to import core/media just for two method names.
+// need to import core/media just for these method names.
 type Talker interface {
 	StartTalking()
+	StartTalkingTo(peerID string)
 	StopTalking()
+	DirectConnected(peerID string) bool
 }
 
 // DeviceListEnricher optionally wraps GET /api/devices with extra fields
@@ -79,6 +81,7 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/about", h.about)
 	mux.HandleFunc("POST /api/talk/start", h.talkStart)
 	mux.HandleFunc("POST /api/talk/stop", h.talkStop)
+	mux.HandleFunc("GET /api/talk/peer", h.talkPeer)
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -194,7 +197,19 @@ func (h *Handlers) talkStart(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "audio unavailable on this Base Station", http.StatusServiceUnavailable)
 		return
 	}
-	h.Talker.StartTalking()
+	to := r.URL.Query().Get("to")
+	if to == "" {
+		var body struct {
+			To string `json:"to"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		to = body.To
+	}
+	if to != "" {
+		h.Talker.StartTalkingTo(to)
+	} else {
+		h.Talker.StartTalking()
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -205,6 +220,19 @@ func (h *Handlers) talkStop(w http.ResponseWriter, r *http.Request) {
 	}
 	h.Talker.StopTalking()
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) talkPeer(w http.ResponseWriter, r *http.Request) {
+	if h.Talker == nil {
+		http.Error(w, "audio unavailable on this Base Station", http.StatusServiceUnavailable)
+		return
+	}
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		http.Error(w, "id query required", http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, map[string]bool{"direct": h.Talker.DirectConnected(id)})
 }
 
 func (h *Handlers) about(w http.ResponseWriter, r *http.Request) {

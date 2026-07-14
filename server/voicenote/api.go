@@ -53,6 +53,27 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/channels/{id}/close", h.closeChannel)
 	mux.HandleFunc("POST /api/channels/{id}/focus", h.focus)
 	mux.HandleFunc("POST /api/channels/{id}/blur", h.blur)
+
+	mux.HandleFunc("GET /api/sync/channels", h.syncChannels)
+	mux.HandleFunc("GET /api/sync/voice-notes", h.syncNotes)
+}
+
+func (h *Handlers) syncChannels(w http.ResponseWriter, r *http.Request) {
+	chs, err := h.Voice.ListAllChannelsForSync()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, chs)
+}
+
+func (h *Handlers) syncNotes(w http.ResponseWriter, r *http.Request) {
+	notes, err := h.Voice.ListAllNotesForSync()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, notes)
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

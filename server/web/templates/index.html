@@ -62,12 +62,13 @@
         <h2 class="h5 mb-0">Private: <span id="private-peer-name"></span></h2>
         <button type="button" class="btn btn-sm btn-outline-secondary" id="private-back">Back to group</button>
       </div>
+      <p id="private-mode" class="text-muted small mb-2 text-center">Mode: …</p>
       <div class="d-flex justify-content-center mb-3">
         <button id="private-talk-btn" type="button" class="btn btn-lg btn-success rounded-circle"
                 style="width: 140px; height: 140px;">Hold<br>to Talk</button>
       </div>
       <ul id="private-note-list" class="list-group mb-2"></ul>
-      <p class="text-muted small">Clips in this channel queue when the other party is not focused here.</p>
+      <p class="text-muted small">Live unicast when the peer has a direct mesh link; otherwise clips queue via this Base Station until they focus the channel.</p>
     </div>
 
     <h1 class="h4 mb-3">Devices</h1>
@@ -303,10 +304,13 @@
         data: JSON.stringify({ deviceId: selfInfo.id })
       });
       refreshPrivateNotes();
+      refreshPrivateMode();
       bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('chatsDrawer')).hide();
     }
 
     function leavePrivateChannel() {
+      if (privateHolding) privateStop();
+      $.post('/api/talk/stop');
       if (activeChannelId) {
         $.ajax({
           url: '/api/channels/' + activeChannelId + '/blur',
@@ -317,6 +321,8 @@
       }
       activeChannelId = null;
       activeChannelPeer = null;
+      privateLive = false;
+      $('#private-mode').text('Mode: …');
       $('#private-panel').removeClass('active');
       $('#main-talk-wrap').removeClass('hidden');
     }
@@ -453,28 +459,62 @@
       .on('mousedown touchstart', function (e) { e.preventDefault(); startTalking(); })
       .on('mouseup mouseleave touchend touchcancel', function (e) { e.preventDefault(); stopTalking(); });
 
-    // Private channel: record clip on press-release (store-and-forward)
+    // Private channel: live unicast when peer has a direct mesh PC; else clip upload.
     var privateChunks = [];
     var privateRecorder = null;
     var privateHolding = false;
+    var privateLive = false;
+    var privateLiveHolding = false;
+
+    function refreshPrivateMode() {
+      if (!activeChannelPeer || !activeChannelPeer.id) {
+        privateLive = false;
+        $('#private-mode').text('Mode: …');
+        return;
+      }
+      $.getJSON('/api/talk/peer?id=' + encodeURIComponent(activeChannelPeer.id), function (info) {
+        privateLive = !!(info && info.direct);
+        $('#private-mode').text(privateLive ? 'Mode: live mesh' : 'Mode: clip via Base Station');
+        $('#private-talk-btn').html(privateLive ? 'Hold<br>live Talk' : 'Hold<br>to record');
+      }).fail(function () {
+        privateLive = false;
+        $('#private-mode').text('Mode: clip via Base Station');
+        $('#private-talk-btn').html('Hold<br>to record');
+      });
+    }
+
     function privateStart() {
       if (privateHolding || !activeChannelId) return;
       privateHolding = true;
+      if (privateLive && activeChannelPeer && activeChannelPeer.id) {
+        privateLiveHolding = true;
+        $('#private-talk-btn').removeClass('btn-success').addClass('btn-danger').html('Live&hellip;');
+        $.post('/api/talk/start?to=' + encodeURIComponent(activeChannelPeer.id));
+        return;
+      }
+      privateLiveHolding = false;
       privateChunks = [];
-      $('#private-talk-btn').removeClass('btn-success').addClass('btn-danger').html('Talking&hellip;');
+      $('#private-talk-btn').removeClass('btn-success').addClass('btn-danger').html('Recording&hellip;');
       navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
         privateRecorder = new MediaRecorder(stream);
         privateRecorder.ondataavailable = function (e) { if (e.data.size) privateChunks.push(e.data); };
         privateRecorder.start();
       }).catch(function () {
         privateHolding = false;
-        $('#private-talk-btn').removeClass('btn-danger').addClass('btn-success').html('Hold<br>to Talk');
+        $('#private-talk-btn').removeClass('btn-danger').addClass('btn-success').html('Hold<br>to record');
       });
     }
     function privateStop() {
       if (!privateHolding) return;
       privateHolding = false;
-      $('#private-talk-btn').removeClass('btn-danger').addClass('btn-success').html('Hold<br>to Talk');
+      if (privateLiveHolding) {
+        privateLiveHolding = false;
+        $.post('/api/talk/stop');
+        $('#private-talk-btn').removeClass('btn-danger').addClass('btn-success')
+          .html(privateLive ? 'Hold<br>live Talk' : 'Hold<br>to record');
+        return;
+      }
+      $('#private-talk-btn').removeClass('btn-danger').addClass('btn-success').html('Hold<br>to record');
       if (!privateRecorder) return;
       privateRecorder.onstop = function () {
         privateRecorder.stream.getTracks().forEach(function (t) { t.stop(); });
@@ -498,7 +538,12 @@
       refreshDrawer();
       setInterval(pollDevices, 3000);
       setInterval(refreshDrawer, 3000);
-      setInterval(function () { if (activeChannelId) refreshPrivateNotes(); }, 2000);
+      setInterval(function () {
+        if (activeChannelId) {
+          refreshPrivateNotes();
+          refreshPrivateMode();
+        }
+      }, 2000);
     });
   </script>
 </body>

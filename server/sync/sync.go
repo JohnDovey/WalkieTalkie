@@ -2,9 +2,11 @@
 // synchronization, per docs/2026-07-13-implementation-plan.md
 // ("Multi-Base-Station synchronization"): once this Base Station discovers
 // another one (via its mDNS "api" TXT field — see core/discovery/mdns), it
-// periodically pulls the peer's full device list (reusing the existing
-// GET /api/devices endpoint — no new API surface needed) and merges it in
-// with registry.Store.MergeRemoteRegistry's last-seen-wins rule.
+// periodically pulls the peer's full device list (GET /api/devices) and
+// merges it with registry.Store.MergeRemoteRegistry's last-seen-wins rule.
+//
+// When a VoicePuller is set, each tick also pulls private channels and
+// voice-note metadata/blobs (GET /api/sync/channels, /api/sync/voice-notes).
 package sync
 
 import (
@@ -18,12 +20,19 @@ import (
 	"github.com/JohnDovey/WalkieTalkie/core/registry"
 )
 
+// VoicePuller pulls channel + voice-note state from a peer Base Station.
+// Implemented by *voicenote.Store.
+type VoicePuller interface {
+	PullFromPeer(host string, apiPort int) (channelsImported, notesImported int, err error)
+}
+
 // Syncer manages one repeating pull-and-merge ticker per discovered peer
 // Base Station.
 type Syncer struct {
 	store    *registry.Store
 	interval time.Duration
 	client   *http.Client
+	voice    VoicePuller
 
 	mu    sync.Mutex
 	peers map[string]func() // peerID -> cancel
@@ -37,6 +46,13 @@ func New(store *registry.Store, interval time.Duration) *Syncer {
 		client:   &http.Client{Timeout: 5 * time.Second},
 		peers:    make(map[string]func()),
 	}
+}
+
+// SetVoice enables multi-Base Station voice-note / channel replication.
+func (s *Syncer) SetVoice(v VoicePuller) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.voice = v
 }
 
 // SetInterval updates the sync cadence for subsequent ticker periods.
@@ -110,6 +126,21 @@ func (s *Syncer) syncOnce(peerID, host string, apiPort int) {
 	}
 	if updated > 0 {
 		log.Printf("sync: merged %d device(s) from Base Station %s", updated, peerID)
+	}
+
+	s.mu.Lock()
+	voice := s.voice
+	s.mu.Unlock()
+	if voice == nil {
+		return
+	}
+	chN, noteN, verr := voice.PullFromPeer(host, apiPort)
+	if verr != nil {
+		log.Printf("sync: voice pull from Base Station %s: %v", peerID, verr)
+		return
+	}
+	if chN > 0 || noteN > 0 {
+		log.Printf("sync: imported %d channel(s), %d voice note(s) from Base Station %s", chN, noteN, peerID)
 	}
 }
 

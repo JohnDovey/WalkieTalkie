@@ -21,7 +21,7 @@ numberOverride:
 <h2 id="the-device-list">The device list</h2>
 <p>The dashboard's home page (<code>/</code>) lists every device the Base Station has seen recently: its name, platform, connection status (Connected/Disconnected), how long ago it was last seen, its GPS location if known, and how it was discovered (directly, over the LAN via mDNS, or reported by another device over Bluetooth). The list refreshes automatically every few seconds, sorted most-recently-seen first, and each device's name is colored green if it's currently connected or gray if it's disconnected.</p>
 <p>Next to each device are two small action icons: <strong>Voice Message</strong> (always available) opens a recorder so you can send an async voice note that the Base Station holds until that device connects again (notes are kept for at least 21 days, then deleted). <strong>Invite to Chat</strong> appears only for connected devices and starts a private 1:1 channel. If a device has voice notes waiting for it, the list shows how many.</p>
-<p>The <strong>Chats</strong> button on the left of the nav opens a drawer with active private channels (and unread counts) and a list of senders who have new voice messages for you. Opening a voice-message entry shows the thread — play, reply, or delete. Opening a private channel switches the Talk control to that pair only; while you are not focused on the channel, clips from the other party queue as voice notes until you return.</p>
+<p>The <strong>Chats</strong> button on the left of the nav opens a drawer with active private channels (and unread counts) and senders who have new voice messages for you. Opening a voice-message entry shows the thread — play, reply, or delete. Opening a private channel switches the Talk control to that pair: when the peer has a direct Wi‑Fi mesh link, Hold to Talk is <strong>live unicast</strong>; otherwise it records a clip that queues on this Base Station until they focus the channel. The private panel shows the current mode.</p>
 <p>When two Base Stations are running on the same LAN, they discover each other the same way any two devices do — automatically, with no setup — and each will list the other, including itself as a normal entry in its own list. They also keep their device lists in sync with each other continuously in the background (see "Multiple Base Stations" below).</p>
 <figure id="fig:8a0d9d8458954e86aa0287c64c005f5f" style="text-align:center">
 <img src="../images/base-station-dashboard.png" alt="base-station-dashboard" width="649" height="381">
@@ -41,7 +41,7 @@ numberOverride:
 </figure>
 
 <h2 id="multiple-base-stations">Multiple Base Stations</h2>
-<p>If you run more than one Base Station on the same LAN, they don't just discover each other — they continuously synchronize their device lists with each other in the background, so a device seen by only one Base Station still shows up correctly on the others within a few seconds. If the two Base Stations ever disagree about a device (e.g. its last-seen time or GPS), whichever one saw it most recently wins.</p>
+<p>If you run more than one Base Station on the same LAN, they don't just discover each other — they continuously synchronize their device lists with each other in the background, so a device seen by only one Base Station still shows up correctly on the others within a few seconds. If the two Base Stations ever disagree about a device (e.g. its last-seen time or GPS), whichever one saw it most recently wins. The same sync also copies private channels and waiting voice-note clips between Base Stations, so a recipient can pick up notes from whichever Base Station they reach.</p>
 
 <h2 id="settings">Settings</h2>
 <p>The <strong>Settings</strong> page (<code>/settings</code>) lets you change the Base Station's own configuration: the port it listens on, how often GPS updates are expected, how often it re-syncs with other Base Stations, the relay threshold, and whether the relay fallback is enabled. Changing the port restarts the web server on the new port — the page tells you the new address to reconnect to.</p>
@@ -61,7 +61,7 @@ numberOverride:
 
 
 <h2 id="voice-messages-and-private-channels">Voice messages and private channels</h2>
-<p>Both the Base Station dashboard and the Android app support <strong>async voice messages</strong> and <strong>invite-only private channels</strong>. Clips are stored on a Base Station on the LAN (not sent peer-to-peer yet — that is a planned follow-up).</p>
+<p>Both the Base Station dashboard and the Android app support <strong>async voice messages</strong> and <strong>invite-only private channels</strong>. Clips are stored on a Base Station on the LAN; when multiple Base Stations are present they replicate those inboxes with each other. Direct peer-to-peer clip transfer (bypassing the Base Station) is still a planned follow-up.</p>
 <ul>
 <li>On each device row, a microphone icon sends a <strong>Voice Message</strong> to that node (works even if they are offline — the note is held until they return, for at least 21 days, then deleted). A chat icon <strong>Invite to Chat</strong> appears only while the peer is connected.</li>
 <li>A left-hand drawer lists active private channels and nodes with new voice messages waiting, with count badges.</li>

@@ -250,6 +250,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("init voice-note store: %v", err)
 	}
+	syncer.SetVoice(voiceStore)
 	voiceHandlers := &voicenote.Handlers{Voice: voiceStore, Reg: store, SelfID: selfID, Usage: usageStats}
 	purgeStop := make(chan struct{})
 	defer close(purgeStop)

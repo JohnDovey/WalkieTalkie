@@ -10,8 +10,8 @@ When both sender and recipient are online on the same LAN, transfer Opus clips p
 
 ## Live private-channel SFU rooms
 
-Phase 6 covers **direct unicast** only. Still TODO: private-channel use of `core/relay` + `server/relay` Hub rooms when peers are SFU-only / force-relayed.
+Phase 6 covers **direct unicast** on phones and the Base Station web UI. Still TODO: private-channel use of `core/relay` + `server/relay` Hub rooms when peers are SFU-only / force-relayed.
 
 ## Multi-Base-Station voice blob replication
 
-Replicate `voice_notes` metadata and Opus blobs between Base Stations the same way device registry sync works today, so a recipient can pick up waiting notes from any Base Station on the LAN.
+✅ Shipped in `server` 1.3.1 — see Phase 6 doc. After each device-registry pull, peer Base Stations also pull `GET /api/sync/channels` and `GET /api/sync/voice-notes` (plus audio blobs for new notes).
