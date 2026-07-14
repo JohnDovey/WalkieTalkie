@@ -79,6 +79,17 @@ private val REQUIRED_PERMISSIONS = buildList {
 
 class MainActivity : ComponentActivity() {
 
+    /**
+     * Optional adb deep-link for automation/screenshots. Only applied when the
+     * intent includes an explicit `screen` extra — normal launcher opens and
+     * onNewIntent resumes do not reset the current UI.
+     *
+     * adb shell am start -n com.walkietalkie/.MainActivity -f 0x20000000 \
+     *   --es screen settings|about|devices|record|thread|channel|chats \
+     *   [--es peerId … --es peerName … --es channelId … --es status …]
+     */
+    private val deepLink = mutableStateOf<DeepLink?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -99,21 +110,70 @@ class MainActivity : ComponentActivity() {
             requestPermissions.launch(REQUIRED_PERMISSIONS)
         }
 
+        deepLink.value = DeepLink.from(intent)
+
         setContent {
             MaterialTheme {
                 // Keep the top nav and bottom Talk button clear of the status
                 // bar / notch and the system navigation gesture bar — without
                 // this the menu is unselectable and the Talk button is clipped.
                 Surface(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
-                    AppScreen()
+                    val link by deepLink
+                    AppScreen(deepLink = link)
                 }
             }
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // Ignore plain MAIN/LAUNCHER re-delivery; only honor explicit screen extras.
+        DeepLink.from(intent)?.let { deepLink.value = it }
+    }
+
     private fun startPttService() {
         val intent = Intent(this, PTTService::class.java)
         ContextCompat.startForegroundService(this, intent)
+    }
+}
+
+/** Parsed adb/intent routing for screenshot/manual navigation. Null if no `screen` extra. */
+private data class DeepLink(
+    val screen: Screen,
+    val openDrawer: Boolean,
+    val seq: Long,
+) {
+    companion object {
+        private var seqCounter = 0L
+
+        fun from(intent: Intent): DeepLink? {
+            val key = intent.getStringExtra("screen")?.lowercase()?.takeIf { it.isNotBlank() }
+                ?: return null
+            val peerId = intent.getStringExtra("peerId").orEmpty()
+            val peerName = intent.getStringExtra("peerName").orEmpty().ifBlank { peerId.ifBlank { "Peer" } }
+            val channelId = intent.getStringExtra("channelId").orEmpty()
+            val status = intent.getStringExtra("status").orEmpty().ifBlank { "active" }
+            val screen = when (key) {
+                "settings" -> Screen.Settings
+                "about" -> Screen.About
+                "record", "record_voice" -> Screen.RecordVoice(peerId.ifBlank { "demo" }, peerName)
+                "thread", "voice_thread" -> Screen.VoiceThread(peerId.ifBlank { "demo" }, peerName)
+                "channel", "private_channel" -> Screen.PrivateChannel(
+                    channelId.ifBlank { "demo-channel" },
+                    peerId.ifBlank { "demo" },
+                    peerName,
+                    status,
+                )
+                "chats", "devices" -> Screen.Devices
+                else -> Screen.Devices
+            }
+            return DeepLink(
+                screen = screen,
+                openDrawer = key == "chats",
+                seq = ++seqCounter,
+            )
+        }
     }
 }
 
@@ -132,11 +192,26 @@ private sealed class Screen {
 }
 
 @Composable
-private fun AppScreen() {
-    var screen by remember { mutableStateOf<Screen>(Screen.Devices) }
+private fun AppScreen(
+    deepLink: DeepLink? = null,
+) {
+    var screen by remember { mutableStateOf(deepLink?.screen ?: Screen.Devices) }
     val context = LocalContext.current
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val drawerState = rememberDrawerState(
+        if (deepLink?.openDrawer == true) DrawerValue.Open else DrawerValue.Closed,
+    )
     val scope = rememberCoroutineScope()
+
+    // Apply adb deep-link navigation only when an explicit `screen` extra is present.
+    LaunchedEffect(deepLink?.seq) {
+        val link = deepLink ?: return@LaunchedEffect
+        screen = link.screen
+        if (link.openDrawer) {
+            drawerState.open()
+        } else if (drawerState.isOpen) {
+            drawerState.close()
+        }
+    }
 
     var channelsJson by remember { mutableStateOf("[]") }
     var inboxJson by remember { mutableStateOf("[]") }
