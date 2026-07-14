@@ -52,6 +52,10 @@ type Handlers struct {
 	// OnSettingsChanged is called after new settings are persisted, so
 	// main.go can restart the HTTP listener on a new port if it changed.
 	OnSettingsChanged func(config.Settings)
+
+	// OnLocationUpdated is called after a successful GPS POST so the Base
+	// Station can recompute its mean location estimate.
+	OnLocationUpdated func(deviceID string)
 }
 
 // AboutInfo is the response shape for GET /api/about.
@@ -151,6 +155,9 @@ func (h *Handlers) updateLocation(w http.ResponseWriter, r *http.Request) {
 	if err := h.Store.SetLocation(id, payload.GeoPoint); err != nil {
 		serverError(w, err)
 		return
+	}
+	if h.OnLocationUpdated != nil {
+		h.OnLocationUpdated(id)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

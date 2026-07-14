@@ -11,7 +11,7 @@ When both sender and recipient are online on the same LAN, transfer Opus clips p
 While both participants are focused on a private channel, stream live Opus via:
 
 - Unicast WebRTC (reuse mesh `PeerConnection`, route frames only to that peer), or
-- Server SFU once `core/relay` + `server/relay` exist.
+- Server SFU once private-channel wiring uses `core/relay` + `server/relay` (the **mesh** SFU for force-relay / ICE-fail landed in Phase 3; private-channel use of that Hub is still TODO).
 
 Clips / store-and-forward remain the fallback when a participant is not focused.
 

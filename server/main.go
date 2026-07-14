@@ -22,8 +22,10 @@ import (
 	"github.com/JohnDovey/WalkieTalkie/core/media"
 	"github.com/JohnDovey/WalkieTalkie/core/proto"
 	"github.com/JohnDovey/WalkieTalkie/core/registry"
+	corerelay "github.com/JohnDovey/WalkieTalkie/core/relay"
 	"github.com/JohnDovey/WalkieTalkie/server/api"
 	"github.com/JohnDovey/WalkieTalkie/server/audio"
+	"github.com/JohnDovey/WalkieTalkie/server/relay"
 	"github.com/JohnDovey/WalkieTalkie/server/sync"
 	"github.com/JohnDovey/WalkieTalkie/server/usage"
 	"github.com/JohnDovey/WalkieTalkie/server/voicenote"
@@ -40,6 +42,7 @@ func main() {
 	portFlag := flag.Int("port", 0, "override the web UI/API port for this run (default: persisted setting, or 9091 on first run)")
 	nameFlag := flag.String("name", "", "override this node's display name (default: \"Base Station: <hostname>\")")
 	noAudio := flag.Bool("no-audio", false, "skip mic/speaker init (registry+signaling only); useful when testing multiple instances against one machine's audio hardware")
+	noTray := flag.Bool("no-tray", false, "disable the system tray icon (for headless/CI/SSH runs)")
 	flag.Parse()
 
 	dataDir := *dataDirFlag
@@ -99,9 +102,47 @@ func main() {
 		log.Printf("peer %s connection state: %s", peerID, state)
 	}
 	session.SetRelayThreshold(settings.RelayThreshold)
+	session.SetRelayEnabled(settings.RelayEnabled)
 	session.OnRelayThresholdExceeded = func(count, threshold int) {
-		log.Printf("relay threshold exceeded (%d connected peers >= %d) but core/relay isn't implemented yet — still connecting directly", count, threshold)
+		log.Printf("relay threshold exceeded (%d connected peers >= %d) but relay dialer unavailable — still connecting directly", count, threshold)
 	}
+
+	hub, err := corerelay.NewHub()
+	if err != nil {
+		log.Fatalf("init SFU hub: %v", err)
+	}
+	defer hub.Close()
+	hub.OnRemoteFrame = func(fromID string, payload []byte) {
+		session.MarkRelayPeer(fromID)
+		if session.OnOpusFrameReceived != nil {
+			session.OnOpusFrameReceived(fromID, len(payload))
+		}
+		// sink via MeshManager's own sink reference — pull through Broadcast path
+		if sink != nil {
+			_ = sink.WriteOpusFrame(fromID, payload)
+		}
+	}
+	hostBridge := &corerelay.HostBridge{
+		Hub:    hub,
+		SelfID: selfID,
+		Mark:   session.MarkRelayPeer,
+	}
+	session.SetRelay(hostBridge)
+	session.OnRelayBroadcast = func(frame []byte) {
+		hub.InjectLocal(selfID, frame)
+	}
+
+	relaySrv := relay.New(hub)
+	relayPort, err := relaySrv.Start(0)
+	if err != nil {
+		log.Fatalf("start SFU relay: %v", err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		_ = relaySrv.Shutdown(ctx)
+	}()
+	log.Printf("SFU relay listening on port %d", relayPort)
 
 	usageStats, err := usage.NewStore(store)
 	if err != nil {
@@ -138,11 +179,26 @@ func main() {
 		Port:       sigPort,
 		SignalPort: sigPort,
 		APIPort:    settings.Port, // marks this node as a Base Station for peer sync — see server/sync
+		RelayPort:  relayPort,
 	})
 	if err != nil {
 		log.Fatalf("mdns register: %v", err)
 	}
 	defer mdnsSrv.Shutdown()
+
+	announce := func(port int) mdns.AnnounceInfo {
+		return mdns.AnnounceInfo{
+			ID:         selfID,
+			Name:       selfName,
+			Platform:   platformName(),
+			AppVersion: Version,
+			ProtoVer:   proto.Version,
+			Port:       sigPort,
+			SignalPort: sigPort,
+			APIPort:    port,
+			RelayPort:  relayPort,
+		}
+	}
 
 	syncer := sync.New(store, time.Duration(settings.SyncIntervalSeconds)*time.Second)
 	defer syncer.Stop()
@@ -205,6 +261,9 @@ func main() {
 		Store: store, Talker: session, SelfID: selfID, SelfName: selfName,
 		Platform: platformName(), Version: Version, EnrichDevices: voiceHandlers,
 		OnDeviceSeen: usageStats.DeviceSeen,
+		OnLocationUpdated: func(string) {
+			updateServerLocationEstimate(store, selfID)
+		},
 	}
 	webHandlers, err := web.New()
 	if err != nil {
@@ -221,26 +280,42 @@ func main() {
 	apiHandlers.OnSettingsChanged = func(newSettings config.Settings) {
 		log.Printf("settings changed, restarting web server on port %d", newSettings.Port)
 		session.SetRelayThreshold(newSettings.RelayThreshold)
+		session.SetRelayEnabled(newSettings.RelayEnabled)
+		syncer.SetInterval(time.Duration(newSettings.SyncIntervalSeconds) * time.Second)
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		httpSrv.Shutdown(shutdownCtx)
 		httpSrv = &http.Server{Handler: mux}
 		go serve(httpSrv, newSettings.Port)
 
-		mdnsSrv.UpdateInfo(mdns.AnnounceInfo{
-			ID:         selfID,
-			Name:       selfName,
-			Platform:   platformName(),
-			AppVersion: Version,
-			ProtoVer:   proto.Version,
-			Port:       sigPort,
-			SignalPort: sigPort,
-			APIPort:    newSettings.Port,
-		})
+		mdnsSrv.UpdateInfo(announce(newSettings.Port))
+	}
+
+	_ = noTray
+	dashboardPort.Store(int32(settings.Port))
+
+	apiHandlers.OnSettingsChanged = func(newSettings config.Settings) {
+		log.Printf("settings changed, restarting web server on port %d", newSettings.Port)
+		session.SetRelayThreshold(newSettings.RelayThreshold)
+		session.SetRelayEnabled(newSettings.RelayEnabled)
+		syncer.SetInterval(time.Duration(newSettings.SyncIntervalSeconds) * time.Second)
+		dashboardPort.Store(int32(newSettings.Port))
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		httpSrv.Shutdown(shutdownCtx)
+		httpSrv = &http.Server{Handler: mux}
+		go serve(httpSrv, newSettings.Port)
+
+		mdnsSrv.UpdateInfo(announce(newSettings.Port))
 	}
 
 	log.Printf("%s starting — device id %s", selfName, selfID)
-	serve(httpSrv, settings.Port)
+	if *noTray {
+		serve(httpSrv, settings.Port)
+		return
+	}
+	go serve(httpSrv, settings.Port)
+	startSystemTray()
 }
 
 // updateServerLocationEstimate recomputes this Base Station's own GPS

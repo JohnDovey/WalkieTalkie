@@ -39,6 +39,18 @@ func New(store *registry.Store, interval time.Duration) *Syncer {
 	}
 }
 
+// SetInterval updates the sync cadence for subsequent ticker periods.
+// Existing loops pick up the new duration on their next tick restart —
+// we cancel and recreate each peer loop so the change is immediate.
+func (s *Syncer) SetInterval(interval time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+	s.interval = interval
+}
+
 // EnsureSyncing starts a repeating sync loop against peerID's REST API at
 // host:apiPort, if one isn't already running for that peer. Safe to call
 // repeatedly (e.g. on every mDNS re-sighting) — idempotent.
@@ -56,13 +68,16 @@ func (s *Syncer) EnsureSyncing(peerID, host string, apiPort int) {
 
 func (s *Syncer) loop(stop <-chan struct{}, peerID, host string, apiPort int) {
 	s.syncOnce(peerID, host, apiPort) // sync immediately, don't wait a full interval first
-	ticker := time.NewTicker(s.interval)
-	defer ticker.Stop()
 	for {
+		s.mu.Lock()
+		interval := s.interval
+		s.mu.Unlock()
+		timer := time.NewTimer(interval)
 		select {
 		case <-stop:
+			timer.Stop()
 			return
-		case <-ticker.C:
+		case <-timer.C:
 			s.syncOnce(peerID, host, apiPort)
 		}
 	}

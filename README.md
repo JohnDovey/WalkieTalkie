@@ -10,10 +10,10 @@ Build priority is Android first, then desktop, then iPhone, then wearables last 
 
 - **Phase 1 — shared Go core + desktop server**: ✅ done and verified.
 - **Phase 2 — Android**: ✅ working on real hardware (live WebRTC Opus PTT, mDNS + BLE presence, GPS, voice notes / private channels via Base Station).
-- **Phase 3 (desktop hardening + multi-Base-Station registry sync)**: partly done (registry sync, map, Old Nodes, Windows/macOS release builds).
+- **Phase 3 (desktop hardening + multi-Base-Station registry sync)**: ✅ done (registry sync, map, Old Nodes, Windows/macOS/Linux packaging scripts, system tray, Base Station mesh SFU / relay threshold). Three-OS hardware mesh not run on this Mac-only setup.
 - **Phase 4 (iPhone)**, **Phase 5 (wearables)**: not started.
 
-**Current release track:** server `1.1.0` (usage Stats UI), android `1.0.0`.
+**Current release track:** server `1.2.0` (mesh SFU + tray + Linux script), android `1.0.0`.
 
 ## Repo layout
 
@@ -21,7 +21,7 @@ Build priority is Android first, then desktop, then iPhone, then wearables last 
 core/      shared Go module (registry, discovery, WebRTC mesh, signaling) — no cgo, gomobile-bound into Android/iOS
 server/    the Go desktop app AND the "Base Station" server: bbolt registry, REST API, Bootstrap/jQuery dashboard
 android/   Kotlin/Compose Android app, consuming core/ via a gomobile-built AAR
-tools/     dev scripts: Go env setup, gomobile→Android AAR, Windows/macOS server builds
+tools/     dev scripts: Go env setup, gomobile→Android AAR, Windows/macOS/Linux server builds
 docs/      plans and design docs (including voice messages / private channels)
 Manual/    the end-user manual (.ebhtml format — see Manual/README.md)
 ```
@@ -38,13 +38,14 @@ cd server
 go run .                 # starts the Base Station on http://localhost:9091
 ```
 
-Open `http://localhost:9091` for the device dashboard, `http://localhost:9091/settings` for server settings (port, etc — no login, by design). Useful flags for running more than one instance on one machine (development only): `--port`, `--data-dir`, `--name`, `--no-audio`.
+Open `http://localhost:9091` for the device dashboard, `http://localhost:9091/settings` for server settings (port, etc — no login, by design). Useful flags for running more than one instance on one machine (development only): `--port`, `--data-dir`, `--name`, `--no-audio`, `--no-tray`.
 
 Release-style binaries (full audio):
 
 ```sh
 ./tools/build-macos-server.sh    # arm64 + amd64 + universal → /Volumes/JohnDovey/tmp/
 ./tools/build-windows-server.sh  # Windows amd64 .exe → /Volumes/JohnDovey/tmp/
+./tools/build-linux-server.sh    # Linux amd64 (run on Linux; refuses Darwin)
 ```
 
 ## Building the Android app

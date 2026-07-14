@@ -15,6 +15,7 @@ Dev scripts live in `tools/`. Source `tools/go-env.sh` (or use a wrapper that do
 | `tools/rebuild-and-install-android.sh` | Bind AAR, then `assembleDebug` + `installDebug` on a connected device |
 | `tools/build-windows-server.sh` | Cross-compile `server/` to a Windows x86_64 `.exe` **with full audio** from this Mac |
 | `tools/build-macos-server.sh` | Build `server/` for macOS **arm64 + amd64** (and a universal lipo) **with full audio** |
+| `tools/build-linux-server.sh` | Build `server/` for Linux amd64 **with full audio** on a **native Linux** host |
 
 ## Windows server cross-build
 
@@ -37,3 +38,11 @@ Use `./tools/build-macos-server.sh [output-dir]` to produce Apple Silicon and In
 - `walkietalkie-server-darwin-universal` (lipo of the two)
 
 Per-arch static opus/libogg/opusfile builds are cached under `/Volumes/JohnDovey/tmp/opus-darwin-{arm64,amd64}-build` so cross-arch cgo does not depend on a second Homebrew prefix. Same `-a` + static `pkg-config` pattern as the Windows script.
+
+## Linux server build
+
+Use `./tools/build-linux-server.sh [output-path]` **on a Linux host** (needs `libopus-dev` / `pkg-config` and a C toolchain).
+
+- Default output: `/Volumes/JohnDovey/tmp/walkietalkie-server-linux-amd64` when the volume is mounted
+- **Refuses to run on macOS** — full-audio Linux cannot be cross-compiled from Darwin without a Linux sysroot; the script exits with a clear error instead of producing a silent no-audio binary
+- Runtime needs ALSA/Pulse for malgo mic/speaker

@@ -26,6 +26,7 @@ import (
 	"github.com/JohnDovey/WalkieTalkie/core/media"
 	"github.com/JohnDovey/WalkieTalkie/core/proto"
 	"github.com/JohnDovey/WalkieTalkie/core/registry"
+	corerelay "github.com/JohnDovey/WalkieTalkie/core/relay"
 	"github.com/JohnDovey/WalkieTalkie/core/voicenote"
 )
 
@@ -47,6 +48,7 @@ type Node struct {
 	mdnsSrv      *mdns.Server
 	baseURL      string // last seen Base Station http://host:apiPort
 	voiceClient  *voicenote.Client
+	relayClient  *corerelay.Client
 }
 
 // StartNode boots the shared core for one local device: opens the
@@ -92,6 +94,31 @@ func StartNode(dataDir, name, platform, appVersion string, source media.AudioSou
 		store:      store,
 		session:    session,
 		name:       name,
+	}
+
+	settings := config.Default()
+	if s, err := store.GetSettings(); err == nil {
+		settings = s
+	}
+	session.SetRelayEnabled(settings.RelayEnabled)
+	session.SetRelayThreshold(settings.RelayThreshold)
+
+	rc := &corerelay.Client{SelfID: selfID}
+	rc.OnRemoteFrame = func(fromID string, payload []byte) {
+		if fromID == "" {
+			fromID = "sfu"
+		}
+		if session.OnOpusFrameReceived != nil {
+			session.OnOpusFrameReceived(fromID, len(payload))
+		}
+		if sink != nil {
+			_ = sink.WriteOpusFrame(fromID, payload)
+		}
+	}
+	n.relayClient = rc
+	session.SetRelay(rc)
+	session.OnRelayBroadcast = func(frame []byte) {
+		rc.Broadcast(frame)
 	}
 
 	if _, err := store.UpsertFromDirectContact(selfID, name, platform, appVersion, []string{"audio"}, "direct", time.Now()); err != nil {
@@ -157,6 +184,9 @@ func (n *Node) onPeerFound(p mdns.Peer) {
 	}
 	if p.APIPort != 0 && len(p.IPv4) > 0 {
 		n.setBaseStation(fmt.Sprintf("http://%s:%d", p.IPv4[0].String(), p.APIPort))
+	}
+	if p.RelayPort != 0 && len(p.IPv4) > 0 && n.relayClient != nil {
+		n.relayClient.SetEndpoint(p.IPv4[0].String(), p.RelayPort)
 	}
 	if len(p.IPv4) == 0 || p.SignalPort == 0 {
 		return

@@ -1,0 +1,186 @@
+// Package relay provides a minimal WebRTC SFU for mesh force-relay /
+// ICE-fail fallback (Phase 3 desktop hardening). Peers open one
+// PeerConnection to a Hub; Opus frames are forwarded to every other
+// participant on a single outbound track each (star SFU, no mid-call
+// renegotiation).
+package relay
+
+import (
+	"fmt"
+	"io"
+	"sync"
+	"time"
+
+	"github.com/pion/webrtc/v4"
+	"github.com/pion/webrtc/v4/pkg/media"
+)
+
+const opusFrameDuration = 20 * time.Millisecond
+
+// Hub is an in-process SFU. The Base Station hosts one; clients dial it over
+// HTTP signaling (see server/relay).
+type Hub struct {
+	mu           sync.Mutex
+	api          *webrtc.API
+	participants map[string]*participant
+
+	// OnRemoteFrame is called for every Opus payload from a remote
+	// participant (Base Station local playback / accounting).
+	OnRemoteFrame func(fromID string, payload []byte)
+}
+
+type participant struct {
+	id       string
+	pc       *webrtc.PeerConnection
+	outbound *webrtc.TrackLocalStaticSample // audio from everyone else → this peer
+}
+
+// NewHub builds an empty SFU hub.
+func NewHub() (*Hub, error) {
+	m := webrtc.MediaEngine{}
+	if err := m.RegisterDefaultCodecs(); err != nil {
+		return nil, fmt.Errorf("relay: register codecs: %w", err)
+	}
+	return &Hub{
+		api:          webrtc.NewAPI(webrtc.WithMediaEngine(&m)),
+		participants: make(map[string]*participant),
+	}, nil
+}
+
+// ParticipantCount returns how many remote peers are currently on the hub.
+func (h *Hub) ParticipantCount() int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return len(h.participants)
+}
+
+// Has reports whether id is currently joined.
+func (h *Hub) Has(id string) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	_, ok := h.participants[id]
+	return ok
+}
+
+// HandleOffer answers an SDP offer from senderID and joins them to the SFU.
+func (h *Hub) HandleOffer(senderID, offerSDP string) (answerSDP string, err error) {
+	h.mu.Lock()
+	if old, ok := h.participants[senderID]; ok {
+		_ = old.pc.Close()
+		delete(h.participants, senderID)
+	}
+	h.mu.Unlock()
+
+	pc, err := h.api.NewPeerConnection(webrtc.Configuration{})
+	if err != nil {
+		return "", fmt.Errorf("relay: new pc: %w", err)
+	}
+
+	out, err := webrtc.NewTrackLocalStaticSample(
+		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus},
+		"audio",
+		"wt-sfu",
+	)
+	if err != nil {
+		_ = pc.Close()
+		return "", fmt.Errorf("relay: new outbound track: %w", err)
+	}
+	if _, err := pc.AddTrack(out); err != nil {
+		_ = pc.Close()
+		return "", fmt.Errorf("relay: add outbound track: %w", err)
+	}
+
+	p := &participant{id: senderID, pc: pc, outbound: out}
+
+	pc.OnTrack(func(remote *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
+		go h.forwardFrom(senderID, remote)
+	})
+	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		if state == webrtc.PeerConnectionStateFailed ||
+			state == webrtc.PeerConnectionStateClosed ||
+			state == webrtc.PeerConnectionStateDisconnected {
+			h.Remove(senderID)
+		}
+	})
+
+	if err := pc.SetRemoteDescription(webrtc.SessionDescription{
+		Type: webrtc.SDPTypeOffer,
+		SDP:  offerSDP,
+	}); err != nil {
+		_ = pc.Close()
+		return "", fmt.Errorf("relay: set remote: %w", err)
+	}
+
+	answer, err := pc.CreateAnswer(nil)
+	if err != nil {
+		_ = pc.Close()
+		return "", fmt.Errorf("relay: create answer: %w", err)
+	}
+	gatherComplete := webrtc.GatheringCompletePromise(pc)
+	if err := pc.SetLocalDescription(answer); err != nil {
+		_ = pc.Close()
+		return "", fmt.Errorf("relay: set local: %w", err)
+	}
+	<-gatherComplete
+
+	h.mu.Lock()
+	h.participants[senderID] = p
+	h.mu.Unlock()
+
+	return pc.LocalDescription().SDP, nil
+}
+
+func (h *Hub) forwardFrom(fromID string, remote *webrtc.TrackRemote) {
+	for {
+		pkt, _, err := remote.ReadRTP()
+		if err != nil {
+			if err != io.EOF {
+				return
+			}
+			return
+		}
+		payload := append([]byte(nil), pkt.Payload...)
+		if h.OnRemoteFrame != nil {
+			h.OnRemoteFrame(fromID, payload)
+		}
+		h.writeToOthers(fromID, payload)
+	}
+}
+
+func (h *Hub) writeToOthers(fromID string, frame []byte) {
+	sample := media.Sample{Data: frame, Duration: opusFrameDuration}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for id, p := range h.participants {
+		if id == fromID {
+			continue
+		}
+		_ = p.outbound.WriteSample(sample)
+	}
+}
+
+// InjectLocal pushes one Opus frame from a local publisher (Base Station mic)
+// to every SFU participant.
+func (h *Hub) InjectLocal(fromID string, frame []byte) {
+	h.writeToOthers(fromID, frame)
+}
+
+// Remove drops a participant from the hub.
+func (h *Hub) Remove(id string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if p, ok := h.participants[id]; ok {
+		_ = p.pc.Close()
+		delete(h.participants, id)
+	}
+}
+
+// Close tears down every participant.
+func (h *Hub) Close() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for id, p := range h.participants {
+		_ = p.pc.Close()
+		delete(h.participants, id)
+	}
+}

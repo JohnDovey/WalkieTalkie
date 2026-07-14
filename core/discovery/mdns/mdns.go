@@ -51,6 +51,11 @@ type AnnounceInfo struct {
 	// "Multi-Base-Station synchronization" section). Zero means "not a
 	// Base Station" and is omitted from the TXT record entirely.
 	APIPort int
+
+	// RelayPort is the Base Station SFU signaling port (server/relay). Zero
+	// means "no SFU" and is omitted from TXT. Mobile/desktop clients use
+	// this for DialViaRelay force-threshold / ICE-fail fallback.
+	RelayPort int
 }
 
 // Peer is a sighting of another node, decoded from its TXT record.
@@ -62,6 +67,7 @@ type Peer struct {
 	ProtoVer   int
 	SignalPort int
 	APIPort    int // 0 if the peer isn't a Base Station (no server/api)
+	RelayPort  int // 0 if the peer isn't hosting an SFU
 	Host       string
 	IPv4       []net.IP
 	IPv6       []net.IP
@@ -87,10 +93,13 @@ func buildTXT(info AnnounceInfo) []string {
 	if info.APIPort != 0 {
 		txt = append(txt, "api="+strconv.Itoa(info.APIPort))
 	}
+	if info.RelayPort != 0 {
+		txt = append(txt, "relay="+strconv.Itoa(info.RelayPort))
+	}
 	return txt
 }
 
-func parseTXT(text []string) (id, name, plat, appVersion string, ver, sig, api int, gps *proto.GeoPoint) {
+func parseTXT(text []string) (id, name, plat, appVersion string, ver, sig, api, relay int, gps *proto.GeoPoint) {
 	var lat, lon, acc float64
 	var hasLat, hasLon bool
 	for _, kv := range text {
@@ -115,6 +124,8 @@ func parseTXT(text []string) (id, name, plat, appVersion string, ver, sig, api i
 			sig, _ = strconv.Atoi(parts[1])
 		case "api":
 			api, _ = strconv.Atoi(parts[1])
+		case "relay":
+			relay, _ = strconv.Atoi(parts[1])
 		case "lat":
 			lat, hasLat = parseFloat(parts[1])
 		case "lon":
@@ -304,7 +315,7 @@ func browseOnce(ctx context.Context, selfID string, onFound func(Peer)) error {
 	entries := make(chan *zeroconf.ServiceEntry)
 	go func() {
 		for entry := range entries {
-			id, name, plat, appVersion, ver, sig, api, gps := parseTXT(entry.Text)
+			id, name, plat, appVersion, ver, sig, api, relay, gps := parseTXT(entry.Text)
 			if id == "" || id == selfID {
 				continue
 			}
@@ -316,6 +327,7 @@ func browseOnce(ctx context.Context, selfID string, onFound func(Peer)) error {
 				ProtoVer:   ver,
 				SignalPort: sig,
 				APIPort:    api,
+				RelayPort:  relay,
 				Host:       entry.HostName,
 				IPv4:       entry.AddrIPv4,
 				IPv6:       entry.AddrIPv6,
