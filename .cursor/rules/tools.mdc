@@ -12,6 +12,8 @@ Dev scripts live in `tools/`. Source `tools/go-env.sh` (or use a wrapper that do
 |--------|---------|
 | `tools/go-env.sh` | Source before Go tooling; sets volume-scoped `GOPATH`/`GOCACHE`/`GOMODCACHE`/`TMPDIR` |
 | `tools/gomobile-bind-android.sh` | Builds `core/mobile` + `core/media` → `android/app/libs/core.aar` |
+| `tools/gomobile-bind-ios.sh` | Builds `core/mobile` + `core/media` → `ios/Frameworks/Core.xcframework` (device + simulator) |
+| `tools/build-opus-ios.sh` | Builds vendored `libopus` → `ios/ThirdParty/Opus.xcframework` (cached under `/Volumes/JohnDovey/tmp/walkietalkie-opus-ios`) |
 | `tools/rebuild-and-install-android.sh` | Bind AAR, then `assembleDebug` + `installDebug` on a connected device |
 | `tools/build-windows-server.sh` | Cross-compile `server/` to a Windows x86_64 `.exe` **with full audio** from this Mac |
 | `tools/build-macos-server.sh` | Build `server/` for macOS **arm64 + amd64** (and a universal lipo) **with full audio** |

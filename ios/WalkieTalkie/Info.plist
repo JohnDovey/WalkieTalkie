@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>WalkieTalkie</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>bluetooth-central</string>
+		<string>bluetooth-peripheral</string>
+		<string>location</string>
+	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>WalkieTalkie needs the microphone for push-to-talk.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>WalkieTalkie uses Bluetooth to detect nearby peers when you are not on the same Wi-Fi.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>WalkieTalkie advertises its presence over Bluetooth so nearby peers can find you.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>WalkieTalkie shares your location with peers on the local mesh.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>WalkieTalkie may update your location while connected to the mesh.</string>
+</dict>
+</plist>

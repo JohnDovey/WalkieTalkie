@@ -1,11 +1,9 @@
 ---
-title: Getting Started (Desktop Base Station)
-subtitle:
+title: The Base Station
+subtitle: Desktop
 numberMode: Auto
-numberOverride:
+numberOverride: 
 ---
-<h1 id="getting-started">Getting Started</h1>
-<p>WalkieTalkie is a cross-platform push-to-talk (PTT) app. This chapter covers the desktop "Base Station" — the Go server app for Mac, Windows, and Linux — and the Android and iPhone apps. Android + Base Station are confirmed working together on real hardware. The iPhone app is in progress (buildable scaffold; device mesh verify pending).</p>
 
 <h2 id="what-a-base-station-is">What a Base Station is</h2>
 <p>Every desktop instance of WalkieTalkie is called a <strong>Base Station</strong>. A Base Station is not just a monitoring dashboard — it's a full participant: it can talk and listen like any other device, and it also hosts a web dashboard showing every device it has seen on the network.</p>
@@ -25,7 +23,7 @@ numberOverride:
 <p>Next to each device are two small action icons: <strong>Voice Message</strong> (always available) opens a recorder so you can send an async voice note that the Base Station holds until that device connects again (notes are kept for at least 21 days, then deleted). <strong>Invite to Chat</strong> appears only for connected devices and starts a private 1:1 channel. If a device has voice notes waiting for it, the list shows how many.</p>
 <p>The <strong>Chats</strong> button on the left of the nav opens a drawer with active private channels (and unread counts) and a list of senders who have new voice messages for you. Opening a voice-message entry shows the thread — play, reply, or delete. Opening a private channel switches the Talk control to that pair only; while you are not focused on the channel, clips from the other party queue as voice notes until you return.</p>
 <p>When two Base Stations are running on the same LAN, they discover each other the same way any two devices do — automatically, with no setup — and each will list the other, including itself as a normal entry in its own list. They also keep their device lists in sync with each other continuously in the background (see "Multiple Base Stations" below).</p>
-<p><img src="../images/base-station-dashboard.png" alt="Base Station dashboard showing an Android phone and the Base Station itself, both connected, with real GPS coordinates" /></p>
+<p><img src="../images/base-station-dashboard.png" alt="Base Station dashboard showing an Android phone and the Base Station itself, both connected, with real GPS coordinates"></p>
 <p>This is a real screenshot from an actual test session: a Base Station running on a Mac, talking to a real Android phone over Wi-Fi.</p>
 
 <h2 id="old-nodes">Old Nodes</h2>
@@ -34,7 +32,7 @@ numberOverride:
 <h2 id="the-map">The map</h2>
 <p>The <strong>Map</strong> page (<code>/map</code>) plots every device with a known GPS position. It needs internet access to load the map imagery itself (from OpenStreetMap) — this is the one page in the app that isn't fully offline; everything else, including the device list and Talk button, works with no internet connection at all.</p>
 <p>A Base Station machine usually has no GPS hardware of its own. Instead, its position on the map is <em>estimated</em> as the average location of every device currently connected to it that has a GPS fix — so it'll only show up once at least one connected device is reporting its location.</p>
-<p><img src="../images/network-map.png" alt="Network map page showing a marker at a real device's GPS location, with OpenStreetMap tile imagery" /></p>
+<p><img src="../images/network-map.png" alt="Network map page showing a marker at a real device's GPS location, with OpenStreetMap tile imagery"></p>
 
 <h2 id="multiple-base-stations">Multiple Base Stations</h2>
 <p>If you run more than one Base Station on the same LAN, they don't just discover each other — they continuously synchronize their device lists with each other in the background, so a device seen by only one Base Station still shows up correctly on the others within a few seconds. If the two Base Stations ever disagree about a device (e.g. its last-seen time or GPS), whichever one saw it most recently wins.</p>
@@ -45,7 +43,7 @@ numberOverride:
 <p>The <strong>"Mark disconnected after"</strong> setting (180 seconds by default) controls how long a device can go unseen before it's automatically marked Disconnected, even if it never sent a proper disconnect notice — this is what clears out a device that crashed, walked out of range, or was leftover test data, instead of leaving it stuck showing "connected" forever.</p>
 <p>Fixed a related bug where a device's GPS position, name, and app version could get stuck at whatever they were the first time it was discovered, never updating again for the rest of the Base Station's run — even though the device kept sending fresh updates. Both this and the "connected forever" issue above were tracked down after noticing a leftover test entry that wouldn't go away and a phone's map position that never moved.</p>
 <p>Settings does <strong>not</strong> let you rename a device from the browser. Every device — including a Base Station — sets its own name locally; the dashboard only ever displays what a device has told it about itself.</p>
-<p><img src="../images/settings-page.png" alt="Settings page showing port, GPS interval, sync interval, relay threshold, and relay toggle fields" /></p>
+<p><img src="../images/settings-page.png" alt="Settings page showing port, GPS interval, sync interval, relay threshold, and relay toggle fields"></p>
 
 <p>The <strong>Stats</strong> page (<code>/stats</code>) shows usage and traffic for this Base Station: nodes newly seen, private-channel invites/accepts, voice notes and channel clips (counts and bytes), and live group-PTT bytes sent/received by this machine. Ranges: today, week, month, or all time. Peer-to-peer audio that never passes through this Base Station is not included.</p>
 
@@ -64,34 +62,9 @@ numberOverride:
 </ul>
 <p>Voice notes require a reachable Base Station. If none is discovered on the LAN, send fails with a clear error rather than dropping silently.</p>
 
-<h2 id="the-android-app">The Android app</h2>
-<p>The Android app was confirmed working on real hardware for the first time on 2026-07-13: it discovers a Base Station over Wi-Fi, connects to it, and exchanges real two-way audio — confirmed in both directions, including someone pressing the phone's Talk button and hearing their own voice come out of the desktop machine's speakers.</p>
-<p><img src="../images/android-app.png" alt="Android app screen showing a connected Base Station and the Hold to talk button" /></p>
-<p>A few things worth knowing if you're trying this yourself:</p>
-<ul>
-<li>The app needs microphone, location, and Bluetooth permissions — grant all of them when asked, or nothing will work.</li>
-<li>On some phones (confirmed on a Xiaomi/HyperOS device), aggressive battery management kills the app's network activity a few seconds after connecting, even though it's a proper foreground service. If audio drops after several seconds, check your phone's battery settings and allow the app to run unrestricted / disable battery optimization for it.</li>
-</ul>
-<p>The app has a left <strong>Chats</strong> drawer plus screens switched via the top links: <strong>Devices</strong> (the list of other devices, per-device <strong>VM</strong> / <strong>Chat</strong> actions, and the Hold to talk button), <strong>Settings</strong> (set a Nickname/User-name for this device — leave it blank to fall back to the phone's manufacturer and model), and <strong>About</strong> (this app's own version, device ID, and discovered Base Station URL).</p>
-<p>Voice messages and private channels need a Base Station on the LAN; without one, group Hold-to-talk still works, but VM/Chat will fail until a Base Station appears.</p>
-<p>The Devices list is sorted most-recently-seen first, and — unlike the desktop Base Station, which keeps every device it's ever seen — the phone automatically forgets (deletes) any device it hasn't seen in over 48 hours, to keep the on-device list from accumulating clutter over time.</p>
-<p>Not yet tested: whether a third device can detect the phone over Bluetooth and report its presence to a Base Station when the phone has no Wi-Fi — that needs a second Bluetooth-capable device to verify.</p>
 
-<h2 id="the-iphone-app">The iPhone app</h2>
-<p>The iPhone app (Phase 4) is a SwiftUI shell around the same Go core as Android. Version starts at <strong>0.1.0</strong>. Before opening the Xcode project, run <code>tools/gomobile-bind-ios.sh</code> and <code>tools/build-opus-ios.sh</code> (the XCFrameworks are gitignored, like the Android AAR).</p>
-<ul>
-<li>Grant <strong>microphone</strong>, <strong>Bluetooth</strong>, and <strong>location</strong> when asked — discovery, GPS, and Talk need them.</li>
-<li><strong>Hold to Talk</strong> on the Devices screen works in the foreground (and is the fallback on Simulator / builds without a paid Push to Talk team).</li>
-<li>Locked-screen PTT uses Apple's <strong>PushToTalk</strong> framework (<code>PTChannelManager</code>). That entitlement needs a paid Apple Developer team; set <code>DEVELOPMENT_TEAM</code> in a gitignored <code>ios/Config/Local.xcconfig</code> (see the example next to it).</li>
-<li>Battery: iOS is generally less aggressive than HyperOS about killing foreground audio, but Background App Refresh / Low Power Mode can still pause mesh activity if the app is fully backgrounded without an active PTT session — keep the app open while testing LAN Talk.</li>
-</ul>
-<p>Voice messages and private channels use the same Base Station APIs as Android; without a Base Station on the LAN, group Hold-to-talk still works, but the Chats drawer remains limited.</p>
+
+
 
 <h2 id="running-more-than-one-instance-for-testing">Running more than one instance (for testing)</h2>
 <p>The desktop app accepts a few flags useful when testing with more than one instance on a single machine: <code>--port</code>, <code>--data-dir</code>, <code>--name</code>, and <code>--no-audio</code> (skip mic/speaker setup, so two instances on one machine don't fight over the same audio hardware). These aren't needed for normal use — on separate machines, just run <code>go run .</code> on each.</p>
-
-<h2 id="windows-builds">Windows builds</h2>
-<p>A Windows Base Station is built by cross-compiling from the Mac dev machine — there's no need for an actual Windows machine to produce the <code>.exe</code>. Run <code>./tools/build-windows-server.sh</code> from the repo root; the first run takes a few extra minutes to set up a one-time cross-compile toolchain, after which it just rebuilds the executable. The resulting <code>.exe</code> has full mic/speaker support, not just the registry/web-UI/relay pieces. This hasn't been tested on real Windows hardware yet — only confirmed to be a valid Windows executable with sane-looking dependencies.</p>
-
-<h2 id="macos-builds">macOS builds</h2>
-<p>A macOS Base Station binary for <strong>both</strong> Apple Silicon and Intel is produced by <code>./tools/build-macos-server.sh</code> from the repo root. The first run builds a per-architecture Opus toolchain (cached afterward). It writes three files under <code>/Volumes/JohnDovey/tmp</code> by default: <code>walkietalkie-server-darwin-arm64</code>, <code>walkietalkie-server-darwin-amd64</code>, and a universal <code>walkietalkie-server-darwin-universal</code> that runs on either chip. All include full mic/speaker support.</p>

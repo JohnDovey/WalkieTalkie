@@ -1,0 +1,7 @@
+// Shared settings for Debug + Release. Local.xcconfig (gitignored) can set DEVELOPMENT_TEAM.
+#include? "Local.xcconfig"
+
+PRODUCT_BUNDLE_IDENTIFIER = com.walkietalkie
+IPHONEOS_DEPLOYMENT_TARGET = 16.0
+CODE_SIGN_STYLE = Automatic
+SWIFT_VERSION = 5.0

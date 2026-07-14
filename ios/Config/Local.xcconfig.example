@@ -1,0 +1,4 @@
+# Copy to Local.xcconfig (gitignored) and set your Apple Team ID.
+# Push to Talk locked-screen capability requires a paid Apple Developer team.
+#
+# DEVELOPMENT_TEAM = ABCDE12345

@@ -1,5 +1,6 @@
-<h1>WalkieTalkie User Manual</h1>
-<p><em>Hand-maintained index (no eBookED project file exists yet for this manual) — update this list whenever a chapter is added, removed, or reordered.</em></p>
+<h1>Walkie Talkie Mesh Chat</h1>
+<p><em>This file is auto-regenerated whenever the spine changes. Edit chapter order and content
+via the app rather than editing this file's links directly.</em></p>
 <h2>Front Matter</h2>
 <ul>
 <li><a href="frontmatter/title-page.ebhtml">Title Page</a></li>
@@ -7,7 +8,14 @@
 </ul>
 <h2>Chapters</h2>
 <ul>
-<li><a href="chapters/001-Getting-Started.ebhtml">Chapter 1: Getting Started (Desktop Base Station)</a></li>
+<li><a href="chapters/001-Getting-Started-(Desktop-Base-Station).ebhtml">Chapter 1: Getting Started </a></li>
+<li><a href="chapters/006-New-Chapter.ebhtml">Chapter 2: The Base Station</a></li>
+<li><a href="chapters/002-Windows-Builds.ebhtml">Chapter 3: Windows Builds</a></li>
+<li><a href="chapters/003-macOS-builds.ebhtml">Chapter 4: macOS builds</a></li>
+<li><a href="chapters/004-Android-Client.ebhtml">Chapter 5: Android Client</a></li>
+<li><a href="chapters/005-The-iPhone-app.ebhtml">Chapter 6: The iPhone app</a></li>
 </ul>
 <h2>Back Matter</h2>
-<p><em>(none yet)</em></p>
+<ul>
+<li><a href="backmatter/new-back-matter-page-7b0c5c30.ebhtml">Notes</a></li>
+</ul>

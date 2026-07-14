@@ -11,9 +11,10 @@ Build priority is Android first, then desktop, then iPhone, then wearables last 
 - **Phase 1 — shared Go core + desktop server**: ✅ done and verified.
 - **Phase 2 — Android**: ✅ working on real hardware (live WebRTC Opus PTT, mDNS + BLE presence, GPS, voice notes / private channels via Base Station).
 - **Phase 3 (desktop hardening + multi-Base-Station registry sync)**: ✅ done (registry sync, map, Old Nodes, Windows/macOS/Linux packaging scripts, system tray, Base Station mesh SFU / relay threshold). Three-OS hardware mesh not run on this Mac-only setup.
-- **Phase 4 (iPhone)**, **Phase 5 (wearables)**: not started.
+- **Phase 4 (iPhone)**: 🟡 in progress — SwiftUI shell + `Core.xcframework` bind + libopus; `iphoneos` build verified. Device mesh / locked-screen PTT needs Team ID + hardware. See `docs/2026-07-14-ios-phase4.md`.
+- **Phase 5 (wearables)**: not started.
 
-**Current release track:** server `1.2.0` (mesh SFU + tray + Linux script), android `1.0.0`.
+**Current release track:** server `1.2.0` (mesh SFU + tray + Linux script), android `1.0.0`, ios `0.1.0` (Phase 4 scaffold).
 
 ## Repo layout
 
@@ -21,11 +22,23 @@ Build priority is Android first, then desktop, then iPhone, then wearables last 
 core/      shared Go module (registry, discovery, WebRTC mesh, signaling) — no cgo, gomobile-bound into Android/iOS
 server/    the Go desktop app AND the "Base Station" server: bbolt registry, REST API, Bootstrap/jQuery dashboard
 android/   Kotlin/Compose Android app, consuming core/ via a gomobile-built AAR
-tools/     dev scripts: Go env setup, gomobile→Android AAR, Windows/macOS/Linux server builds
+ios/       SwiftUI iPhone app, consuming core/ via a gomobile-built XCFramework (see docs/2026-07-14-ios-phase4.md)
+tools/     dev scripts: Go env setup, gomobile→Android AAR / iOS XCFramework, Opus iOS, Windows/macOS/Linux server builds
 docs/      plans and design docs (including voice messages / private channels)
 Manual/    the end-user manual (.ebhtml format — see Manual/README.md)
 ```
 
+## Building the iOS app
+
+```sh
+tools/gomobile-bind-ios.sh       # → ios/Frameworks/Core.xcframework (gitignored)
+tools/build-opus-ios.sh          # → ios/ThirdParty/Opus.xcframework (gitignored)
+cd ios && xcodegen generate      # regenerates WalkieTalkie.xcodeproj
+# Optional: copy Config/Local.xcconfig.example → Local.xcconfig and set DEVELOPMENT_TEAM
+xcodebuild -scheme WalkieTalkie -sdk iphoneos build
+```
+
+Requires Xcode (`DEVELOPER_DIR` from `source-john-dovey.sh`). Simulator builds need an installed iOS Simulator runtime.
 ## Voice messages and private channels
 
 Async voice notes and invite-only private channels are relayed through a LAN Base Station (store-and-forward Opus/WebM clips, 21-day retention). See [`docs/2026-07-13-voice-message-and-private-channels.md`](docs/2026-07-13-voice-message-and-private-channels.md). Peer-to-peer delivery and live private WebRTC are deferred ([`docs/TODO-p2p-voice-and-private-relay.md`](docs/TODO-p2p-voice-and-private-relay.md)).

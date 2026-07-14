@@ -1,0 +1,10 @@
+---
+title: New Chapter
+subtitle: 
+numberMode: Auto
+numberOverride: 
+---
+<h2 id="macos-builds">macOS builds</h2>
+<p>A macOS Base Station binary for <strong>both</strong> Apple Silicon and Intel is produced by <code>./tools/build-macos-server.sh</code> from the repo root. The first run builds a per-architecture Opus toolchain (cached afterward). It writes three files under <code>/Volumes/JohnDovey/tmp</code> by default: <code>walkietalkie-server-darwin-arm64</code>, <code>walkietalkie-server-darwin-amd64</code>, and a universal <code>walkietalkie-server-darwin-universal</code> that runs on either chip. All include full mic/speaker support.</p>
+
+

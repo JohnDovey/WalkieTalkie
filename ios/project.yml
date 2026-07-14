@@ -1,0 +1,63 @@
+# WalkieTalkie iOS — XcodeGen project definition.
+# Generate with: (cd ios && xcodegen generate)
+
+name: WalkieTalkie
+options:
+  bundleIdPrefix: com
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    PRODUCT_BUNDLE_IDENTIFIER: com.walkietalkie
+configFiles:
+  Debug: Config/Shared.xcconfig
+  Release: Config/Shared.xcconfig
+targets:
+  WalkieTalkie:
+    type: application
+    platform: iOS
+    sources:
+      - path: WalkieTalkie
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        INFOPLIST_FILE: WalkieTalkie/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: WalkieTalkie/WalkieTalkie.entitlements
+        PRODUCT_NAME: WalkieTalkie
+        PRODUCT_BUNDLE_IDENTIFIER: com.walkietalkie
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_BITCODE: NO
+        OTHER_LDFLAGS: ["-lc++"]
+        FRAMEWORK_SEARCH_PATHS:
+          - "$(SRCROOT)/Frameworks"
+          - "$(SRCROOT)/ThirdParty"
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/WalkieTalkie/OpusBridge"
+          - "$(SRCROOT)/ThirdParty/include"
+        SWIFT_OBJC_BRIDGING_HEADER: WalkieTalkie/OpusBridge/WalkieTalkie-Bridging-Header.h
+        CLANG_ENABLE_MODULES: YES
+    dependencies:
+      - framework: Frameworks/Core.xcframework
+        embed: true
+        codeSign: true
+      - framework: ThirdParty/Opus.xcframework
+        embed: false
+        link: true
+      - sdk: PushToTalk.framework
+      - sdk: CoreBluetooth.framework
+      - sdk: CoreLocation.framework
+      - sdk: AVFoundation.framework
+      - sdk: UIKit.framework
+    # Info.plist is maintained by hand (WalkieTalkie/Info.plist); do not let
+    # XcodeGen rewrite it (fails on some volume mounts and fights our keys).
