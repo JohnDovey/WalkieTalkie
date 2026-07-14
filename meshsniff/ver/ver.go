@@ -1,4 +1,4 @@
 package ver
 
 // Version is MeshSniff's Major.Minor.Patch.
-const Version = "0.1.3"
+const Version = "0.1.4"

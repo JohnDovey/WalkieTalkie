@@ -15,6 +15,7 @@ import (
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/config"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/engine"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/graph"
+	"github.com/JohnDovey/WalkieTalkie/meshsniff/icmp"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/ver"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/web"
 )
@@ -22,8 +23,6 @@ import (
 func main() {
 	dataDirFlag := flag.String("data-dir", "", "override MeshSniff data directory")
 	flag.Parse()
-
-	fmt.Printf("MeshSniff %s — network discovery map\n", ver.Version)
 
 	dataDir := *dataDirFlag
 	if dataDir == "" {
@@ -53,8 +52,20 @@ func main() {
 
 	addr := fmt.Sprintf("127.0.0.1:%d", settings.StatusPort)
 	srv := &http.Server{Addr: addr, Handler: mux}
+
+	printStartupBanner(startupInfo{
+		Version:         ver.Version,
+		StatusPort:      settings.StatusPort,
+		LocalBaseURL:    settings.LocalBaseURL,
+		MeshBridgeURL:   settings.MeshBridgeURL,
+		ScanIntervalSec: settings.ScanIntervalSec,
+		ScanCIDRs:       settings.ScanCIDRs,
+		ICMPEnabled:     icmp.Enabled(),
+		DataDir:         dataDir,
+	})
+
 	go func() {
-		log.Printf("meshsniff http://%s (config %s)", addr, cfgPath)
+		log.Printf("web UI listening on http://%s", addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatal(err)
 		}

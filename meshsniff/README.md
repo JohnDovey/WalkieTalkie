@@ -1,6 +1,6 @@
 # MeshSniff
 
-LAN / dual-network discovery map for WalkieTalkie. Version **0.1.3**.
+LAN / dual-network discovery map for WalkieTalkie. Version **0.1.4**.
 
 ## Run
 
