@@ -63,3 +63,16 @@ func (b *HostBridge) ClearRoute() {
 	}
 	b.Hub.ClearRoute(b.SelfID)
 }
+
+// SetRoom places the Base Station local publisher in a named Hub room.
+func (b *HostBridge) SetRoom(roomID string) {
+	if b.Hub == nil {
+		return
+	}
+	b.Hub.SetRoom(b.SelfID, roomID)
+}
+
+// ClearRoom returns the Base Station publisher to the group mesh room.
+func (b *HostBridge) ClearRoom() {
+	b.SetRoom("")
+}

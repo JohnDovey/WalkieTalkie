@@ -26,6 +26,9 @@ type Hub struct {
 	// routes maps sender ID → exclusive recipient ID for private Talk.
 	// When set, writeToOthers forwards only to that recipient (not the full mesh).
 	routes map[string]string
+	// rooms maps participant (or local publisher) ID → room name.
+	// Empty room is the group mesh. Non-empty rooms only fan out within the room.
+	rooms map[string]string
 
 	// OnRemoteFrame is called for every Opus payload from a remote
 	// participant (Base Station local playback / accounting). Callers should
@@ -53,6 +56,7 @@ func NewHub() (*Hub, error) {
 		api:          webrtc.NewAPI(webrtc.WithMediaEngine(&m)),
 		participants: make(map[string]*participant),
 		routes:       make(map[string]string),
+		rooms:        make(map[string]string),
 	}, nil
 }
 
@@ -170,8 +174,12 @@ func (h *Hub) writeToOthers(fromID string, frame []byte) {
 		}
 		return
 	}
+	fromRoom := h.rooms[fromID]
 	for id, p := range h.participants {
 		if id == fromID {
+			continue
+		}
+		if h.rooms[id] != fromRoom {
 			continue
 		}
 		_ = p.outbound.WriteSample(sample)
@@ -207,8 +215,38 @@ func (h *Hub) RouteOf(fromID string) (toID string, ok bool) {
 	return toID, ok
 }
 
+// SetRoom places id in a named Hub room. Empty roomID joins the group mesh.
+// Frame fan-out stays within the same room (unless SetRoute is active).
+func (h *Hub) SetRoom(id, roomID string) {
+	if id == "" {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.rooms == nil {
+		h.rooms = make(map[string]string)
+	}
+	if roomID == "" {
+		delete(h.rooms, id)
+		return
+	}
+	h.rooms[id] = roomID
+}
+
+// ClearRoom returns id to the group mesh room.
+func (h *Hub) ClearRoom(id string) {
+	h.SetRoom(id, "")
+}
+
+// RoomOf returns the room for id (empty = group mesh).
+func (h *Hub) RoomOf(id string) string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.rooms[id]
+}
+
 // InjectLocal pushes one Opus frame from a local publisher (Base Station mic)
-// to every SFU participant (or only the SetRoute target for fromID).
+// to SFU participants in the same room (or only the SetRoute target for fromID).
 func (h *Hub) InjectLocal(fromID string, frame []byte) {
 	h.writeToOthers(fromID, frame)
 }
@@ -236,6 +274,7 @@ func (h *Hub) Remove(id string) {
 		delete(h.participants, id)
 	}
 	delete(h.routes, id)
+	delete(h.rooms, id)
 	for from, to := range h.routes {
 		if to == id {
 			delete(h.routes, from)
@@ -252,4 +291,5 @@ func (h *Hub) Close() {
 		delete(h.participants, id)
 	}
 	h.routes = make(map[string]string)
+	h.rooms = make(map[string]string)
 }

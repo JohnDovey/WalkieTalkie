@@ -34,6 +34,11 @@ type routeRequest struct {
 	To     string `json:"to"`
 }
 
+type roomRequest struct {
+	Sender string `json:"sender"`
+	Room   string `json:"room"`
+}
+
 // New builds a Server around hub.
 func New(hub *corerelay.Hub) *Server {
 	return &Server{Hub: hub}
@@ -50,6 +55,7 @@ func (s *Server) Start(port int) (int, error) {
 	mux.HandleFunc("POST /offer", s.handleOffer)
 	mux.HandleFunc("POST /route", s.handleSetRoute)
 	mux.HandleFunc("DELETE /route", s.handleClearRoute)
+	mux.HandleFunc("POST /room", s.handleSetRoom)
 	s.http = &http.Server{Handler: mux}
 	go func() {
 		if err := s.http.Serve(ln); err != nil && err != http.ErrServerClosed {
@@ -108,5 +114,19 @@ func (s *Server) handleClearRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Hub.ClearRoute(sender)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleSetRoom(w http.ResponseWriter, r *http.Request) {
+	var req roomRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if req.Sender == "" {
+		http.Error(w, "sender required", http.StatusBadRequest)
+		return
+	}
+	s.Hub.SetRoom(req.Sender, req.Room)
 	w.WriteHeader(http.StatusNoContent)
 }

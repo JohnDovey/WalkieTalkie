@@ -119,7 +119,16 @@ func main() {
 			session.OnOpusFrameReceived(fromID, len(payload))
 		}
 		// Private unicast to someone else must not play on the Base Station.
+		// If the target is DirectConnected but not on the Hub, bridge Hub→direct.
 		if to, routed := hub.RouteOf(fromID); routed && to != selfID {
+			if !hub.Has(to) && session.DirectConnected(to) {
+				_ = session.SendTo(to, payload)
+			}
+			return
+		}
+		// Named Hub rooms: skip Base Station speaker when this publisher is in
+		// a private channel room we are not focused on.
+		if room := hub.RoomOf(fromID); room != "" && hub.RoomOf(selfID) != room {
 			return
 		}
 		if sink != nil {
@@ -276,7 +285,12 @@ func main() {
 		log.Printf("P2P voice note %s stored (%d bytes)", n.ID, n.Size)
 	}
 	syncer.SetVoice(voiceStore)
-	voiceHandlers := &voicenote.Handlers{Voice: voiceStore, Reg: store, SelfID: selfID, Usage: usageStats}
+	voiceHandlers := &voicenote.Handlers{
+		Voice: voiceStore, Reg: store, SelfID: selfID, Usage: usageStats,
+		OnSelfHubRoom: func(roomID string) {
+			hostBridge.SetRoom(roomID)
+		},
+	}
 	purgeStop := make(chan struct{})
 	defer close(purgeStop)
 	go voicenote.RunPurge(purgeStop, voiceStore)

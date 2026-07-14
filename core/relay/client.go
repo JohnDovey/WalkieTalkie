@@ -133,9 +133,26 @@ func (c *Client) ClearRoute() error {
 	return deleteRoute(host, port, selfID)
 }
 
+// SetRoom places this client in a named Hub room (empty = group mesh).
+func (c *Client) SetRoom(roomID string) error {
+	c.mu.Lock()
+	host, port, selfID := c.host, c.port, c.SelfID
+	c.mu.Unlock()
+	if host == "" || port == 0 {
+		return fmt.Errorf("relay: no Base Station SFU endpoint known")
+	}
+	return postRoom(host, port, selfID, roomID)
+}
+
+// ClearRoom returns this client to the group mesh room.
+func (c *Client) ClearRoom() error {
+	return c.SetRoom("")
+}
+
 // Close tears down the SFU PeerConnection.
 func (c *Client) Close() {
 	_ = c.ClearRoute()
+	_ = c.ClearRoom()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.pc != nil {
@@ -311,6 +328,35 @@ func deleteRoute(host string, port int, senderID string) error {
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("relay client: delete route: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("relay client: %s returned %s", url, resp.Status)
+	}
+	return nil
+}
+
+type roomRequest struct {
+	Sender string `json:"sender"`
+	Room   string `json:"room"`
+}
+
+func postRoom(host string, port int, senderID, roomID string) error {
+	body, err := json.Marshal(roomRequest{Sender: senderID, Room: roomID})
+	if err != nil {
+		return err
+	}
+	url := fmt.Sprintf("http://%s:%d/room", host, port)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("relay client: post room: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {

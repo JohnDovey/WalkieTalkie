@@ -62,3 +62,21 @@ func TestHubRemoveClearsRoutes(t *testing.T) {
 		t.Fatal("route to removed peer should clear")
 	}
 }
+
+func TestHubRoomsIsolateFanOut(t *testing.T) {
+	h, err := NewHub()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close()
+	h.SetRoom("aaa", "ch1")
+	h.SetRoom("bbb", "ch1")
+	h.SetRoom("ccc", "ch2")
+	if h.RoomOf("aaa") != "ch1" || h.RoomOf("ccc") != "ch2" {
+		t.Fatal("room assignment")
+	}
+	h.ClearRoom("aaa")
+	if h.RoomOf("aaa") != "" {
+		t.Fatal("clear room")
+	}
+}

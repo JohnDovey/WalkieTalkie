@@ -20,6 +20,10 @@ type Handlers struct {
 	SelfID string
 	// Usage, when set, records upload/download/channel lifecycle counters.
 	Usage UsageRecorder
+	// OnSelfHubRoom, when set, is called when this Base Station focuses or
+	// blurs a private channel so the local SFU publisher can join/leave that
+	// Hub room (roomID empty = group mesh).
+	OnSelfHubRoom func(roomID string)
 }
 
 // UsageRecorder is the narrow stats surface voicenote needs (implemented by
@@ -374,9 +378,13 @@ func (h *Handlers) focus(w http.ResponseWriter, r *http.Request) {
 	if body.DeviceID == "" {
 		body.DeviceID = h.SelfID
 	}
-	if err := h.Voice.SetFocus(r.PathValue("id"), body.DeviceID, true); err != nil {
+	channelID := r.PathValue("id")
+	if err := h.Voice.SetFocus(channelID, body.DeviceID, true); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+	if body.DeviceID == h.SelfID && h.OnSelfHubRoom != nil {
+		h.OnSelfHubRoom(channelID)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -390,6 +398,9 @@ func (h *Handlers) blur(w http.ResponseWriter, r *http.Request) {
 	if err := h.Voice.SetFocus(r.PathValue("id"), body.DeviceID, false); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+	if body.DeviceID == h.SelfID && h.OnSelfHubRoom != nil {
+		h.OnSelfHubRoom("")
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

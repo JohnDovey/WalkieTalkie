@@ -476,8 +476,13 @@ func (n *Node) CloseChannel(channelID string) error {
 	return c.Close(channelID)
 }
 
-// FocusChannel marks a channel as currently viewed (auto-play vs queue).
+// FocusChannel marks a channel as currently viewed (auto-play vs queue) and
+// joins the matching Hub room when this node is on the SFU (multi-party
+// private SFU isolation).
 func (n *Node) FocusChannel(channelID string) error {
+	if n.relayClient != nil && channelID != "" {
+		_ = n.relayClient.SetRoom(channelID)
+	}
 	c, err := n.client()
 	if err != nil {
 		return err
@@ -485,8 +490,11 @@ func (n *Node) FocusChannel(channelID string) error {
 	return c.Focus(channelID)
 }
 
-// BlurChannel clears channel focus.
+// BlurChannel clears channel focus and returns to the group Hub mesh room.
 func (n *Node) BlurChannel(channelID string) error {
+	if n.relayClient != nil {
+		_ = n.relayClient.ClearRoom()
+	}
 	c, err := n.client()
 	if err != nil {
 		return err

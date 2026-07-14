@@ -4,7 +4,7 @@ Started 2026-07-14. Slices of [`TODO-p2p-voice-and-private-relay.md`](TODO-p2p-v
 
 ## Status
 
-**Software complete** — live unicast (direct + SFU Hub), multi-Base voice sync, P2P voice-note DataChannel, P2P→Base mirror-upload for multi-Base visibility.
+**Software complete** — live unicast (direct + SFU Hub), named Hub rooms on channel focus, Hub→direct Talk bridge, multi-Base voice sync, P2P voice-note DataChannel + Base mirror.
 
 ## Behaviour
 
@@ -14,9 +14,14 @@ Started 2026-07-14. Slices of [`TODO-p2p-voice-and-private-relay.md`](TODO-p2p-v
 |-----------|-----------|
 | Peer has **direct** mesh PeerConnection | Live unicast Opus |
 | Peer reachable via **Base Station SFU** | Live Hub unicast (`SetRoute` / `InjectTo`) |
-| Peer offline / not on Hub | Clip upload via Base Station |
+| Peer on Hub talks to a **DirectConnected-only** peer | Base Station bridges Hub→direct (`SendTo`) |
+| Peer offline / not reachable live | Clip upload via Base Station |
 
 UI: **Mode: live mesh** / **Mode: live relay** / **Mode: clip via Base Station**.
+
+### Named Hub rooms (`1.6.0+`)
+
+Focusing a private channel joins Hub room `channelID` (empty room = group mesh). SFU fan-out stays within that room unless a temporary `SetRoute` is active for 1:1 Talk. Blur returns to the group room. Same single SFU PeerConnection (no second PC).
 
 ### Voice notes / channel clips
 
@@ -32,6 +37,7 @@ List/download/ack merge local inbox + Base Station. Upload accepts optional `id`
 - `GET /api/talk/peer` → `{direct, relay, live}`
 - Private panel live mesh / live relay / clip
 - Receives P2P notes into the same voice-note store as HTTP uploads
+- Focus/blur joins/leaves the Hub room for the Base Station publisher
 
 ### Multi-Base voice sync (`1.3.1+`)
 
@@ -39,9 +45,9 @@ Registry sync tick also pulls `/api/sync/channels` and `/api/sync/voice-notes` (
 
 ## Versions
 
-- Android phone `1.3.1`
-- iOS `0.5.1`
-- Server `1.5.1`
+- Android phone `1.4.0`
+- iOS `0.6.0`
+- Server `1.6.0`
 
 ## Build
 
@@ -52,7 +58,9 @@ cd android && ./android-build.sh :app:assembleDebug
 cd server && go run .
 ```
 
-## Still deferred
+## Manual export
 
-- Named multi-party Hub rooms / second WebRTC PC per channel
-- Bridging mixed direct↔relay for notes over SFU
+```bash
+./tools/export-manual.sh
+# → Manual/output/walkie-talkie-mesh-chat.{epub,pdf,docx}
+```

@@ -180,7 +180,7 @@ This is deliberately a **different merge rule** from the existing `PeerReport` m
 - **Multi-Base-Station registry synchronization** — ✅ …
 - **Server GPS estimation** — ✅ …
 - **Web UI: network map page** — ✅ …
-- **Relay threshold + Base Station SFU** (`core/relay` + `server/relay`): mesh force-relay when `RelayEnabled` and peer count ≥ `RelayThreshold`; ICE-fail fallback to SFU when enabled. Advertised via mDNS `relay=` TXT. Private-channel live SFU uses Hub unicast routes (Phase 6); named multi-party rooms remain deferred.
+- **Relay threshold + Base Station SFU** (`core/relay` + `server/relay`): mesh force-relay when `RelayEnabled` and peer count ≥ `RelayThreshold`; ICE-fail fallback to SFU when enabled. Advertised via mDNS `relay=` TXT. Private-channel live SFU uses Hub unicast routes and named rooms on channel focus (Phase 6); Hub→direct Talk bridge when the route target is DirectConnected-only.
 - **Web UI: Talk control** — ✅ …
 - **Linux packaging**: `tools/build-linux-server.sh` (native Linux only; refuses macOS cross-compile).
 - **Verify**: registry sync, GPS estimate, map, Talk — ✅. Relay threshold forces SFU path when enabled — ✅ in software. Three-way Win+Mac+Linux mesh on real hardware **not** run in this environment (accepted gap; Windows/Linux scripts produce artifacts for off-box testing).
@@ -196,7 +196,7 @@ This is deliberately a **different merge rule** from the existing `PeerReport` m
 - **Verify (needs hardware)**: Wear on Wi-Fi joins Base Station mesh; Apple Watch Talk relays via iPhone.
 
 **Phase 6 — Private-channel live Talk** — ✅ software complete (2026-07-14)
-- Unicast `StartTalkingTo` (direct or SFU Hub unicast). Clips otherwise. Multi-Base channel/voice sync. P2P voice-note DataChannel when DirectConnected, with best-effort Base mirror-upload for multi-Base visibility (`server` 1.5.1, android `1.3.1`, ios `0.5.1`). Named Hub rooms / mixed-topology note bridging still deferred. See `docs/2026-07-14-phase6-private-live-talk.md`.
+- Unicast `StartTalkingTo` (direct or SFU Hub unicast). Named Hub rooms on channel focus. Hub→direct Talk bridge for mixed topology. Clips otherwise. Multi-Base channel/voice sync. P2P voice-note DataChannel when DirectConnected, with best-effort Base mirror-upload (`server` 1.6.0, android `1.4.0`, ios `0.6.0`). See `docs/2026-07-14-phase6-private-live-talk.md`.
 
 ## Risks and tradeoffs
 
