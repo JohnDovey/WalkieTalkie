@@ -12,18 +12,24 @@
 		0E3078F83A4863AF04FA3110 /* LocationUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE8A5DB825DFC22D2DF95FF9 /* LocationUpdater.swift */; };
 		1316FB56CDC5E5A46669E06B /* OpusSpeakerSink.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7824DB88D756848B8431191 /* OpusSpeakerSink.swift */; };
 		275E2272407F770609DC12B3 /* NodeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8FF6056EDA8ED070B4DC91D /* NodeController.swift */; };
+		2B250360671E0CFDE8EE24C2 /* OggOpus.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFAB71957E28E9A117125D1D /* OggOpus.swift */; };
+		45A8BB8432F301604E3450E6 /* VoiceNotePlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC9010E8C94F0805304936A /* VoiceNotePlayer.swift */; };
 		4A05B38457FB61DC44BCDC37 /* Core.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 228F3F2ED7CCF14FD97290EB /* Core.xcframework */; };
 		5C951772159E6D6E2A96F2F8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 005B032509FBED25ABA57A6F /* Assets.xcassets */; };
 		62C5DA4E22B2A712116C4528 /* OpusMicSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC75BD800A18B5075B02C917 /* OpusMicSource.swift */; };
 		76E23CE58C74E907608CBD34 /* BlePresenceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E436238F4F034BA584F743CE /* BlePresenceBridge.swift */; };
 		77E98811FEC1B21CA535A3A3 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3EE9D96904AF093AD5702DA7 /* AVFoundation.framework */; };
+		7818D272AC5621C236C796E1 /* ClipRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D0B5629FFE7A88F32D0057 /* ClipRecorder.swift */; };
 		86B78A36EDD581ACFA5361AD /* Core.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 228F3F2ED7CCF14FD97290EB /* Core.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		941535D5BF67B2D45AAFDD65 /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 34CF2C254199D6B38A98284A /* CoreBluetooth.framework */; };
+		9F88A900ACDEEEE8E273E924 /* PermissionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 226CE5F5FEF84EE068841B72 /* PermissionCoordinator.swift */; };
+		A3AC970EC8725E1F53A16A73 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A9E4E0BB562E3B99FCB3C353 /* Network.framework */; };
 		ADF7D9F983FF994E24E61307 /* CoreLocation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 75D7AF424BC922511D2F2A01 /* CoreLocation.framework */; };
 		C8D939DD8D14F5FF56134149 /* PushToTalk.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9765062B1DE76CDA4976446F /* PushToTalk.framework */; };
 		CB2250F1DC0128BE6D69E2A4 /* PushToTalkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CF5F28FC97A48891381B975 /* PushToTalkController.swift */; };
 		DCC7C78792DFBD3B15819C02 /* OpusCodec.c in Sources */ = {isa = PBXBuildFile; fileRef = 3261B016FF6F385DB88AA927 /* OpusCodec.c */; };
 		F189947259B685818E7D24F3 /* WalkieTalkieApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F65E0DED9D718EBCDD874AEF /* WalkieTalkieApp.swift */; };
+		FE9C73127F1539C4D88E8337 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81F12F87CCB54BFBF5C0A1B3 /* Models.swift */; };
 		FECBD0D8C11AEF715D389D20 /* Opus.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 695B370F601B37A319C86DFD /* Opus.xcframework */; };
 /* End PBXBuildFile section */
 
@@ -45,6 +51,7 @@
 		005B032509FBED25ABA57A6F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1806065C8BDFE474C2BBD032 /* WalkieTalkie.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WalkieTalkie.entitlements; sourceTree = "<group>"; };
 		182E9538832D563456C2CAD6 /* WalkieTalkie-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "WalkieTalkie-Bridging-Header.h"; sourceTree = "<group>"; };
+		226CE5F5FEF84EE068841B72 /* PermissionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionCoordinator.swift; sourceTree = "<group>"; };
 		228F3F2ED7CCF14FD97290EB /* Core.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = Core.xcframework; path = Frameworks/Core.xcframework; sourceTree = "<group>"; };
 		3261B016FF6F385DB88AA927 /* OpusCodec.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = OpusCodec.c; sourceTree = "<group>"; };
 		34CF2C254199D6B38A98284A /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
@@ -52,15 +59,20 @@
 		68F9E1B07A96CBB1748BE271 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		695B370F601B37A319C86DFD /* Opus.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = Opus.xcframework; path = ThirdParty/Opus.xcframework; sourceTree = "<group>"; };
 		6CF5F28FC97A48891381B975 /* PushToTalkController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushToTalkController.swift; sourceTree = "<group>"; };
+		72D0B5629FFE7A88F32D0057 /* ClipRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipRecorder.swift; sourceTree = "<group>"; };
 		75D7AF424BC922511D2F2A01 /* CoreLocation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreLocation.framework; path = System/Library/Frameworks/CoreLocation.framework; sourceTree = SDKROOT; };
 		78D0419213DF456B635ED7CB /* OpusCodec.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OpusCodec.h; sourceTree = "<group>"; };
+		81F12F87CCB54BFBF5C0A1B3 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		9765062B1DE76CDA4976446F /* PushToTalk.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PushToTalk.framework; path = System/Library/Frameworks/PushToTalk.framework; sourceTree = SDKROOT; };
+		9BC9010E8C94F0805304936A /* VoiceNotePlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceNotePlayer.swift; sourceTree = "<group>"; };
 		9EE734BB99D0930E75238284 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		A9E4E0BB562E3B99FCB3C353 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
 		B8FF6056EDA8ED070B4DC91D /* NodeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeController.swift; sourceTree = "<group>"; };
 		B91DFF39328489C29F760028 /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Shared.xcconfig; sourceTree = "<group>"; };
 		BF0DE777DA37C2930A5E95D8 /* WalkieTalkie.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = WalkieTalkie.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DC75BD800A18B5075B02C917 /* OpusMicSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusMicSource.swift; sourceTree = "<group>"; };
 		E436238F4F034BA584F743CE /* BlePresenceBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlePresenceBridge.swift; sourceTree = "<group>"; };
+		EFAB71957E28E9A117125D1D /* OggOpus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OggOpus.swift; sourceTree = "<group>"; };
 		F621A05926F236D8BCDC78B8 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		F65E0DED9D718EBCDD874AEF /* WalkieTalkieApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkieTalkieApp.swift; sourceTree = "<group>"; };
 		F7824DB88D756848B8431191 /* OpusSpeakerSink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusSpeakerSink.swift; sourceTree = "<group>"; };
@@ -79,6 +91,7 @@
 				ADF7D9F983FF994E24E61307 /* CoreLocation.framework in Frameworks */,
 				77E98811FEC1B21CA535A3A3 /* AVFoundation.framework in Frameworks */,
 				016AFB75F5BCF972561FFD28 /* UIKit.framework in Frameworks */,
+				A3AC970EC8725E1F53A16A73 /* Network.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -133,8 +146,11 @@
 		33953061A528FEE85D41598F /* Audio */ = {
 			isa = PBXGroup;
 			children = (
+				72D0B5629FFE7A88F32D0057 /* ClipRecorder.swift */,
+				EFAB71957E28E9A117125D1D /* OggOpus.swift */,
 				DC75BD800A18B5075B02C917 /* OpusMicSource.swift */,
 				F7824DB88D756848B8431191 /* OpusSpeakerSink.swift */,
+				9BC9010E8C94F0805304936A /* VoiceNotePlayer.swift */,
 			);
 			path = Audio;
 			sourceTree = "<group>";
@@ -151,6 +167,7 @@
 			isa = PBXGroup;
 			children = (
 				B8FF6056EDA8ED070B4DC91D /* NodeController.swift */,
+				226CE5F5FEF84EE068841B72 /* PermissionCoordinator.swift */,
 				F65E0DED9D718EBCDD874AEF /* WalkieTalkieApp.swift */,
 			);
 			path = App;
@@ -184,6 +201,7 @@
 			isa = PBXGroup;
 			children = (
 				F621A05926F236D8BCDC78B8 /* ContentView.swift */,
+				81F12F87CCB54BFBF5C0A1B3 /* Models.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -195,6 +213,7 @@
 				228F3F2ED7CCF14FD97290EB /* Core.xcframework */,
 				34CF2C254199D6B38A98284A /* CoreBluetooth.framework */,
 				75D7AF424BC922511D2F2A01 /* CoreLocation.framework */,
+				A9E4E0BB562E3B99FCB3C353 /* Network.framework */,
 				695B370F601B37A319C86DFD /* Opus.xcframework */,
 				9765062B1DE76CDA4976446F /* PushToTalk.framework */,
 				9EE734BB99D0930E75238284 /* UIKit.framework */,
@@ -276,13 +295,18 @@
 			buildActionMask = 2147483647;
 			files = (
 				76E23CE58C74E907608CBD34 /* BlePresenceBridge.swift in Sources */,
+				7818D272AC5621C236C796E1 /* ClipRecorder.swift in Sources */,
 				08D57881C1B02B2A0723DE23 /* ContentView.swift in Sources */,
 				0E3078F83A4863AF04FA3110 /* LocationUpdater.swift in Sources */,
+				FE9C73127F1539C4D88E8337 /* Models.swift in Sources */,
 				275E2272407F770609DC12B3 /* NodeController.swift in Sources */,
+				2B250360671E0CFDE8EE24C2 /* OggOpus.swift in Sources */,
 				DCC7C78792DFBD3B15819C02 /* OpusCodec.c in Sources */,
 				62C5DA4E22B2A712116C4528 /* OpusMicSource.swift in Sources */,
 				1316FB56CDC5E5A46669E06B /* OpusSpeakerSink.swift in Sources */,
+				9F88A900ACDEEEE8E273E924 /* PermissionCoordinator.swift in Sources */,
 				CB2250F1DC0128BE6D69E2A4 /* PushToTalkController.swift in Sources */,
+				45A8BB8432F301604E3450E6 /* VoiceNotePlayer.swift in Sources */,
 				F189947259B685818E7D24F3 /* WalkieTalkieApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -365,7 +389,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = WalkieTalkie/WalkieTalkie.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_BITCODE = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SRCROOT)/Frameworks",
@@ -383,7 +407,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.0;
 				OTHER_LDFLAGS = (
 					"-lc++",
 				);
@@ -463,7 +487,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = WalkieTalkie/WalkieTalkie.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_BITCODE = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SRCROOT)/Frameworks",
@@ -481,7 +505,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.0;
 				OTHER_LDFLAGS = (
 					"-lc++",
 				);

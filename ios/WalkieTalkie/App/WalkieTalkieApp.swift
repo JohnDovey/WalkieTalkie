@@ -9,9 +9,6 @@ struct WalkieTalkieApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(node)
-                .onAppear {
-                    node.startIfNeeded()
-                }
         }
     }
 }

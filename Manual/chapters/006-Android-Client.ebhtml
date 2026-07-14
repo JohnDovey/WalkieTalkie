@@ -4,6 +4,7 @@ subtitle: ''
 numberMode: Auto
 numberOverride: 
 ---
+
 <h2 id="the-android-app">The Android app</h2>
 <p>The Android app was confirmed working on real hardware for the first time on 2026-07-13: it discovers a Base Station over Wi-Fi, connects to it, and exchanges real two-way audio — confirmed in both directions, including someone pressing the phone's Talk button and hearing their own voice come out of the desktop machine's speakers.</p>
 <p>A few things worth knowing if you're trying this yourself:</p>
@@ -14,51 +15,52 @@ numberOverride:
 
 <h2 id="devices">Devices</h2>
 <p>The home screen is <strong>Devices</strong>: a list of peers seen on the mesh, per-device actions, and the green <strong>Hold to talk</strong> button for group push-to-talk.</p>
-<figure id="fig:5c8e557b4f7b46c7a271aeae6b01d5bd" style="text-align:center">
-<img src="../images/android-devices.png" alt="android-devices" width="280" height="622">
+<figure id="fig:5c8e557b4f7b46c7a271aeae6b01d5bd" style="float:right">
+<img src="../images/android-devices.png" alt="android-devices" width="280" height="622" border="1">
 <figcaption class="caption">Devices screen — connected and disconnected peers, mic and chat actions, and Hold to talk</figcaption>
 </figure>
 <p>Connected peers appear in green. Each row can offer a microphone control (start a voice message) and, when the peer is connected, a chat control (invite a private channel). The Devices list is sorted most-recently-seen first, and — unlike the desktop Base Station, which keeps every device it's ever seen — the phone automatically forgets (deletes) any device it hasn't seen in over 48 hours, to keep the on-device list from accumulating clutter over time.</p>
 
 <h2 id="settings">Settings</h2>
 <p>Use <strong>Settings</strong> to set a Nickname / User name for this device. Leave it blank to fall back to the phone's manufacturer and model as the display name.</p>
-<figure id="fig:644a90c7513d49a59c746cfa44c7e463" style="text-align:center">
-<img src="../images/android-settings.png" alt="android-settings" width="280" height="622">
+<figure id="fig:644a90c7513d49a59c746cfa44c7e463" style="float:right">
+<img src="../images/android-settings.png" alt="android-settings" width="280" height="622" border="1">
 <figcaption class="caption">Settings — nickname field and Save</figcaption>
 </figure>
 
 <h2 id="about">About</h2>
 <p><strong>About</strong> shows this app's version, platform, this phone's device ID, and the discovered Base Station URL (or “not discovered yet”).</p>
-<figure id="fig:f992bcc8f79242838571959efd304504" style="text-align:center">
-<img src="../images/android-about.png" alt="android-about" width="280" height="622">
+<figure id="fig:f992bcc8f79242838571959efd304504" style="float:right">
+<img src="../images/android-about.png" alt="android-about" width="280" height="622" border="1">
 <figcaption class="caption">About WalkieTalkie — version, device ID, and Base Station status</figcaption>
 </figure>
 
 <h2 id="chats-drawer">Chats drawer</h2>
 <p>The top <strong>Chats</strong> control opens a side drawer for private channels and queued voice messages. Unread counts appear as red badges when there is something waiting.</p>
-<figure id="fig:57c29acba80d4af8863243b9d5a334f7" style="text-align:center">
-<img src="../images/android-chats-drawer.png" alt="android-chats-drawer" width="280" height="622">
+<figure id="fig:57c29acba80d4af8863243b9d5a334f7" style="float:right">
+<img src="../images/android-chats-drawer.png" alt="android-chats-drawer" width="280" height="622" border="1">
 <figcaption class="caption">Chats drawer — private channels and voice messages (empty state)</figcaption>
 </figure>
 
 <h2 id="voice-messages">Voice messages</h2>
 <p>Voice messages and private channels need a Base Station on the LAN; without one, group Hold-to-talk still works, but voice-message and private-chat actions will fail until a Base Station appears.</p>
 <p>From a device row, open the microphone action to record a clip for that peer.</p>
-<figure id="fig:33d79341658141dbaa0b37b16135a606" style="text-align:center">
-<img src="../images/android-record-voice.png" alt="android-record-voice" width="280" height="622">
-<figcaption class="caption">Voice Message — Start, Stop &amp; Send, or Cancel a clip to a peer</figcaption>
+<figure id="fig:33d79341658141dbaa0b37b16135a606" style="float:right">
+<img src="../images/android-record-voice.png" alt="android-record-voice" width="280" height="622" border="1">
+<figcaption class="caption">Voice Message — Start, Stop &amp;amp; Send, or Cancel a clip to a peer</figcaption>
 </figure>
 <p>The voice-notes thread lists clips with a peer; play or delete them, or tap <strong>Reply</strong> to record another.</p>
-<figure id="fig:579b7bae58c84554b712a217d33523f2" style="text-align:center">
-<img src="../images/android-voice-thread.png" alt="android-voice-thread" width="280" height="622">
+<figure id="fig:579b7bae58c84554b712a217d33523f2" style="float:right">
+<img src="../images/android-voice-thread.png" alt="android-voice-thread" width="280" height="622" border="1">
 <figcaption class="caption">Voice notes thread with a peer — list and Reply</figcaption>
 </figure>
 
 <h2 id="private-channels">Private channels</h2>
 <p>When a peer is connected, the chat action invites a private channel. That screen has its own Hold to talk control for clips that queue if the other party is not focused on the channel.</p>
-<figure id="fig:877457abe04c484e8cdde039f085b481" style="text-align:center">
-<img src="../images/android-private-channel.png" alt="android-private-channel" width="280" height="622">
+<figure id="fig:877457abe04c484e8cdde039f085b481" style="float:right">
+<img src="../images/android-private-channel.png" alt="android-private-channel" width="280" height="622" border="1">
 <figcaption class="caption">Private channel — Hold to talk for a 1:1 clip channel</figcaption>
 </figure>
 
 <p>Not yet tested: whether a third device can detect the phone over Bluetooth and report its presence to a Base Station when the phone has no Wi-Fi — that needs a second Bluetooth-capable device to verify.</p>
+

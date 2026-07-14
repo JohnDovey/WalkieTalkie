@@ -185,8 +185,8 @@ This is deliberately a **different merge rule** from the existing `PeerReport` m
 - **Verify**: registry sync, GPS estimate, map, Talk — ✅. Relay threshold forces SFU path when enabled — ✅ in software. Three-way Win+Mac+Linux mesh on real hardware **not** run in this environment (accepted gap; Windows/Linux scripts produce artifacts for off-box testing).
 - **Sync verification detail (2026-07-13)**: …
 
-**Phase 4 — iPhone** — 🟡 in progress (scaffold 2026-07-14)
-- `gomobile bind` xcframework (`ios,iossimulator`); SwiftUI app with `PTChannelManager` + Hold-to-Talk fallback; `CoreBluetooth` BLE bridge; `CoreLocation` GPS; vendored libopus via `AVAudioEngine`. See `docs/2026-07-14-ios-phase4.md`.
+**Phase 4 — iPhone** — 🟡 in progress (scaffold + voice/chats parity `0.2.0`, 2026-07-14)
+- `gomobile bind` xcframework; SwiftUI app with permissions, `PTChannelManager` + Hold-to-Talk, BLE, GPS, Ogg Opus voice notes / private channels, Wi-Fi mesh restart. See `docs/2026-07-14-ios-phase4.md`.
 - **Verify (pending hardware + paid Team ID)**: iPhone joins the Android+desktop mesh; `PTChannelManager`'s system UI reflects the active transmitter; PTT works with the screen locked.
 
 **Phase 5 — Wearables (lowest priority)**

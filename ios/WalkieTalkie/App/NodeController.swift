@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import Network
 import UIKit
 import Core
 
@@ -9,6 +10,8 @@ final class NodeController: ObservableObject {
     static let shared = NodeController()
 
     @Published private(set) var devicesJSON: String = "[]"
+    @Published private(set) var channelsJSON: String = "[]"
+    @Published private(set) var inboxJSON: String = "[]"
     @Published private(set) var baseStationURL: String = ""
     @Published private(set) var selfID: String = ""
     @Published private(set) var isTalking: Bool = false
@@ -23,20 +26,30 @@ final class NodeController: ObservableObject {
     private var bleBridge: BlePresenceBridge?
     private var pollTimer: Timer?
     private let ptt = PushToTalkController()
+    private let pathMonitor = NWPathMonitor()
+    private let pathQueue = DispatchQueue(label: "com.walkietalkie.path")
+    private var pathStarted = false
+    private var hadWifi = false
+    private var everLostWifi = false
+    private var restartWorkItem: DispatchWorkItem?
 
     private init() {}
 
     func startIfNeeded() {
         guard !started, node == nil else { return }
         started = true
+        startPathMonitorIfNeeded()
+        bootNode()
+    }
 
+    private func bootNode() {
         let dataDir = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("walkietalkie", isDirectory: true)
         try? FileManager.default.createDirectory(at: dataDir, withIntermediateDirectories: true)
 
         let name = nickname.isEmpty ? UIDevice.current.name : nickname
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0"
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.2.0"
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
@@ -44,13 +57,7 @@ final class NodeController: ObservableObject {
             let sink = OpusSpeakerSink()
             var error: NSError?
             let startedNode = MobileStartNode(
-                dataDir.path,
-                name,
-                "ios",
-                version,
-                source,
-                sink,
-                &error
+                dataDir.path, name, "ios", version, source, sink, &error
             )
             Task { @MainActor in
                 if let error {
@@ -80,6 +87,38 @@ final class NodeController: ObservableObject {
         }
     }
 
+    /// Soft restart after Wi-Fi returns — same rationale as Android PTTService.
+    private func restartNode() {
+        statusMessage = "Wi-Fi restored — restarting mesh…"
+        stopNodeOnly()
+        started = true
+        bootNode()
+    }
+
+    private func startPathMonitorIfNeeded() {
+        guard !pathStarted else { return }
+        pathStarted = true
+        pathMonitor.pathUpdateHandler = { [weak self] path in
+            let wifi = path.status == .satisfied && path.usesInterfaceType(.wifi)
+            Task { @MainActor in
+                guard let self else { return }
+                if wifi {
+                    if self.everLostWifi && !self.hadWifi && self.node != nil {
+                        self.restartWorkItem?.cancel()
+                        let work = DispatchWorkItem { [weak self] in self?.restartNode() }
+                        self.restartWorkItem = work
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: work)
+                    }
+                    self.hadWifi = true
+                } else {
+                    if self.hadWifi { self.everLostWifi = true }
+                    self.hadWifi = false
+                }
+            }
+        }
+        pathMonitor.start(queue: pathQueue)
+    }
+
     func startTalking() {
         node?.startTalking()
         isTalking = true
@@ -93,10 +132,27 @@ final class NodeController: ObservableObject {
     func updateNickname(_ name: String) {
         nickname = name
         NicknameStore.set(name)
+        try? node?.updateName(name)
+    }
+
+    // MARK: - Voice notes / private channels
+
+    /// Returns nil on success, error message on failure (Android-style).
+    func sendVoiceNote(toDeviceID: String, audio: Data) -> String? {
         do {
-            try node?.updateName(name)
+            try node?.sendVoiceNote(toDeviceID, audio: audio)
+            return nil
         } catch {
-            // best-effort
+            return error.localizedDescription
+        }
+    }
+
+    func sendChannelClip(channelID: String, audio: Data) -> String? {
+        do {
+            try node?.sendChannelClip(channelID, audio: audio)
+            return nil
+        } catch {
+            return error.localizedDescription
         }
     }
 
@@ -110,21 +166,53 @@ final class NodeController: ObservableObject {
         return node?.listVoiceNotesJSON(withPeerID, error: &error) ?? "[]"
     }
 
-    /// Active remote talker name for PushToTalk system UI (best-effort from device list).
+    func listChannelNotesJSON(channelID: String) -> String {
+        var error: NSError?
+        return node?.listChannelNotesJSON(channelID, error: &error) ?? "[]"
+    }
+
+    func downloadVoiceNote(noteID: String) -> Data? {
+        try? node?.downloadVoiceNote(noteID)
+    }
+
+    func ackVoiceNote(noteID: String) {
+        try? node?.ackVoiceNote(noteID)
+    }
+
+    func deleteVoiceNote(noteID: String) {
+        try? node?.deleteVoiceNote(noteID)
+    }
+
+    func inviteChannel(toDeviceID: String) -> String? {
+        var error: NSError?
+        let json = node?.inviteChannel(toDeviceID, error: &error)
+        return (error == nil) ? json : nil
+    }
+
+    func acceptChannel(channelID: String) {
+        try? node?.acceptChannel(channelID)
+    }
+
+    func focusChannel(channelID: String) {
+        try? node?.focusChannel(channelID)
+    }
+
+    func blurChannel(channelID: String) {
+        try? node?.blurChannel(channelID)
+    }
+
+    func closeChannel(channelID: String) {
+        try? node?.closeChannel(channelID)
+    }
+
     func displayName(forPeerID peerID: String) -> String? {
-        guard let data = devicesJSON.data(using: .utf8),
-              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-            return nil
-        }
-        return arr.first(where: { ($0["id"] as? String) == peerID })?["name"] as? String
+        DeviceRow.parse(devicesJSON).first(where: { $0.id == peerID })?.name
     }
 
     private func startPolling() {
         pollTimer?.invalidate()
         pollTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.refresh()
-            }
+            Task { @MainActor in self?.refresh() }
         }
         refresh()
     }
@@ -133,26 +221,29 @@ final class NodeController: ObservableObject {
         guard let node else { return }
         var error: NSError?
         devicesJSON = node.listDevicesJSON(&error)
+        channelsJSON = node.listChannelsJSON(&error)
+        inboxJSON = node.listVoiceNotesJSON("", error: &error)
         baseStationURL = node.baseStationURL()
         selfID = node.selfID()
     }
 
-    func stop() {
+    private func stopNodeOnly() {
         pollTimer?.invalidate()
         pollTimer = nil
         locationUpdater?.stop()
         bleBridge?.stop()
         ptt.leave()
-        do {
-            try node?.stop()
-        } catch {
-            // best-effort teardown
-        }
+        try? node?.stop()
         node = nil
         micSource?.releaseResources()
         speakerSink?.releaseResources()
         micSource = nil
         speakerSink = nil
+    }
+
+    func stop() {
+        restartWorkItem?.cancel()
+        stopNodeOnly()
         started = false
     }
 }

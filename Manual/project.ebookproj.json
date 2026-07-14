@@ -73,22 +73,34 @@
       "resolvedNumber": null
     },
     {
-      "id": "84cefb0e-5904-4162-9d43-e624df266665",
+      "id": "c679688f-e87a-44ef-9270-22e181e19dc2",
       "type": 1,
       "relativePath": "chapters/001-Getting-Started-(Desktop-Base-Station).ebhtml",
       "order": 2,
       "isGenerated": false,
-      "title": "Getting Started ",
-      "subtitle": "",
+      "title": "Getting Started (Desktop Base Station)",
+      "subtitle": null,
       "numberMode": 0,
       "numberOverride": null,
       "resolvedNumber": 1
     },
     {
+      "id": "84cefb0e-5904-4162-9d43-e624df266665",
+      "type": 1,
+      "relativePath": "chapters/002-Getting-Started.ebhtml",
+      "order": 3,
+      "isGenerated": false,
+      "title": "Getting Started ",
+      "subtitle": "",
+      "numberMode": 0,
+      "numberOverride": null,
+      "resolvedNumber": 2
+    },
+    {
       "id": "682d19ae-04b3-4b30-b0af-a10a50552ec4",
       "type": 2,
       "relativePath": "backmatter/new-back-matter-page-7b0c5c30.ebhtml",
-      "order": 8,
+      "order": 10,
       "isGenerated": false,
       "title": "Notes",
       "subtitle": "",
@@ -99,7 +111,7 @@
     {
       "id": "b80f2441-26cd-4630-a994-2c0805daf774",
       "type": 1,
-      "relativePath": "chapters/002-Windows-Builds.ebhtml",
+      "relativePath": "chapters/003-Windows-Builds.ebhtml",
       "order": 4,
       "isGenerated": false,
       "title": "Windows Builds",
@@ -109,54 +121,66 @@
       "resolvedNumber": 3
     },
     {
-      "id": "22fccb88-f642-40ff-836b-5e7988b6b5d0",
+      "id": "a0b1c813-ae19-44a2-944e-5e26340f211d",
       "type": 1,
-      "relativePath": "chapters/003-macOS-builds.ebhtml",
+      "relativePath": "chapters/004-Android-Client.ebhtml",
       "order": 5,
       "isGenerated": false,
-      "title": "macOS builds",
-      "subtitle": "",
+      "title": "Android Client",
+      "subtitle": null,
       "numberMode": 0,
       "numberOverride": null,
       "resolvedNumber": 4
     },
     {
-      "id": "23a2201f-5070-4e62-953b-ac3ff024fa68",
+      "id": "22fccb88-f642-40ff-836b-5e7988b6b5d0",
       "type": 1,
-      "relativePath": "chapters/004-Android-Client.ebhtml",
+      "relativePath": "chapters/005-macOS-builds.ebhtml",
       "order": 6,
       "isGenerated": false,
-      "title": "Android Client",
+      "title": "macOS builds",
       "subtitle": "",
       "numberMode": 0,
       "numberOverride": null,
       "resolvedNumber": 5
     },
     {
-      "id": "300d99de-2167-4b10-b05f-ecbb9dbc1d01",
+      "id": "23a2201f-5070-4e62-953b-ac3ff024fa68",
       "type": 1,
-      "relativePath": "chapters/005-The-iPhone-app.ebhtml",
+      "relativePath": "chapters/006-Android-Client.ebhtml",
       "order": 7,
       "isGenerated": false,
-      "title": "The iPhone app",
+      "title": "Android Client",
       "subtitle": "",
       "numberMode": 0,
       "numberOverride": null,
       "resolvedNumber": 6
     },
     {
+      "id": "300d99de-2167-4b10-b05f-ecbb9dbc1d01",
+      "type": 1,
+      "relativePath": "chapters/007-The-iPhone-app.ebhtml",
+      "order": 8,
+      "isGenerated": false,
+      "title": "The iPhone app",
+      "subtitle": "",
+      "numberMode": 0,
+      "numberOverride": null,
+      "resolvedNumber": 7
+    },
+    {
       "id": "9be5c9d2-eec1-48b0-abc0-7a34ee5f1f12",
       "type": 1,
-      "relativePath": "chapters/006-New-Chapter.ebhtml",
-      "order": 3,
+      "relativePath": "chapters/008-The-Base-Station.ebhtml",
+      "order": 9,
       "isGenerated": false,
       "title": "The Base Station",
       "subtitle": "Desktop",
       "numberMode": 0,
       "numberOverride": null,
-      "resolvedNumber": 2
+      "resolvedNumber": 8
     }
   ],
   "createdUtc": "2026-07-14T06:39:19.095003Z",
-  "modifiedUtc": "2026-07-14T06:59:03.964262Z"
+  "modifiedUtc": "2026-07-14T07:46:52.84968Z"
 }
