@@ -138,35 +138,127 @@
     });
   }
 
-  function row(dl, k, v) {
-    if (v == null || v === "" || (Array.isArray(v) && !v.length)) return;
-    const dt = document.createElement("dt");
-    dt.textContent = k;
-    const dd = document.createElement("dd");
+  function humanizeKey(k) {
+    var known = {
+      wifiIface: "Wi‑Fi interface",
+      phyMode: "PHY mode",
+      rateMbps: "Link rate (Mbps)",
+      signalNoise: "Signal / noise",
+      sameMachineNote: "Note",
+      identifyURL: "Identify URL",
+      seededFrom: "Seeded from",
+      baseURL: "Base URL",
+      iface: "Interface",
+      role: "Role",
+      gateway: "Gateway",
+      country: "Country",
+      note: "Note",
+      lat: "Latitude",
+      lon: "Longitude",
+      accuracy: "Accuracy (m)",
+      timestamp: "At",
+      at: "At",
+    };
+    if (known[k]) return known[k];
+    return String(k)
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/[_-]+/g, " ")
+      .replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+  }
+
+  function isPlainObject(v) {
+    return v && typeof v === "object" && !Array.isArray(v) && !(v instanceof Date);
+  }
+
+  function looksLikeURL(s) {
+    return typeof s === "string" && /^https?:\/\//i.test(s);
+  }
+
+  function formatScalar(v) {
+    if (v == null) return "";
+    if (typeof v === "boolean") return v ? "yes" : "no";
+    if (typeof v === "number") return String(v);
+    if (typeof v === "string") {
+      // ISO timestamps → locale string when parseable
+      if (/^\d{4}-\d{2}-\d{2}T/.test(v)) {
+        var d = new Date(v);
+        if (!isNaN(d.getTime())) return d.toLocaleString();
+      }
+      return v;
+    }
+    return String(v);
+  }
+
+  function fillValue(dd, v) {
     if (Array.isArray(v)) {
+      if (!v.length) return false;
       v.forEach(function (item) {
-        const pill = document.createElement("span");
+        var pill = document.createElement("span");
         pill.className = "pill";
         if (typeof item === "object" && item !== null) {
           pill.textContent = (item.name || "") + (item.port ? " :" + item.port : "") + (item.url ? " " + item.url : "");
-          if (!item.name && !item.port) pill.textContent = JSON.stringify(item);
+          if (!item.name && !item.port) {
+            pill.textContent = Object.keys(item).map(function (k) {
+              return humanizeKey(k) + ": " + formatScalar(item[k]);
+            }).join(" · ");
+          }
         } else {
-          pill.textContent = String(item);
+          pill.textContent = formatScalar(item);
         }
         dd.appendChild(pill);
       });
-    } else if (typeof v === "object") {
-      dd.textContent = JSON.stringify(v, null, 2);
-    } else {
-      dd.textContent = String(v);
+      return true;
     }
+    if (isPlainObject(v)) {
+      var nested = document.createElement("dl");
+      nested.className = "nested";
+      var any = false;
+      Object.keys(v).forEach(function (k) {
+        if (row(nested, humanizeKey(k), v[k])) any = true;
+      });
+      if (!any) return false;
+      dd.appendChild(nested);
+      return true;
+    }
+    var s = formatScalar(v);
+    if (s === "") return false;
+    if (looksLikeURL(s)) {
+      var a = document.createElement("a");
+      a.href = s;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = s;
+      dd.appendChild(a);
+    } else {
+      dd.textContent = s;
+    }
+    return true;
+  }
+
+  function row(dl, k, v) {
+    if (v == null || v === "") return false;
+    if (Array.isArray(v) && !v.length) return false;
+    if (isPlainObject(v) && !Object.keys(v).length) return false;
+    var dt = document.createElement("dt");
+    dt.textContent = k;
+    var dd = document.createElement("dd");
+    if (!fillValue(dd, v)) return false;
     dl.appendChild(dt);
     dl.appendChild(dd);
+    return true;
+  }
+
+  /** Promote flat detail keys into top-level labeled rows (no raw JSON blob). */
+  function rowsFromDetail(dl, detail) {
+    if (!isPlainObject(detail)) return;
+    Object.keys(detail).sort().forEach(function (k) {
+      row(dl, humanizeKey(k), detail[k]);
+    });
   }
 
   function showModal(n) {
     document.getElementById("m-kind").textContent = n.kind || "node";
-    document.getElementById("m-title").textContent = n.hostname || n.nickname || n.label || n.id;
+    document.getElementById("m-title").textContent = n.ssid || n.hostname || n.nickname || n.label || n.id;
     const dl = document.getElementById("m-body");
     dl.innerHTML = "";
     row(dl, "Hostname", n.hostname);
@@ -185,12 +277,17 @@
     row(dl, "Open ports", n.openPorts);
     row(dl, "Services on this machine", n.services);
     row(dl, "URLs", n.urls);
-    row(dl, "GPS", n.gps);
+    if (n.gps) {
+      row(dl, "Latitude", n.gps.lat);
+      row(dl, "Longitude", n.gps.lon);
+      row(dl, "Accuracy (m)", n.gps.accuracy);
+      row(dl, "GPS at", n.gps.timestamp || n.gps.at);
+    }
     row(dl, "Subnet", n.subnet);
     row(dl, "Remote Base", n.remoteBaseName || n.remoteBaseId);
     row(dl, "Discovery", n.discoveryMethods);
     row(dl, "Last seen", n.lastSeen);
-    row(dl, "Detail", n.detail);
+    rowsFromDetail(dl, n.detail);
     document.getElementById("backdrop").classList.add("open");
   }
 
