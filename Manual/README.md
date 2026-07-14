@@ -31,4 +31,4 @@ This manual is ideally authored and exported using the **[eBookED](https://githu
 
 Unlike eBookED's own repo (which gitignores its `manual/output/`), **WalkieTalkie's `Manual/output/` is checked into version control, not gitignored.** Exports are generated and bundled with releases, so the `.epub`/`.pdf`/`.docx` files belong in the repo alongside the source `.ebhtml`.
 
-Keep this manual up to date as the app develops — add or update a chapter whenever a user-facing feature changes.
+Keep this manual up to date as the app develops — add or update a chapter whenever a user-facing feature changes. Topic chapters include Getting Started, platform builds, Android / iPhone / Wearables, The Base Station, and **MeshBridge** (dual-LAN / punch sync).

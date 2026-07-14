@@ -2,6 +2,7 @@
 title: Notes
 subtitle: ''
 numberMode: Auto
-numberOverride: 
+numberOverride:
 ---
+<p>For dual-LAN or remote Base-to-Base sync of devices and voice notes (not live Talk), see the <strong>MeshBridge</strong> chapter. Design notes live under <code>docs/2026-07-14-meshbridge-plan.md</code> in the source tree.</p>
 

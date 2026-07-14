@@ -15,7 +15,7 @@ Build priority is Android first, then desktop, then iPhone, then wearables last 
 - **Phase 5 (wearables)**: 🟡 software complete — Wear OS `0.2.0` + watchOS WatchConnectivity relay; hardware verify pending. See `docs/2026-07-14-phase5-wearables.md`.
 - **Phase 6 (private live Talk)**: ✅ software complete — live unicast (mesh/SFU), named Hub rooms, room-scoped channel Talk, Hub→direct Talk/note bridges, multi-Base voice sync, P2P notes + Base mirror. See `docs/2026-07-14-phase6-private-live-talk.md`.
 
-**Current release track:** server `1.8.0`, android `1.6.0`, wear `0.2.0`, ios `0.8.0` (GitHub release `v1.8.0`).
+**Current release track:** server `1.8.0`, android `1.6.0`, wear `0.2.0`, ios `0.8.0` (GitHub release `v1.8.0`). MeshBridge companion on `main`: `0.1.1` (not yet in a numbered product release zip).
 
 ## Repo layout
 
@@ -27,12 +27,19 @@ ios/       SwiftUI iPhone app (+ WatchConnectivity watch stub); Core XCFramework
 tools/     dev scripts: Go env setup, gomobile→Android AAR / iOS XCFramework, Opus iOS, Windows/macOS/Linux server + MeshBridge builds
 docs/      plans and design docs (including voice messages / private channels / MeshBridge)
 Manual/    the end-user manual (.ebhtml format — see Manual/README.md)
-meshbridge/ companion process: bridge Base Stations across LAN/WAN (manual URL, secondary Wi‑Fi NIC, QuakeMesh punch) — live Talk stays local
+meshbridge/ companion process: bridge Base Stations across LAN/WAN — live Talk stays local (see meshbridge/README.md)
 ```
 
 ## MeshBridge
 
-Runs **next to** a Base Station (`go run ./meshbridge/cmd/meshbridge`). Syncs remote Base **devices + voice notes** into the local **Remote Users** tab — not live Talk. Transports: manual URL, secondary Wi‑Fi NIC, **Ethernet into another router**, or QuakeMesh punch.
+Runs **next to** a Base Station. Syncs remote Base **devices + voice notes** into the dashboard **Remote Users** tab — not live Talk.
+
+| Transport | When |
+|-----------|------|
+| `manual` | Known remote Base `http://host:port` |
+| `ethernet` | This Mac on LAN A (Wi‑Fi) + cable into router B; mDNS on that iface |
+| `wifi` | Secondary Wi‑Fi NIC + SSID |
+| `punch` | QuakeMesh-style UDP punch / hub when Bases cannot share a LAN |
 
 ```sh
 source tools/go-env.sh
@@ -42,7 +49,7 @@ go run ./meshbridge/cmd/meshbridge
 ./tools/build-macos-meshbridge.sh
 ```
 
-See [`docs/2026-07-14-meshbridge-plan.md`](docs/2026-07-14-meshbridge-plan.md).
+Details: [`meshbridge/README.md`](meshbridge/README.md), [`docs/2026-07-14-meshbridge-plan.md`](docs/2026-07-14-meshbridge-plan.md), Manual chapter **MeshBridge**.
 
 ## Building the iOS app
 
@@ -90,4 +97,4 @@ Requires the Android SDK/NDK at `$ANDROID_HOME` (see `.cursor/rules/dev-environm
 
 ## Versioning
 
-Each app is versioned independently via a `VERSION` file in its own directory (`server/VERSION`, `android/VERSION`, `android/wear/VERSION`, `ios/VERSION`, …) using Major.Minor.Patch: patch for a bug fix, minor for a new feature (including completing a plan phase), major reserved for actual releases.
+Each app is versioned independently via a `VERSION` file in its own directory (`server/VERSION`, `android/VERSION`, `android/wear/VERSION`, `ios/VERSION`, `meshbridge/VERSION`, …) using Major.Minor.Patch: patch for a bug fix, minor for a new feature (including completing a plan phase), major reserved for actual releases.

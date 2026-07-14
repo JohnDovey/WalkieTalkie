@@ -7,3 +7,4 @@ numberOverride:
 
 <h2 id="windows-builds">Windows builds</h2>
 <p>A Windows Base Station is built by cross-compiling from the Mac dev machine — there's no need for an actual Windows machine to produce the <code>.exe</code>. Run <code>./tools/build-windows-server.sh</code> from the repo root; the first run takes a few extra minutes to set up a one-time cross-compile toolchain, after which it just rebuilds the executable. The resulting <code>.exe</code> has full mic/speaker support, not just the registry/web-UI/relay pieces. This hasn't been tested on real Windows hardware yet — only confirmed to be a valid Windows executable with sane-looking dependencies.</p>
+<p>MeshBridge for Windows is produced the same way with <code>./tools/build-windows-meshbridge.sh</code>. See the MeshBridge chapter for how it runs next to a Base Station.</p>

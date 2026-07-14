@@ -1,0 +1,72 @@
+---
+title: MeshBridge
+subtitle: Dual-LAN and WAN Base sync
+numberMode: Auto
+numberOverride:
+---
+<h1 id="meshbridge">MeshBridge</h1>
+<p><strong>MeshBridge</strong> is a companion process that runs next to a Base Station. It syncs <strong>devices</strong> and <strong>voice notes / private channels</strong> from other Base Stations — across separate Wi‑Fi routers, or (with punch) across the internet — into this Base Station's <strong>Remote Users</strong> tab.</p>
+<p>It does <strong>not</strong> bridge live Talk (group PTT or private live unicast). Phones and Wear stay on their own LAN; only registry visibility and store-and-forward clips cross the bridge.</p>
+
+<h2 id="when-to-use-it">When to use it</h2>
+<ul>
+<li>Two offices / homes on different Wi‑Fi routers, and you want each Base Station to <em>see</em> users and voice notes from the other.</li>
+<li>One Mac that can reach both networks at once (Wi‑Fi on LAN A + Ethernet into router B).</li>
+<li>Bases that cannot discover each other on a shared LAN (CGNAT / remote sites) via QuakeMesh-style UDP punch and an optional hub.</li>
+</ul>
+<p>Same-LAN Multi-Base sync (already covered in The Base Station) does <strong>not</strong> need MeshBridge.</p>
+
+<h2 id="running-meshbridge">Running MeshBridge</h2>
+<p>Start the local Base Station first (default <code>http://127.0.0.1:9091</code>), then:</p>
+<pre><code>source tools/go-env.sh
+go run ./meshbridge/cmd/meshbridge</code></pre>
+<p>Or run a release binary from <code>./tools/build-macos-meshbridge.sh</code> (also <code>build-windows-meshbridge.sh</code> / <code>build-linux-meshbridge.sh</code>).</p>
+<p>MeshBridge prints its status URL (default <strong>http://127.0.0.1:9095</strong>). Settings live in:</p>
+<ul>
+<li>macOS: <code>~/Library/Application Support/WalkieTalkie/meshbridge/settings.json</code></li>
+<li>Linux: <code>~/.config/WalkieTalkie/meshbridge/settings.json</code></li>
+<li>Windows: under the user AppData config directory for WalkieTalkie/meshbridge</li>
+</ul>
+<p>Override with <code>--data-dir</code> if needed. First run writes a default settings file.</p>
+
+<h2 id="transports">Transports</h2>
+<p>Configure any combination in <code>settings.json</code>. MeshBridge polls on an interval (default 30s) and pushes into the local Base Station.</p>
+
+<h3 id="manual-url">Manual URL</h3>
+<p>When you already know the other Base's HTTP address:</p>
+<pre><code>"manual": [
+  { "name": "Site B", "url": "http://192.168.2.10:9091" }
+]</code></pre>
+
+<h3 id="ethernet-dual-lan">Ethernet (recommended dual-router setup)</h3>
+<ol>
+<li>Keep Wi‑Fi on LAN A (phones / Base A).</li>
+<li>Plug Ethernet from this Mac into a LAN port on router B (USB‑C / Thunderbolt adapter is fine).</li>
+<li>Confirm the Ethernet interface has a DHCP address on B's subnet (<code>ifconfig</code> or System Settings → Network). Note the device name (<code>en5</code>, <code>en7</code>, …).</li>
+<li>Add:</li>
+</ol>
+<pre><code>"ethernet": [
+  { "name": "Office LAN B", "interface": "en5" }
+]</code></pre>
+<p>MeshBridge discovers Base Stations advertising <code>api=</code> on that interface via mDNS. No SSID/password — the cable must already be up.</p>
+
+<h3 id="secondary-wifi">Secondary Wi‑Fi NIC</h3>
+<p>With a USB Wi‑Fi adapter as a second radio, MeshBridge can associate that iface to another SSID and browse mDNS there:</p>
+<pre><code>"wifi": [
+  { "name": "Guest LAN", "ssid": "OtherNet", "password": "…", "interface": "en1" }
+]</code></pre>
+<p>macOS associate uses <code>networksetup</code>; other OSes may need associate done outside MeshBridge first.</p>
+
+<h3 id="punch">Punch (QuakeMesh-style)</h3>
+<p>For Bases that cannot see each other on a shared LAN, configure a hub host and peer id (see <code>docs/2026-07-14-meshbridge-plan.md</code>). MeshBridge exchanges reachable Base HTTP URLs after punch/relay, then syncs over HTTP like the manual transport.</p>
+
+<h2 id="remote-users-on-the-dashboard">Remote Users on the dashboard</h2>
+<p>Open the Base Station dashboard → <strong>Remote Users</strong> (<code>/remote-users</code>). Devices are grouped by origin Base. Live Talk with them from this LAN is not offered; voice notes and channel clips that MeshBridge ingested are.</p>
+<p>The page also shows whether MeshBridge has heartbeated recently.</p>
+
+<h2 id="what-does-not-cross">What does not cross</h2>
+<ul>
+<li>Live group PTT and private live Talk / SFU Opus</li>
+<li>Automatic mesh <code>ConnectAny</code> to bridged remotes (they stay presence/ingest only)</li>
+<li>GPS trail history replication (same-LAN Multi-Base also does not copy trails today)</li>
+</ul>

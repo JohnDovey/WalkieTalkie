@@ -5,6 +5,6 @@ numberMode: Auto
 numberOverride:
 ---
 <h1 id="getting-started">Getting Started</h1>
-<p>WalkieTalkie is a cross-platform push-to-talk (PTT) app. This chapter covers the desktop "Base Station" — the Go server app for Mac, Windows, and Linux — and the Android and iPhone apps. Android + Base Station are confirmed working together on real hardware. The iPhone app is in progress (buildable scaffold; device mesh verify pending).</p>
+<p>WalkieTalkie is a cross-platform push-to-talk (PTT) app. Later chapters cover the desktop <strong>Base Station</strong> (Mac / Windows / Linux), the Android and iPhone clients, wearables, and optional <strong>MeshBridge</strong> for syncing devices and voice notes across separate networks (not live Talk). Android + Base Station are confirmed working together on real hardware. The iPhone app is in progress (buildable; device mesh verify pending).</p>
 
 

@@ -50,7 +50,8 @@ meshbridge/
   wifi/             macOS associate helpers
   discovery/        per-iface mDNS
   punch/            QuakeMesh-inspired hub + client
-  VERSION           0.1.0
+  VERSION           0.1.1
+  README.md         how to run / configure
 ```
 
 ## Policy

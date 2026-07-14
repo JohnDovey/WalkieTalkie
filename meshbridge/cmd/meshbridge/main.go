@@ -26,7 +26,7 @@ func main() {
 	dataDirFlag := flag.String("data-dir", "", "override MeshBridge data directory")
 	flag.Parse()
 
-	fmt.Printf("MeshBridge %s — Base Station bridge (manual / Wi-Fi NIC / QuakeMesh punch)\n", ver.Version)
+	fmt.Printf("MeshBridge %s — Base Station bridge (manual / ethernet / Wi-Fi / punch)\n", ver.Version)
 
 	dataDir := *dataDirFlag
 	if dataDir == "" {

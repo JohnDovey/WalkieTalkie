@@ -20,6 +20,10 @@ Deferred from [`2026-07-13-voice-message-and-private-channels.md`](2026-07-13-vo
 
 ✅ GPS history + true N-party channels + SFU voicenote DataChannel + Multi-Base clock skew in `server` 1.8.0 / android `1.6.0` / ios `0.8.0`. See [`2026-07-14-gps-history-nparty-sfu-notes.md`](2026-07-14-gps-history-nparty-sfu-notes.md).
 
+## MeshBridge (dual-LAN / punch)
+
+✅ Companion module `meshbridge/` **0.1.1** on `main` — manual / ethernet / wifi / punch transports; Base Station Remote Users + ingest APIs. Live Talk stays local. See [`2026-07-14-meshbridge-plan.md`](2026-07-14-meshbridge-plan.md) and Manual → MeshBridge.
+
 ## Multi-Base-Station voice blob replication
 
 ✅ Shipped in `server` 1.3.1 — see Phase 6 doc. After each device-registry pull, peer Base Stations also pull `GET /api/sync/channels` and `GET /api/sync/voice-notes` (plus audio blobs for new notes).

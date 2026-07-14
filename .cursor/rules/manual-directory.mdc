@@ -27,10 +27,12 @@ alwaysApply: false
 | Chapter (spine title) | Role |
 |----------------------|------|
 | Getting Started | Short intro only |
-| The Base Station | Desktop dashboard, map, settings, tray, multi-BS, voice notes (from Base Station POV) |
-| Windows Builds / macOS builds | Platform packaging |
+| The Base Station | Desktop dashboard, map, settings, tray, multi-BS, Remote Users, voice notes |
+| MeshBridge | Dual-LAN / Ethernet / Wi‑Fi NIC / punch companion; not live Talk |
+| Windows Builds / macOS builds | Platform packaging (incl. MeshBridge build scripts) |
 | Android Client | Phone app usage and quirks |
 | The iPhone app | iOS app usage and quirks |
+| Wearables | Wear OS / Apple Watch |
 | Notes (back matter) | Misc |
 
 When a user-facing feature lands, update the **relevant topic chapter** (or add a new chapter via eBookED and the spine), not a catch-all.
