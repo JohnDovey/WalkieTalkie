@@ -85,12 +85,14 @@ func main() {
 	// to this desktop process (cgo is fine here — see server/audio).
 	var source media.AudioSource
 	var sink media.AudioSink
+	audioDisabled := *noAudio
 	if *noAudio {
 		log.Printf("audio disabled via --no-audio, running registry/relay-only")
 	} else {
 		source, sink, err = audio.NewLocalIO()
 		if err != nil {
 			log.Printf("audio unavailable, running registry/relay-only (no mic/speaker): %v", err)
+			audioDisabled = true
 		}
 	}
 
@@ -131,7 +133,7 @@ func main() {
 		// who are not on the Hub, and skip Base Station speaker when we are
 		// not focused on that channel room.
 		if room := hub.RoomOf(fromID); room != "" {
-			bridgeRoomToDirect(voiceStore, hub, session, fromID, room, selfID, payload)
+			bridgeRoomToDirect(voiceStore, hub, session.MeshManager, fromID, room, selfID, payload)
 			if hub.RoomOf(selfID) != room {
 				return
 			}
@@ -288,7 +290,7 @@ func main() {
 			usageStats.VoiceNoteUploaded(n.Size, n.ChannelID)
 		}
 		log.Printf("P2P voice note %s stored (%d bytes)", n.ID, n.Size)
-		pushVoiceNoteToDirect(session, n, audio)
+		pushVoiceNoteToDirect(session.MeshManager, n, audio)
 	}
 	syncer.SetVoice(voiceStore)
 	voiceHandlers := &voicenote.Handlers{
@@ -312,7 +314,7 @@ func main() {
 			updateServerLocationEstimate(store, selfID)
 		},
 		ChannelTalkPeers: func(channelID string) []string {
-			return channelLiveTalkPeers(voiceStore, session, selfID, channelID)
+			return channelLiveTalkPeers(voiceStore, session.MeshManager, selfID, channelID)
 		},
 	}
 	webHandlers, err := web.New()
@@ -359,7 +361,20 @@ func main() {
 		mdnsSrv.UpdateInfo(announce(newSettings.Port))
 	}
 
-	log.Printf("%s starting — device id %s", selfName, selfID)
+	printStartupBanner(startupInfo{
+		Version:             Version,
+		Name:                selfName,
+		DeviceID:            selfID,
+		Platform:            platformName(),
+		WebPort:             settings.Port,
+		SignalPort:          sigPort,
+		RelayPort:           relayPort,
+		DataDir:             dataDir,
+		AudioDisabled:       audioDisabled,
+		RelayEnabled:        settings.RelayEnabled,
+		RelayThreshold:      settings.RelayThreshold,
+		SyncIntervalSeconds: settings.SyncIntervalSeconds,
+	})
 	if *noTray {
 		serve(httpSrv, settings.Port)
 		return
