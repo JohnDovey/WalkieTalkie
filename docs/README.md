@@ -12,4 +12,4 @@ Plans, design docs, and other project documentation live here. Keep filenames de
 | [2026-07-14-gps-history-nparty-sfu-notes.md](2026-07-14-gps-history-nparty-sfu-notes.md) | GPS trails, N-party channels, SFU note DC, sync clock skew (`1.8.0`) |
 | [INSTALL-v1.8.0.md](INSTALL-v1.8.0.md) | Install notes shipped with GitHub release `v1.8.0` |
 | [2026-07-14-meshbridge-plan.md](2026-07-14-meshbridge-plan.md) | MeshBridge design: dual-LAN / Ethernet / Wi‑Fi / punch (Manual ch. + `meshbridge/README.md`) |
-| [2026-07-14-meshsniff-plan.md](2026-07-14-meshsniff-plan.md) | MeshSniff: LAN discovery map, MAC↔meshId, MeshBridge seed (`0.1.0`) |
+| [2026-07-14-meshsniff-plan.md](2026-07-14-meshsniff-plan.md) | MeshSniff: WalkieTalkie-first LAN map, MAC↔meshId (`0.1.1`) |

@@ -16,12 +16,12 @@ go run ./meshsniff/cmd/meshsniff</code></pre>
 
 <h2 id="seed-then-discover">Seed, then discover</h2>
 <ol>
-<li>MeshSniff first asks <strong>MeshBridge</strong> for its inventory (remote Bases and users), placing them on the map even with minimal info.</li>
-<li>It then loads local Base Station devices and Remote Users.</li>
+<li>MeshSniff first seeds from the local <strong>WalkieTalkie Base Station</strong> (<code>/api/about</code>, <code>/api/sniff</code>, device list, Remote Users), so known mesh users appear on the map immediately, linked under the Base hub. Other Bases on the LAN are picked up via mDNS.</li>
+<li>It then asks <strong>MeshBridge</strong> for dual-LAN inventory (if running).</li>
 <li>It continuously scans: interface/subnets, ARP cache, TCP service probes, WalkieTalkie mDNS, and optional ICMP when run as root.</li>
 <li>Open WalkieTalkie ports are probed with <code>GET /sniff</code> (signaling) or <code>GET /api/sniff</code> (Base Station) so MAC addresses can be tied to each device's Mesh ID.</li>
 </ol>
-<p>The map updates live as new hosts and details appear.</p>
+<p>The map updates live as new hosts and details appear. The status strip shows WalkieTalkie seed health (how many devices were seeded) first.</p>
 
 <h2 id="what-you-see">What you see</h2>
 <ul>

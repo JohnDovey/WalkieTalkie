@@ -51,6 +51,29 @@ func (e *Engine) seedOnce() {
 		ICMPEnabled: icmp.Enabled(),
 		Message:     icmp.StatusMessage(),
 	}
+
+	// 1) WalkieTalkie Base Station is the primary seed for the network map.
+	wt := seed.ApplyWalkieTalkie(e.Graph, e.Settings.LocalBaseURL)
+	st.WalkieTalkieOK = wt.OK
+	st.BaseOK = wt.OK
+	st.WalkieBaseName = wt.BaseName
+	st.WalkieSeeded = wt.DeviceCount + wt.RemoteCount
+	if !wt.OK {
+		st.Message = joinMsg(st.Message, "WalkieTalkie: "+wt.Err)
+	} else if wt.Err != "" {
+		st.Message = joinMsg(st.Message, "WalkieTalkie: "+wt.Err)
+	}
+
+	// 2) Other WalkieTalkie Bases discovered on LAN via mDNS (api≠0).
+	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+	mdnsBases, mdnsDevs := seed.SeedMDNSBases(ctx, e.Graph, e.Settings.LocalBaseURL)
+	cancel()
+	if mdnsBases > 0 {
+		st.WalkieSeeded += mdnsDevs
+		st.Message = joinMsg(st.Message, fmt.Sprintf("mDNS Bases:%d", mdnsBases))
+	}
+
+	// 3) MeshBridge inventory (dual-LAN remotes) enrichments.
 	if inv, err := seed.FetchBridgeInventory(e.Settings.MeshBridgeURL); err == nil {
 		seed.ApplyBridge(e.Graph, inv)
 		st.MeshBridgeOK = true
@@ -58,16 +81,7 @@ func (e *Engine) seedOnce() {
 		st.MeshBridgeOK = false
 		st.Message = joinMsg(st.Message, "MeshBridge: "+err.Error())
 	}
-	if devices, err := seed.FetchDevices(e.Settings.LocalBaseURL); err == nil {
-		seed.ApplyBaseDevices(e.Graph, devices)
-		st.BaseOK = true
-	} else {
-		st.BaseOK = false
-		st.Message = joinMsg(st.Message, "Base: "+err.Error())
-	}
-	if remotes, err := seed.FetchRemoteDevices(e.Settings.LocalBaseURL); err == nil {
-		seed.ApplyRemoteDevices(e.Graph, remotes)
-	}
+
 	subs, _ := netinfo.LocalSubnets()
 	var cidrs []string
 	for _, s := range subs {

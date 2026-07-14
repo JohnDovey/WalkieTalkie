@@ -46,8 +46,9 @@
   function applyGraph(g) {
     const st = g.status || {};
     document.getElementById("status").textContent =
-      "MeshBridge " + (st.meshBridgeOk ? "OK" : "down") +
-      " · Base " + (st.baseOk ? "OK" : "down") +
+      "WalkieTalkie " + (st.walkieTalkieOk ? ("OK" + (st.walkieBaseName ? " (" + st.walkieBaseName + ")" : "") +
+        (st.walkieSeeded ? " · " + st.walkieSeeded + " seeded" : "")) : "down") +
+      " · MeshBridge " + (st.meshBridgeOk ? "OK" : "down") +
       " · ICMP " + (st.icmpEnabled ? "on" : "off") +
       (st.cidrs && st.cidrs.length ? " · " + st.cidrs.join(", ") : "") +
       (st.lastScan ? " · scan " + st.lastScan : "") +

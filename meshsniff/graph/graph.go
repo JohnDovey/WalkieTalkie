@@ -75,12 +75,15 @@ type Snapshot struct {
 
 // Status is scan/seed health for the UI strip.
 type Status struct {
-	MeshBridgeOK bool     `json:"meshBridgeOk"`
-	BaseOK       bool     `json:"baseOk"`
-	ICMPEnabled  bool     `json:"icmpEnabled"`
-	CIDRs        []string `json:"cidrs"`
-	LastScan     string   `json:"lastScan,omitempty"`
-	Message      string   `json:"message,omitempty"`
+	MeshBridgeOK     bool     `json:"meshBridgeOk"`
+	BaseOK           bool     `json:"baseOk"`
+	WalkieTalkieOK   bool     `json:"walkieTalkieOk"`
+	WalkieSeeded     int      `json:"walkieSeeded"`
+	WalkieBaseName   string   `json:"walkieBaseName,omitempty"`
+	ICMPEnabled      bool     `json:"icmpEnabled"`
+	CIDRs            []string `json:"cidrs"`
+	LastScan         string   `json:"lastScan,omitempty"`
+	Message          string   `json:"message,omitempty"`
 }
 
 // Store holds the live correlated graph.

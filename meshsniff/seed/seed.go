@@ -97,58 +97,26 @@ func ApplyBridge(g *graph.Store, inv *BridgeInventory) {
 	}
 }
 
-// ApplyBaseDevices seeds local Base Station registry.
+// ApplyBaseDevices seeds local Base Station registry (prefer ApplyWalkieTalkie).
 func ApplyBaseDevices(g *graph.Store, devices []*registry.Device) {
 	for _, d := range devices {
 		if d == nil {
 			continue
 		}
-		n := graph.Node{
-			ID:               "dev:" + d.ID,
-			Kind:             graph.KindWalkie,
-			Label:            d.Name,
-			Nickname:         d.Name,
-			MeshID:           d.ID,
-			Platform:         d.Platform,
-			AppVersion:       d.AppVersion,
-			MACs:             d.MacAddresses,
-			DiscoveryMethods: append([]string{"base"}, d.DiscoveryMethods...),
-		}
-		loc := d.CurrentLocation
-		if loc == nil {
-			loc = d.LastKnownLocation
-		}
-		if loc != nil {
-			n.GPS = &graph.GPS{Lat: loc.Lat, Lon: loc.Lon, Accuracy: loc.Accuracy, At: loc.Timestamp}
-		}
-		g.Upsert(n)
+		g.Upsert(deviceToWalkieNode(d, "walkietalkie"))
 	}
 }
 
-// ApplyRemoteDevices seeds Base Station bridge remotes.
+// ApplyRemoteDevices seeds Base Station Remote Users (prefer ApplyWalkieTalkie).
 func ApplyRemoteDevices(g *graph.Store, remotes []registry.RemoteDevice) {
 	for _, rd := range remotes {
 		d := rd.Device
-		n := graph.Node{
-			ID:               "remote:" + d.ID,
-			Kind:             graph.KindRemoteHint,
-			Label:            d.Name,
-			Nickname:         d.Name,
-			MeshID:           d.ID,
-			Platform:         d.Platform,
-			AppVersion:       d.AppVersion,
-			MACs:             d.MacAddresses,
-			RemoteBaseID:     rd.RemoteBaseID,
-			RemoteBaseName:   rd.RemoteBaseName,
-			DiscoveryMethods: []string{"base-bridge"},
-		}
-		loc := d.CurrentLocation
-		if loc == nil {
-			loc = d.LastKnownLocation
-		}
-		if loc != nil {
-			n.GPS = &graph.GPS{Lat: loc.Lat, Lon: loc.Lon, Accuracy: loc.Accuracy, At: loc.Timestamp}
-		}
+		n := deviceToWalkieNode(&d, "walkietalkie-remote")
+		n.Kind = graph.KindRemoteHint
+		n.ID = "remote:" + d.ID
+		n.RemoteBaseID = rd.RemoteBaseID
+		n.RemoteBaseName = rd.RemoteBaseName
+		n.DiscoveryMethods = []string{"walkietalkie", "remote-users"}
 		g.Upsert(n)
 	}
 }
