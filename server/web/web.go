@@ -39,6 +39,7 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", h.index)
 	mux.HandleFunc("GET /map", h.mapPage)
 	mux.HandleFunc("GET /old-nodes", h.oldNodesPage)
+	mux.HandleFunc("GET /remote-users", h.remoteUsersPage)
 	mux.HandleFunc("GET /stats", h.statsPage)
 	mux.HandleFunc("GET /settings", h.settingsPage)
 	mux.HandleFunc("GET /about", h.aboutPage)
@@ -63,6 +64,10 @@ func (h *Handlers) aboutPage(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) oldNodesPage(w http.ResponseWriter, r *http.Request) {
 	h.tmpl.ExecuteTemplate(w, "old-nodes.html", nil)
+}
+
+func (h *Handlers) remoteUsersPage(w http.ResponseWriter, r *http.Request) {
+	h.tmpl.ExecuteTemplate(w, "remote-users.html", nil)
 }
 
 func (h *Handlers) statsPage(w http.ResponseWriter, r *http.Request) {

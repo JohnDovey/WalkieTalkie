@@ -5,4 +5,5 @@ toolchain go1.26.5
 use (
 	./core
 	./server
+	./meshbridge
 )

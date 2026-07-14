@@ -295,3 +295,41 @@ func (s *Store) PullFromPeer(host string, apiPort int) (channelsImported, notesI
 	}
 	return channelsImported, notesImported, nil
 }
+
+// IngestBridgeVoice applies MeshBridge-pushed channel/note JSON (same shapes
+// as /api/sync/*) and optional audio blobs keyed by note ID.
+func (s *Store) IngestBridgeVoice(remoteBaseURL string, channelsJSON, notesJSON []byte, audio map[string][]byte) (channels, notes int, err error) {
+	_ = remoteBaseURL
+	var channelsList []Channel
+	if len(channelsJSON) > 0 && string(channelsJSON) != "null" {
+		if err := json.Unmarshal(channelsJSON, &channelsList); err != nil {
+			return 0, 0, fmt.Errorf("voicenote: bridge channels: %w", err)
+		}
+	}
+	var notesList []SyncNote
+	if len(notesJSON) > 0 && string(notesJSON) != "null" {
+		if err := json.Unmarshal(notesJSON, &notesList); err != nil {
+			return 0, 0, fmt.Errorf("voicenote: bridge notes: %w", err)
+		}
+	}
+	for _, ch := range channelsList {
+		ok, uerr := s.UpsertChannelFromSync(ch)
+		if uerr != nil {
+			return channels, notes, uerr
+		}
+		if ok {
+			channels++
+		}
+	}
+	for _, sn := range notesList {
+		blob := audio[sn.ID]
+		ok, uerr := s.UpsertNoteFromSync(sn, blob)
+		if uerr != nil {
+			return channels, notes, uerr
+		}
+		if ok {
+			notes++
+		}
+	}
+	return channels, notes, nil
+}

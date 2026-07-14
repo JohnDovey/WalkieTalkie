@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WalkieTalkie — Remote Users</title>
+  <link rel="stylesheet" href="/static/vendor/bootstrap.min.css">
+</head>
+<body>
+  <nav class="navbar navbar-expand navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">WalkieTalkie</a>
+      <div class="navbar-nav">
+        <a class="nav-link" href="/">Devices</a>
+        <a class="nav-link" href="/map">Map</a>
+        <a class="nav-link" href="/old-nodes">Old Nodes</a>
+        <a class="nav-link active" href="/remote-users">Remote Users</a>
+        <a class="nav-link" href="/stats">Stats</a>
+        <a class="nav-link" href="/settings">Settings</a>
+        <a class="nav-link" href="/about">About</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h1 class="h4 mb-3">Remote Users</h1>
+    <p class="text-muted">Devices synced from other Base Stations via MeshBridge. Live Talk does not cross the bridge — voice notes do. Users stay grouped by their origin Base.</p>
+    <p id="bridge-status" class="small text-muted">MeshBridge: checking&hellip;</p>
+    <div id="remote-groups">
+      <p class="text-muted">Loading&hellip;</p>
+    </div>
+  </div>
+
+  <script src="/static/vendor/jquery.min.js"></script>
+  <script src="/static/vendor/bootstrap.bundle.min.js"></script>
+  <script src="/static/app.js"></script>
+  <script>
+    function groupByBase(list) {
+      var groups = {};
+      (list || []).forEach(function (d) {
+        var key = d.remoteBaseId || 'unknown';
+        if (!groups[key]) {
+          groups[key] = { id: key, name: d.remoteBaseName || key, devices: [] };
+        }
+        groups[key].devices.push(d);
+      });
+      return Object.keys(groups).sort().map(function (k) { return groups[k]; });
+    }
+
+    function render(list) {
+      var groups = groupByBase(list);
+      if (!groups.length) {
+        $('#remote-groups').html('<p class="text-muted">No remote users yet. Start MeshBridge with a manual, Wi‑Fi, or punch transport.</p>');
+        return;
+      }
+      var html = groups.map(function (g) {
+        var rows = g.devices.map(function (d) {
+          return '<tr>' +
+            '<td>' + deviceNameHTML(d) + '</td>' +
+            '<td>' + (d.platform || '—') + '</td>' +
+            '<td>' + statusBadge(d.status) + '</td>' +
+            '<td>' + relativeTime(d.lastSeen) + '</td>' +
+            '<td>' + gpsText(d) + '</td>' +
+            '<td>' + (d.appVersion || '—') + '</td>' +
+            '</tr>';
+        }).join('');
+        return '<h2 class="h5 mt-4">' + $('<div>').text(g.name).html() +
+          ' <small class="text-muted">(' + $('<div>').text(g.id).html() + ')</small></h2>' +
+          '<table class="table table-striped align-middle"><thead><tr>' +
+          '<th>Name</th><th>Platform</th><th>Status</th><th>Last Seen</th><th>GPS</th><th>App Version</th>' +
+          '</tr></thead><tbody>' + rows + '</tbody></table>';
+      }).join('');
+      $('#remote-groups').html(html);
+    }
+
+    function poll() {
+      $.getJSON('/api/bridge/status', function (s) {
+        if (s.attached) {
+          $('#bridge-status').text('MeshBridge: attached (' + (s.bridges || 0) + ' bridge(s))');
+        } else {
+          $('#bridge-status').text('MeshBridge: not attached recently');
+        }
+      });
+      $.getJSON('/api/bridge/remote-devices', render).fail(function () {
+        $('#remote-groups').html('<p class="text-danger">Failed to load remote users.</p>');
+      });
+    }
+
+    poll();
+    setInterval(poll, 3000);
+  </script>
+</body>
+</html>

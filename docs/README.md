@@ -11,3 +11,4 @@ Plans, design docs, and other project documentation live here. Keep filenames de
 | [2026-07-14-phase6-private-live-talk.md](2026-07-14-phase6-private-live-talk.md) | Phase 6: private live Talk, Hub rooms, channel Talk, Talk/note bridges |
 | [2026-07-14-gps-history-nparty-sfu-notes.md](2026-07-14-gps-history-nparty-sfu-notes.md) | GPS trails, N-party channels, SFU note DC, sync clock skew (`1.8.0`) |
 | [INSTALL-v1.8.0.md](INSTALL-v1.8.0.md) | Install notes shipped with GitHub release `v1.8.0` |
+| [2026-07-14-meshbridge-plan.md](2026-07-14-meshbridge-plan.md) | MeshBridge: dual-LAN / punch bridge for Base sync (not live Talk) |

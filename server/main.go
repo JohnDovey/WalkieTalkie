@@ -318,6 +318,7 @@ func main() {
 			return channelLiveTalkPeers(voiceStore, session.MeshManager, selfID, channelID)
 		},
 	}
+	bridgeHandlers := &api.BridgeHandlers{Store: store, Voice: voiceStore}
 	webHandlers, err := web.New()
 	if err != nil {
 		log.Fatalf("init web UI: %v", err)
@@ -325,6 +326,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	apiHandlers.Register(mux)
+	bridgeHandlers.Register(mux)
 	voiceHandlers.Register(mux)
 	usageHandlers.Register(mux)
 	webHandlers.Register(mux)

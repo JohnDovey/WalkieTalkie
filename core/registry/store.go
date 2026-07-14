@@ -20,6 +20,7 @@ var (
 	channelsBucket    = []byte("private_channels")
 	usageStatsBucket  = []byte("usage_stats")
 	gpsHistoryBucket  = []byte("gps_history")
+	remoteDevicesBucket = []byte("remote_devices")
 )
 
 const (
@@ -44,7 +45,7 @@ func Open(path string) (*Store, error) {
 		return nil, fmt.Errorf("registry: open %s: %w", path, err)
 	}
 	err = db.Update(func(tx *bbolt.Tx) error {
-		for _, name := range [][]byte{devicesBucket, configBucket, voiceNotesBucket, channelsBucket, usageStatsBucket, gpsHistoryBucket} {
+		for _, name := range [][]byte{devicesBucket, configBucket, voiceNotesBucket, channelsBucket, usageStatsBucket, gpsHistoryBucket, remoteDevicesBucket} {
 			if _, err := tx.CreateBucketIfNotExists(name); err != nil {
 				return err
 			}

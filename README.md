@@ -24,10 +24,25 @@ core/      shared Go module (registry, discovery, WebRTC mesh, signaling) — no
 server/    the Go desktop app AND the "Base Station" server: bbolt registry, REST API, Bootstrap/jQuery dashboard
 android/   Kotlin/Compose phone + Wear OS apps; shared `:mesh` library consumes core via gomobile AAR
 ios/       SwiftUI iPhone app (+ WatchConnectivity watch stub); Core XCFramework (see docs/2026-07-14-ios-phase4.md)
-tools/     dev scripts: Go env setup, gomobile→Android AAR / iOS XCFramework, Opus iOS, Windows/macOS/Linux server builds
-docs/      plans and design docs (including voice messages / private channels)
+tools/     dev scripts: Go env setup, gomobile→Android AAR / iOS XCFramework, Opus iOS, Windows/macOS/Linux server + MeshBridge builds
+docs/      plans and design docs (including voice messages / private channels / MeshBridge)
 Manual/    the end-user manual (.ebhtml format — see Manual/README.md)
+meshbridge/ companion process: bridge Base Stations across LAN/WAN (manual URL, secondary Wi‑Fi NIC, QuakeMesh punch) — live Talk stays local
 ```
+
+## MeshBridge
+
+Runs **next to** a Base Station (`go run ./meshbridge/cmd/meshbridge`). Syncs remote Base **devices + voice notes** into the local **Remote Users** tab — not live Talk. Transports: manual URL, secondary Wi‑Fi NIC, **Ethernet into another router**, or QuakeMesh punch.
+
+```sh
+source tools/go-env.sh
+go run ./meshbridge/cmd/meshbridge
+# status: http://127.0.0.1:9095
+# config: ~/Library/Application Support/WalkieTalkie/meshbridge/settings.json  (macOS)
+./tools/build-macos-meshbridge.sh
+```
+
+See [`docs/2026-07-14-meshbridge-plan.md`](docs/2026-07-14-meshbridge-plan.md).
 
 ## Building the iOS app
 
