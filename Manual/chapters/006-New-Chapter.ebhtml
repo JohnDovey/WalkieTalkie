@@ -23,7 +23,10 @@ numberOverride:
 <p>Next to each device are two small action icons: <strong>Voice Message</strong> (always available) opens a recorder so you can send an async voice note that the Base Station holds until that device connects again (notes are kept for at least 21 days, then deleted). <strong>Invite to Chat</strong> appears only for connected devices and starts a private 1:1 channel. If a device has voice notes waiting for it, the list shows how many.</p>
 <p>The <strong>Chats</strong> button on the left of the nav opens a drawer with active private channels (and unread counts) and a list of senders who have new voice messages for you. Opening a voice-message entry shows the thread — play, reply, or delete. Opening a private channel switches the Talk control to that pair only; while you are not focused on the channel, clips from the other party queue as voice notes until you return.</p>
 <p>When two Base Stations are running on the same LAN, they discover each other the same way any two devices do — automatically, with no setup — and each will list the other, including itself as a normal entry in its own list. They also keep their device lists in sync with each other continuously in the background (see "Multiple Base Stations" below).</p>
-<p><img src="../images/base-station-dashboard.png" alt="Base Station dashboard showing an Android phone and the Base Station itself, both connected, with real GPS coordinates"></p>
+<figure id="fig:8a0d9d8458954e86aa0287c64c005f5f" style="text-align:center">
+<img src="../images/base-station-dashboard.png" alt="base-station-dashboard" width="649" height="381">
+<figcaption class="caption">Base Station Dashboard</figcaption>
+</figure>
 <p>This is a real screenshot from an actual test session: a Base Station running on a Mac, talking to a real Android phone over Wi-Fi.</p>
 
 <h2 id="old-nodes">Old Nodes</h2>
@@ -32,7 +35,10 @@ numberOverride:
 <h2 id="the-map">The map</h2>
 <p>The <strong>Map</strong> page (<code>/map</code>) plots every device with a known GPS position. It needs internet access to load the map imagery itself (from OpenStreetMap) — this is the one page in the app that isn't fully offline; everything else, including the device list and Talk button, works with no internet connection at all.</p>
 <p>A Base Station machine usually has no GPS hardware of its own. Instead, its position on the map is <em>estimated</em> as the average location of every device currently connected to it that has a GPS fix — so it'll only show up once at least one connected device is reporting its location.</p>
-<p><img src="../images/network-map.png" alt="Network map page showing a marker at a real device's GPS location, with OpenStreetMap tile imagery"></p>
+<figure id="fig:1dfa84a71b5347c58963e2349cef7ef2" style="text-align:center">
+<img src="../images/network-map.png" alt="network-map" width="649" height="381">
+<figcaption class="caption">Network map page showing a marker at a real device's GPS location, with OpenStreetMap tile imagery</figcaption>
+</figure>
 
 <h2 id="multiple-base-stations">Multiple Base Stations</h2>
 <p>If you run more than one Base Station on the same LAN, they don't just discover each other — they continuously synchronize their device lists with each other in the background, so a device seen by only one Base Station still shows up correctly on the others within a few seconds. If the two Base Stations ever disagree about a device (e.g. its last-seen time or GPS), whichever one saw it most recently wins.</p>
@@ -43,7 +49,10 @@ numberOverride:
 <p>The <strong>"Mark disconnected after"</strong> setting (180 seconds by default) controls how long a device can go unseen before it's automatically marked Disconnected, even if it never sent a proper disconnect notice — this is what clears out a device that crashed, walked out of range, or was leftover test data, instead of leaving it stuck showing "connected" forever.</p>
 <p>Fixed a related bug where a device's GPS position, name, and app version could get stuck at whatever they were the first time it was discovered, never updating again for the rest of the Base Station's run — even though the device kept sending fresh updates. Both this and the "connected forever" issue above were tracked down after noticing a leftover test entry that wouldn't go away and a phone's map position that never moved.</p>
 <p>Settings does <strong>not</strong> let you rename a device from the browser. Every device — including a Base Station — sets its own name locally; the dashboard only ever displays what a device has told it about itself.</p>
-<p><img src="../images/settings-page.png" alt="Settings page showing port, GPS interval, sync interval, relay threshold, and relay toggle fields"></p>
+<figure id="fig:155b193d3e6446c2bb775b02801e00d0" style="text-align:center">
+<img src="../images/settings-page.png" alt="settings-page" width="649" height="381">
+<figcaption class="caption">Settings page showing port, GPS interval, sync interval, relay threshold, and relay toggle fields</figcaption>
+</figure>
 
 <p>The <strong>Stats</strong> page (<code>/stats</code>) shows usage and traffic for this Base Station: nodes newly seen, private-channel invites/accepts, voice notes and channel clips (counts and bytes), and live group-PTT bytes sent/received by this machine. Ranges: today, week, month, or all time. Peer-to-peer audio that never passes through this Base Station is not included.</p>
 
@@ -61,10 +70,10 @@ numberOverride:
 <li>The device list shows how many voice notes are waiting for each node.</li>
 </ul>
 <p>Voice notes require a reachable Base Station. If none is discovered on the LAN, send fails with a clear error rather than dropping silently.</p>
-
-
-
-
-
+<hr>
 <h2 id="running-more-than-one-instance-for-testing">Running more than one instance (for testing)</h2>
-<p>The desktop app accepts a few flags useful when testing with more than one instance on a single machine: <code>--port</code>, <code>--data-dir</code>, <code>--name</code>, and <code>--no-audio</code> (skip mic/speaker setup, so two instances on one machine don't fight over the same audio hardware). These aren't needed for normal use — on separate machines, just run <code>go run .</code> on each.</p>
+<p>The desktop app accepts a few flags useful when testing with more than one instance on a single machine: 
+<ul><li><code>--port</code></li>
+<li><code>--data-dir</code></li>
+<li><code>--name</code></li>
+<li><code>--no-audio</code> (skip mic/speaker setup, so two instances on one machine don't fight over the same audio hardware)</li></ul> These aren't needed for normal use — on separate machines, just run <code>go run .</code> on each.</p>
