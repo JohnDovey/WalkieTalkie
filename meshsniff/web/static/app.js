@@ -26,12 +26,12 @@
   function shapeFor(kind) {
     switch (kind) {
       case "router": return "diamond";
-      case "subnet": return "box";
+      case "subnet": return "dot";
       case "network": return "ellipse";
-      case "computer": return "box";
+      case "computer": return "dot";
       case "bridge": return "star";
       case "walkie": return "dot";
-      case "host": return "box";
+      case "host": return "dot";
       case "remoteHint": return "dot";
       default: return "dot";
     }
@@ -51,25 +51,41 @@
     }
   }
 
+  function shortName(n) {
+    var s = n.ssid || n.hostname || n.nickname || n.label || n.id || "";
+    s = String(s).replace(/\.local$/i, "");
+    if (s.length > 26) s = s.slice(0, 24) + "…";
+    return s;
+  }
+
+  /** Compact on-graph caption — details live in the hover tooltip / modal. */
   function nodeLabel(n) {
-    var base = n.ssid || n.hostname || n.nickname || n.label || n.id;
-    var lines = [base];
-    if (n.ips && n.ips.length && n.ips[0] !== base) lines.push(n.ips[0]);
-    if (n.ssid && n.channel) {
-      lines.push(n.channel + (n.security ? " · " + n.security : ""));
-    } else if (n.ssid && n.security) {
-      lines.push(n.security);
+    var base = shortName(n);
+    if (n.kind === "router" && n.ssid) return n.ssid;
+    if (n.ips && n.ips.length && n.ips[0] !== base && n.kind !== "subnet") {
+      return base + "\n" + n.ips[0];
     }
-    if (n.services && n.services.length) {
-      var names = n.services.slice(0, 4).map(function (s) {
-        return s.name + (s.port ? ":" + s.port : "");
-      });
-      lines.push(names.join(", "));
-      if (n.services.length > 4) lines.push("+" + (n.services.length - 4) + " more");
-    } else if (n.openPorts && n.openPorts.length) {
-      lines.push("ports " + n.openPorts.slice(0, 6).join(","));
-    }
+    return base;
+  }
+
+  function nodeTooltip(n) {
+    var lines = [];
+    if (n.kind) lines.push(n.kind);
+    if (n.ssid) lines.push("SSID " + n.ssid);
+    if (n.hostname && n.hostname !== n.ssid) lines.push(n.hostname);
+    if (n.ips && n.ips.length) lines.push(n.ips.join(", "));
+    if (n.meshId) lines.push("mesh " + n.meshId);
     if (n.viaRouter) lines.push("via " + n.viaRouter);
+    if (n.services && n.services.length) {
+      lines.push("Services:");
+      n.services.slice(0, 12).forEach(function (s) {
+        lines.push("  " + (s.name || "service") + (s.port ? " :" + s.port : ""));
+      });
+      if (n.services.length > 12) lines.push("  +" + (n.services.length - 12) + " more");
+    } else if (n.openPorts && n.openPorts.length) {
+      lines.push("ports " + n.openPorts.join(", "));
+    }
+    lines.push("(click for full detail)");
     return lines.join("\n");
   }
 
@@ -88,17 +104,22 @@
     (g.nodes || []).forEach(function (n) {
       nodeCache[n.id] = n;
       nodeIds[n.id] = true;
-      var size = n.kind === "router" ? 28 : (n.kind === "computer" || n.kind === "host" ? 22 : 16);
+      var size = n.kind === "router" ? 28 : (n.kind === "computer" || n.kind === "host" ? 18 : 14);
       nodesDS.update({
         id: n.id,
         label: nodeLabel(n),
         shape: shapeFor(n.kind),
         color: colorFor(n.kind),
         size: size,
-        font: { size: n.kind === "computer" || n.kind === "router" ? 12 : 11, multi: true, color: "#e7ecf1" },
-        title: (n.kind || "") + (n.ssid ? "\nSSID " + n.ssid : "") + (n.meshId ? "\nmesh " + n.meshId : "") +
-          (n.viaRouter ? "\nconnected via router " + n.viaRouter : "") +
-          (n.services && n.services.length ? "\n" + n.services.length + " service(s) on this host" : ""),
+        font: {
+          size: 11,
+          multi: true,
+          color: "#c9d4e0",
+          strokeWidth: 3,
+          strokeColor: "#0f1419",
+          face: "IBM Plex Sans",
+        },
+        title: nodeTooltip(n),
         opacity: n.kind === "remoteHint" ? 0.65 : 1,
       });
     });
@@ -113,13 +134,9 @@
       var width = 1;
       var color = "#3a4a5c";
       if (e.kind === "via-router") {
-        label = "LAN";
         width = 2;
         color = "#c9842b";
-      } else if (e.kind === "gateway") {
-        label = "gateway";
       } else if (e.kind === "walkietalkie") {
-        label = "mesh";
         color = "#3dd68c";
       }
       edgesDS.update({
@@ -128,6 +145,7 @@
         to: e.to,
         dashes: !!e.dashed || e.kind === "remote",
         label: label,
+        title: e.kind || "",
         width: width,
         color: { color: color, highlight: "#3d9bfd" },
         font: { size: 9, color: "#8b9aab", strokeWidth: 0 },
@@ -256,6 +274,95 @@
     });
   }
 
+  function serviceLabel(s) {
+    var known = {
+      http: "HTTP",
+      https: "HTTPS",
+      dns: "DNS",
+      ssh: "SSH",
+      smb: "SMB",
+      rdp: "RDP",
+      vnc: "VNC",
+      afp: "AFP",
+      ipp: "IPP",
+      kerberos: "Kerberos",
+      signaling: "Signaling",
+      relay: "SFU relay",
+      "virtbbs web": "VirtBBS Web",
+      "virtbbs telnet": "VirtBBS Telnet",
+      "virtbbs ssh": "VirtBBS SSH",
+      "virtbbs api": "VirtBBS API",
+      "virtbbs binkp": "VirtBBS BinkP",
+      "virtbbs binkp lovly": "VirtBBS BinkP (LovlyNet)",
+      "virtbbs binkp virtnet": "VirtBBS BinkP (VirtNet)",
+    };
+    var name = (s && s.name) ? String(s.name) : "";
+    if (!name && s && s.port) return "Port " + s.port;
+    var key = name.toLowerCase();
+    if (known[key]) return known[key];
+    return humanizeKey(name);
+  }
+
+  function serviceHref(s, ips) {
+    if (s && s.url) return s.url;
+    if (!s || !s.port || !ips || !ips.length) return "";
+    var host = ips[0];
+    var name = (s.name || "").toLowerCase();
+    if (s.port === 80 || name === "http") return "http://" + host + "/";
+    if (s.port === 443 || name === "https") return "https://" + host + "/";
+    if (s.port === 8081 || name.indexOf("virtbbs web") >= 0) return "http://" + host + ":8081/";
+    if (s.port === 8080 || s.port === 8443 || s.port === 9091 || s.port === 9095 || s.port === 9096) {
+      var scheme = s.port === 8443 ? "https" : "http";
+      return scheme + "://" + host + ":" + s.port + "/";
+    }
+    return "";
+  }
+
+  /** Expand services into labeled rows (name → port / link), not pills. */
+  function rowsFromServices(dl, services, ips) {
+    if (!services || !services.length) return;
+    services.forEach(function (s) {
+      if (!s) return;
+      var dt = document.createElement("dt");
+      dt.textContent = serviceLabel(s);
+      var dd = document.createElement("dd");
+      var parts = [];
+      if (s.port) {
+        var portSpan = document.createElement("span");
+        portSpan.className = "svc-port";
+        portSpan.textContent = "port " + s.port;
+        dd.appendChild(portSpan);
+        parts.push(1);
+      }
+      var href = serviceHref(s, ips);
+      if (href) {
+        if (parts.length) dd.appendChild(document.createTextNode(" · "));
+        var a = document.createElement("a");
+        a.href = href;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = href;
+        dd.appendChild(a);
+      }
+      if (!parts.length && !href) {
+        dd.textContent = formatScalar(s.name || "");
+      }
+      dl.appendChild(dt);
+      dl.appendChild(dd);
+    });
+  }
+
+  function portsNotCoveredByServices(ports, services) {
+    if (!ports || !ports.length) return null;
+    if (!services || !services.length) return ports;
+    var covered = {};
+    services.forEach(function (s) {
+      if (s && s.port) covered[s.port] = true;
+    });
+    var left = ports.filter(function (p) { return !covered[p]; });
+    return left.length ? left : null;
+  }
+
   function showModal(n) {
     document.getElementById("m-kind").textContent = n.kind || "node";
     document.getElementById("m-title").textContent = n.ssid || n.hostname || n.nickname || n.label || n.id;
@@ -274,9 +381,13 @@
     row(dl, "Same host as", n.sameHostAs);
     row(dl, "Platform", n.platform);
     row(dl, "App version", n.appVersion);
-    row(dl, "Open ports", n.openPorts);
-    row(dl, "Services on this machine", n.services);
-    row(dl, "URLs", n.urls);
+    rowsFromServices(dl, n.services, n.ips);
+    row(dl, "Other open ports", portsNotCoveredByServices(n.openPorts, n.services));
+    if (isPlainObject(n.urls)) {
+      Object.keys(n.urls).forEach(function (k) {
+        row(dl, humanizeKey(k) + " URL", n.urls[k]);
+      });
+    }
     if (n.gps) {
       row(dl, "Latitude", n.gps.lat);
       row(dl, "Longitude", n.gps.lon);

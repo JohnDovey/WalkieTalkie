@@ -26,8 +26,36 @@ func Default() Settings {
 		StatusPort:      9096,
 		ScanIntervalSec: 20,
 		ScanCIDRs:       nil,
-		Ports:           []int{22, 53, 80, 88, 139, 443, 445, 548, 631, 3389, 5000, 5900, 7000, 8080, 8443, 9091, 9095, 9096},
+		Ports:           append([]int(nil), DefaultDiscoverPorts...),
 	}
+}
+
+// DefaultDiscoverPorts is the TCP connect probe list (not a full 1–65535 sweep).
+// Includes common LAN services plus VirtBBS defaults (telnet/SSH/web/API/BinkP).
+var DefaultDiscoverPorts = []int{
+	22, 53, 80, 88, 139, 443, 445, 548, 631, 2323, 3232, 3389, 5000, 5900, 7000,
+	8080, 8081, 8443, 9091, 9095, 9096, 9998, 24554, 24555,
+}
+
+// DiscoverPorts returns the configured list unioned with built-in well-known ports
+// so new defaults (e.g. VirtBBS) apply even when settings.json already has an older list.
+func DiscoverPorts(configured []int) []int {
+	seen := map[int]bool{}
+	var out []int
+	add := func(p int) {
+		if p <= 0 || p > 65535 || seen[p] {
+			return
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	for _, p := range configured {
+		add(p)
+	}
+	for _, p := range DefaultDiscoverPorts {
+		add(p)
+	}
+	return out
 }
 
 // ScanInterval returns the scan period.

@@ -168,7 +168,7 @@ func (e *Engine) scanOnce(ctx context.Context) {
 	})
 	cancel()
 
-	ports := append([]int(nil), e.Settings.Ports...)
+	ports := config.DiscoverPorts(e.Settings.Ports)
 	hostSet := map[string]bool{}
 	if entries, err := arp.Table(); err == nil {
 		for _, ent := range entries {
@@ -673,16 +673,28 @@ func portName(p int) string {
 		return "afp"
 	case 631:
 		return "ipp"
+	case 2323:
+		return "VirtBBS Telnet"
+	case 3232:
+		return "VirtBBS SSH"
 	case 3389:
 		return "rdp"
 	case 5900:
 		return "vnc"
+	case 8081:
+		return "VirtBBS Web"
 	case 9091:
 		return "WalkieTalkie Base"
 	case 9095:
 		return "MeshBridge"
 	case 9096:
 		return "MeshSniff"
+	case 9998:
+		return "VirtBBS API"
+	case 24554:
+		return "VirtBBS BinkP Lovly"
+	case 24555:
+		return "VirtBBS BinkP VirtNet"
 	default:
 		return fmt.Sprintf("tcp/%d", p)
 	}
