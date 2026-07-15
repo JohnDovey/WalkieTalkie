@@ -29,6 +29,19 @@ func printStartupBanner(info startupInfo) {
 	line("  SERVERS")
 	sep()
 	line(fmt.Sprintf("  Web UI         http://127.0.0.1:%d", info.StatusPort))
+	bind := strings.TrimSpace(info.BindHost)
+	if bind == "" {
+		bind = "0.0.0.0"
+	}
+	if bind != "127.0.0.1" && bind != "localhost" && bind != "::1" {
+		line(fmt.Sprintf("  Bind           %s:%d", bind, info.StatusPort))
+		for _, ip := range info.LANIPs {
+			if ip == "" || ip == "127.0.0.1" {
+				continue
+			}
+			line(fmt.Sprintf("  LAN            http://%s:%d", ip, info.StatusPort))
+		}
+	}
 	sep()
 	line("  SEED")
 	sep()
@@ -70,6 +83,7 @@ func trimBanner(s string, max int) string {
 
 type startupInfo struct {
 	Version         string
+	BindHost        string
 	StatusPort      int
 	LocalBaseURL    string
 	MeshBridgeURL   string
@@ -77,4 +91,5 @@ type startupInfo struct {
 	ScanCIDRs       []string
 	ICMPEnabled     bool
 	DataDir         string
+	LANIPs          []string
 }

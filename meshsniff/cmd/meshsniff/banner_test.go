@@ -17,12 +17,14 @@ func TestPrintStartupBanner(t *testing.T) {
 	os.Stdout = w
 	printStartupBanner(startupInfo{
 		Version:         "0.1.4",
+		BindHost:        "0.0.0.0",
 		StatusPort:      9096,
 		LocalBaseURL:    "http://127.0.0.1:9091",
 		MeshBridgeURL:   "http://127.0.0.1:9095",
 		ScanIntervalSec: 20,
 		ICMPEnabled:     false,
 		DataDir:         "/tmp/meshsniff",
+		LANIPs:          []string{"192.168.0.125"},
 	})
 	_ = w.Close()
 	os.Stdout = old
@@ -36,6 +38,8 @@ func TestPrintStartupBanner(t *testing.T) {
 		"MeshSniff  v0.1.4",
 		"Web UI",
 		"9096",
+		"LAN",
+		"192.168.0.125",
 		"Base Station",
 		"MeshBridge",
 		"ICMP",

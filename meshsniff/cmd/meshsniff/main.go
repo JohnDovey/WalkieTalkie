@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/engine"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/graph"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/icmp"
+	"github.com/JohnDovey/WalkieTalkie/meshsniff/netinfo"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/portmem"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/ver"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/web"
@@ -60,11 +60,12 @@ func main() {
 	mux := http.NewServeMux()
 	h.Register(mux)
 
-	addr := fmt.Sprintf("127.0.0.1:%d", settings.StatusPort)
+	addr := settings.ListenAddr()
 	srv := &http.Server{Addr: addr, Handler: mux}
 
 	printStartupBanner(startupInfo{
 		Version:         ver.Version,
+		BindHost:        settings.BindHost,
 		StatusPort:      settings.StatusPort,
 		LocalBaseURL:    settings.LocalBaseURL,
 		MeshBridgeURL:   settings.MeshBridgeURL,
@@ -72,6 +73,7 @@ func main() {
 		ScanCIDRs:       settings.ScanCIDRs,
 		ICMPEnabled:     icmp.Enabled(),
 		DataDir:         dataDir,
+		LANIPs:          netinfo.ThisMachine().IPs,
 	})
 
 	go func() {

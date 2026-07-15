@@ -3,19 +3,23 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 )
 
 // Settings is MeshSniff persisted configuration.
 type Settings struct {
-	LocalBaseURL   string   `json:"localBaseURL"`
-	MeshBridgeURL  string   `json:"meshBridgeURL"`
-	StatusPort     int      `json:"statusPort"`
-	ScanIntervalSec int     `json:"scanIntervalSeconds"`
-	ScanCIDRs      []string `json:"scanCIDRs"` // empty = auto from ifaces
-	Ports          []int    `json:"ports"`
+	LocalBaseURL    string   `json:"localBaseURL"`
+	MeshBridgeURL   string   `json:"meshBridgeURL"`
+	BindHost        string   `json:"bindHost"` // e.g. "0.0.0.0" (LAN) or "127.0.0.1" (local only)
+	StatusPort      int      `json:"statusPort"`
+	ScanIntervalSec int      `json:"scanIntervalSeconds"`
+	ScanCIDRs       []string `json:"scanCIDRs"` // empty = auto from ifaces
+	Ports           []int    `json:"ports"`
 }
 
 // Default returns out-of-the-box settings.
@@ -23,6 +27,7 @@ func Default() Settings {
 	return Settings{
 		LocalBaseURL:    "http://127.0.0.1:9091",
 		MeshBridgeURL:   "http://127.0.0.1:9095",
+		BindHost:        "0.0.0.0",
 		StatusPort:      9096,
 		ScanIntervalSec: 20,
 		ScanCIDRs:       nil,
@@ -68,6 +73,15 @@ func (s Settings) ScanInterval() time.Duration {
 	return time.Duration(sec) * time.Second
 }
 
+// ListenAddr returns host:port for the web UI HTTP server.
+func (s Settings) ListenAddr() string {
+	host := strings.TrimSpace(s.BindHost)
+	if host == "" {
+		host = "0.0.0.0"
+	}
+	return net.JoinHostPort(host, strconv.Itoa(s.StatusPort))
+}
+
 // Load reads settings or writes defaults.
 func Load(path string) (Settings, error) {
 	raw, err := os.ReadFile(path)
@@ -91,6 +105,9 @@ func Load(path string) (Settings, error) {
 	}
 	if s.MeshBridgeURL == "" {
 		s.MeshBridgeURL = d.MeshBridgeURL
+	}
+	if s.BindHost == "" {
+		s.BindHost = d.BindHost
 	}
 	if s.StatusPort <= 0 {
 		s.StatusPort = d.StatusPort

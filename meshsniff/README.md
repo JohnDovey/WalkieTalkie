@@ -1,15 +1,16 @@
 # MeshSniff
 
-LAN / dual-network discovery map for WalkieTalkie. Version **0.1.13**.
+LAN / dual-network discovery map for WalkieTalkie. Version **0.1.14**.
 
 ## Run
 
 ```sh
 source tools/go-env.sh
 go run ./meshsniff/cmd/meshsniff
-# UI: http://127.0.0.1:9096
+# UI: http://127.0.0.1:9096  (also on LAN IPs; binds 0.0.0.0 by default)
 ```
 
+Set `"bindHost": "127.0.0.1"` in `settings.json` to keep the UI local-only.
 ## Topology
 
 - **Computers** — ARP / TCP / ICMP hosts (desktops, laptops), including **this machine** with hostname.
