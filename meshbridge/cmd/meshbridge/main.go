@@ -11,6 +11,8 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -25,8 +27,6 @@ import (
 func main() {
 	dataDirFlag := flag.String("data-dir", "", "override MeshBridge data directory")
 	flag.Parse()
-
-	fmt.Printf("MeshBridge %s — Base Station bridge (manual / ethernet / Wi-Fi / punch)\n", ver.Version)
 
 	dataDir := *dataDirFlag
 	if dataDir == "" {
@@ -53,6 +53,24 @@ func main() {
 		}
 		_ = mbconfig.Save(cfgPath, settings)
 	}
+
+	printStartupBanner(startupInfo{
+		Version:         ver.Version,
+		BindHost:        settings.BindHost,
+		StatusPort:      settings.StatusPort,
+		NodeID:          settings.NodeID,
+		LocalBaseURL:    settings.LocalBaseURL,
+		SyncIntervalSec: settings.SyncIntervalSec,
+		Manual:          settings.Manual,
+		WiFi:            settings.WiFi,
+		Ethernet:        settings.Ethernet,
+		Punch:           settings.Punch,
+		RunHub:          settings.RunHub,
+		HubListenPort:   settings.HubListenPort,
+		DataDir:         dataDir,
+		ConfigPath:      cfgPath,
+		LANIPs:          localLANIPs(),
+	})
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -132,6 +150,12 @@ func main() {
 		_ = json.NewEncoder(w).Encode(pipe.InventorySnapshot())
 	})
 	mux.HandleFunc("GET /sniff", func(w http.ResponseWriter, r *http.Request) {
+		statusURL := fmt.Sprintf("http://127.0.0.1:%d/", settings.StatusPort)
+		if host := requestHost(r); host != "" && host != "127.0.0.1" && host != "localhost" {
+			statusURL = fmt.Sprintf("http://%s/", net.JoinHostPort(host, strconv.Itoa(settings.StatusPort)))
+		} else if ips := localLANIPs(); len(ips) > 0 {
+			statusURL = fmt.Sprintf("http://%s/", net.JoinHostPort(ips[0], strconv.Itoa(settings.StatusPort)))
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"meshId":     settings.NodeID,
@@ -139,15 +163,15 @@ func main() {
 			"platform":   "meshbridge",
 			"appVersion": ver.Version,
 			"urls": map[string]string{
-				"status": fmt.Sprintf("http://127.0.0.1:%d/", settings.StatusPort),
+				"status": statusURL,
 			},
 			"services": []map[string]any{
-				{"name": "status", "port": settings.StatusPort},
+				{"name": "status", "port": settings.StatusPort, "url": statusURL},
 			},
 		})
 	})
 
-	addr := fmt.Sprintf("127.0.0.1:%d", settings.StatusPort)
+	addr := settings.ListenAddr()
 	srv := &http.Server{Addr: addr, Handler: mux}
 	go func() {
 		log.Printf("meshbridge status http://%s (config %s)", addr, cfgPath)
@@ -160,4 +184,50 @@ func main() {
 	shutdown, c := context.WithTimeout(context.Background(), 3*time.Second)
 	defer c()
 	_ = srv.Shutdown(shutdown)
+}
+
+func localLANIPs() []string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil
+	}
+	var out []string
+	seen := map[string]bool{}
+	for _, ifi := range ifaces {
+		if ifi.Flags&net.FlagUp == 0 || ifi.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := ifi.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, a := range addrs {
+			ipNet, ok := a.(*net.IPNet)
+			if !ok {
+				continue
+			}
+			v4 := ipNet.IP.To4()
+			if v4 == nil || v4.IsLoopback() || !v4.IsPrivate() {
+				continue
+			}
+			s := v4.String()
+			if seen[s] {
+				continue
+			}
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func requestHost(r *http.Request) string {
+	h := r.Host
+	if h == "" {
+		return ""
+	}
+	if host, _, err := net.SplitHostPort(h); err == nil {
+		return host
+	}
+	return strings.Trim(h, "[]")
 }

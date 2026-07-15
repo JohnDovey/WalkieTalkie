@@ -44,6 +44,10 @@ type Device struct {
 	// Best-effort hardware addresses for MeshSniff correlation (may be empty).
 	MacAddresses []string `json:"macAddresses,omitempty"`
 
+	// LastLANIP is the most recent private IPv4 seen as HTTP RemoteAddr
+	// (MeshSniff places the device under the Wi‑Fi AP). Empty when unknown.
+	LastLANIP string `json:"lastLanIp,omitempty"`
+
 	ProtocolVersion int `json:"protocolVersion"`
 
 	// directSeen is true once the server has heard from this device itself

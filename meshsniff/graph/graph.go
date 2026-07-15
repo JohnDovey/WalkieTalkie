@@ -121,6 +121,8 @@ func (s *Store) SetStatus(st Status) {
 }
 
 // Upsert merges n into the graph by MeshID, MAC, then ID.
+// When a host:<ip> upsert matches an existing walkie/device by MAC or MeshID,
+// the identity node is relocated onto host:<ip> so via-router can attach.
 func (s *Store) Upsert(n Node) string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -128,13 +130,35 @@ func (s *Store) Upsert(n Node) string {
 	if n.LastSeen.IsZero() {
 		n.LastSeen = now
 	}
-	id := s.findMergeIDLocked(n)
+	id, relocateFrom := s.findMergeIDLocked(n)
 	if id == "" {
 		id = n.ID
 	}
 	if id == "" {
 		return ""
 	}
+
+	if relocateFrom != "" && relocateFrom != id {
+		if existing, ok := s.nodes[relocateFrom]; ok {
+			if hostNode, ok := s.nodes[id]; ok {
+				mergeNode(hostNode, *existing)
+				mergeNode(hostNode, n)
+				s.relinkLocked(relocateFrom, id)
+				delete(s.nodes, relocateFrom)
+				s.seq++
+				return id
+			}
+			cp := *existing
+			cp.ID = id
+			mergeNode(&cp, n)
+			s.nodes[id] = &cp
+			s.relinkLocked(relocateFrom, id)
+			delete(s.nodes, relocateFrom)
+			s.seq++
+			return id
+		}
+	}
+
 	existing, ok := s.nodes[id]
 	if !ok {
 		cp := n
@@ -148,57 +172,117 @@ func (s *Store) Upsert(n Node) string {
 	return id
 }
 
-func (s *Store) findMergeIDLocked(n Node) string {
-	// Prefer a stable host:<ip> machine node when any IP matches.
+// findMergeIDLocked returns the canonical node id and, when non-empty,
+// relocateFrom — an existing node that should move onto that canonical id
+// (typically host:<ip> replacing dest:dev:<meshId>).
+func (s *Store) findMergeIDLocked(n Node) (canonical string, relocateFrom string) {
+	var hostCanon string
 	for _, ip := range n.IPs {
 		if ip == "" {
 			continue
 		}
 		canon := "host:" + ip
 		if _, ok := s.nodes[canon]; ok {
-			return canon
+			hostCanon = canon
+			break
 		}
-		if strings.HasPrefix(n.ID, "host:") {
-			return n.ID
+		if hostCanon == "" {
+			hostCanon = canon
 		}
 	}
+
+	identityID := ""
 	if n.MeshID != "" {
 		for id, ex := range s.nodes {
 			if ex.MeshID == n.MeshID {
-				return id
+				identityID = id
+				break
 			}
 		}
 	}
-	for _, mac := range n.MACs {
-		if mac == "" {
-			continue
-		}
-		for id, ex := range s.nodes {
-			for _, em := range ex.MACs {
-				if em == mac {
-					return preferredHostID(id, n.ID, ex, n)
+	if identityID == "" {
+		for _, mac := range n.MACs {
+			mac = strings.ToLower(strings.TrimSpace(mac))
+			if mac == "" {
+				continue
+			}
+			found := false
+			for id, ex := range s.nodes {
+				for _, em := range ex.MACs {
+					if strings.ToLower(em) == mac {
+						identityID = id
+						found = true
+						break
+					}
 				}
+				if found {
+					break
+				}
+			}
+			if found {
+				break
 			}
 		}
 	}
-	for _, ip := range n.IPs {
-		if ip == "" {
-			continue
-		}
-		for id, ex := range s.nodes {
-			for _, ei := range ex.IPs {
-				if ei == ip {
-					return preferredHostID(id, n.ID, ex, n)
+	if identityID == "" {
+		for _, ip := range n.IPs {
+			if ip == "" {
+				continue
+			}
+			found := false
+			for id, ex := range s.nodes {
+				for _, ei := range ex.IPs {
+					if ei == ip {
+						identityID = id
+						found = true
+						break
+					}
+				}
+				if found {
+					break
 				}
 			}
+			if found {
+				break
+			}
 		}
+	}
+
+	// Prefer an existing host:<ip> slot.
+	if hostCanon != "" {
+		if _, ok := s.nodes[hostCanon]; ok {
+			if identityID != "" && identityID != hostCanon {
+				return hostCanon, identityID
+			}
+			return hostCanon, ""
+		}
+	}
+
+	// New host:<ip> matching an existing walkie/device → relocate onto host.
+	if hostCanon != "" && (strings.HasPrefix(n.ID, "host:") || len(n.IPs) > 0) {
+		if identityID != "" && identityID != hostCanon && !strings.HasPrefix(identityID, "host:") {
+			return hostCanon, identityID
+		}
+		if identityID != "" && strings.HasPrefix(identityID, "host:") {
+			return preferredHostID(identityID, n.ID, s.nodes[identityID], n), ""
+		}
+		if strings.HasPrefix(n.ID, "host:") {
+			return hostCanon, ""
+		}
+	}
+
+	if identityID != "" {
+		return preferredHostID(identityID, n.ID, s.nodes[identityID], n), ""
 	}
 	if n.ID != "" {
 		if _, ok := s.nodes[n.ID]; ok {
-			return n.ID
+			return n.ID, ""
 		}
 	}
-	return n.ID
+	if hostCanon != "" && strings.HasPrefix(n.ID, "host:") {
+		return hostCanon, ""
+	}
+	return n.ID, ""
 }
 
 func preferredHostID(existingID, incomingID string, existing *Node, incoming Node) string {
@@ -208,7 +292,7 @@ func preferredHostID(existingID, incomingID string, existing *Node, incoming Nod
 	if strings.HasPrefix(incomingID, "host:") {
 		return incomingID
 	}
-	if existing.Kind == KindComputer || existing.Kind == KindHost || existing.Kind == KindRouter {
+	if existing != nil && (existing.Kind == KindComputer || existing.Kind == KindHost || existing.Kind == KindRouter) {
 		return existingID
 	}
 	if incoming.Kind == KindComputer || incoming.Kind == KindHost || incoming.Kind == KindRouter {
@@ -416,6 +500,11 @@ func (s *Store) Relink(oldID, newID string) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.relinkLocked(oldID, newID)
+	s.seq++
+}
+
+func (s *Store) relinkLocked(oldID, newID string) {
 	for eid, e := range s.edges {
 		changed := false
 		if e.From == oldID {
@@ -433,7 +522,6 @@ func (s *Store) Relink(oldID, newID string) {
 			s.edges[nid] = e
 		}
 	}
-	s.seq++
 }
 
 func mergeServices(a, b []Service) []Service {

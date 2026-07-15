@@ -5,8 +5,10 @@ package api
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/JohnDovey/WalkieTalkie/core/config"
@@ -183,6 +185,9 @@ func (h *Handlers) announce(w http.ResponseWriter, r *http.Request) {
 	if len(payload.MacAddresses) > 0 {
 		_ = h.Store.SetMacAddresses(payload.ID, payload.MacAddresses, time.Now())
 	}
+	if ip := clientLANIP(r); ip != "" {
+		_ = h.Store.SetLastLANIP(payload.ID, ip, time.Now())
+	}
 	if h.OnDeviceSeen != nil {
 		h.OnDeviceSeen(created)
 	}
@@ -200,10 +205,30 @@ func (h *Handlers) updateLocation(w http.ResponseWriter, r *http.Request) {
 		serverError(w, err)
 		return
 	}
+	if ip := clientLANIP(r); ip != "" {
+		_ = h.Store.SetLastLANIP(id, ip, time.Now())
+	}
 	if h.OnLocationUpdated != nil {
 		h.OnLocationUpdated(id)
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// clientLANIP returns the HTTP client's host if it looks like a non-loopback IPv4.
+func clientLANIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = strings.Trim(r.RemoteAddr, "[]")
+	}
+	ip := net.ParseIP(host)
+	if ip == nil || ip.IsLoopback() || ip.IsUnspecified() {
+		return ""
+	}
+	v4 := ip.To4()
+	if v4 == nil {
+		return ""
+	}
+	return v4.String()
 }
 
 func (h *Handlers) updateName(w http.ResponseWriter, r *http.Request) {

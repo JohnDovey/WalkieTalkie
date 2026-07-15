@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -53,13 +54,14 @@ func checksum(b []byte) uint16 {
 	return ^uint16(sum)
 }
 
-// Sweep pings hosts; skips when not elevated.
+// Sweep pings hosts; skips when not elevated. When elevated, max is ignored
+// (use 0 for full list). When not root, returns nil.
 func Sweep(hosts []string, timeout time.Duration, max int) []string {
 	if !Enabled() {
 		return nil
 	}
 	if max <= 0 {
-		max = 64
+		return SweepAll(hosts, timeout, 64)
 	}
 	var alive []string
 	for i, h := range hosts {
@@ -68,6 +70,50 @@ func Sweep(hosts []string, timeout time.Duration, max int) []string {
 		}
 		if Ping(h, timeout) {
 			alive = append(alive, h)
+		}
+	}
+	return alive
+}
+
+// SweepAll pings every host with a worker pool. No-op when not root.
+func SweepAll(hosts []string, timeout time.Duration, workers int) []string {
+	if !Enabled() || len(hosts) == 0 {
+		return nil
+	}
+	if workers <= 0 {
+		workers = 32
+	}
+	if timeout <= 0 {
+		timeout = 150 * time.Millisecond
+	}
+	type result struct {
+		ip    string
+		alive bool
+	}
+	jobs := make(chan string, len(hosts))
+	for _, h := range hosts {
+		jobs <- h
+	}
+	close(jobs)
+	results := make(chan result, len(hosts))
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ip := range jobs {
+				results <- result{ip: ip, alive: Ping(ip, timeout)}
+			}
+		}()
+	}
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+	var alive []string
+	for r := range results {
+		if r.alive {
+			alive = append(alive, r.ip)
 		}
 	}
 	return alive

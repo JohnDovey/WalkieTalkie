@@ -15,7 +15,7 @@ Build priority is Android first, then desktop, then iPhone, then wearables last 
 - **Phase 5 (wearables)**: 🟡 software complete — Wear OS `0.2.0` + watchOS WatchConnectivity relay; hardware verify pending. See `docs/2026-07-14-phase5-wearables.md`.
 - **Phase 6 (private live Talk)**: ✅ software complete — live unicast (mesh/SFU), named Hub rooms, room-scoped channel Talk, Hub→direct Talk/note bridges, multi-Base voice sync, P2P notes + Base mirror. See `docs/2026-07-14-phase6-private-live-talk.md`.
 
-**Current release track:** server `1.9.0`, android `1.7.0`, wear `0.2.0`, ios `0.9.0`. Companions on `main`: MeshBridge `0.1.2`, MeshSniff `0.1.14`.
+**Current release track:** server `1.9.1`, android `1.7.0`, wear `0.2.0`, ios `0.9.0`. Companions on `main`: MeshBridge `0.1.4`, MeshSniff `0.1.16`.
 
 ## Repo layout
 

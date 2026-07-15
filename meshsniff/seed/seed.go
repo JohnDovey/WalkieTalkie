@@ -113,7 +113,9 @@ func ApplyRemoteDevices(g *graph.Store, remotes []registry.RemoteDevice) {
 		d := rd.Device
 		n := deviceToWalkieNode(&d, "walkietalkie-remote")
 		n.Kind = graph.KindRemoteHint
-		n.ID = "remote:" + d.ID
+		if d.LastLANIP == "" {
+			n.ID = "remote:" + d.ID
+		}
 		n.RemoteBaseID = rd.RemoteBaseID
 		n.RemoteBaseName = rd.RemoteBaseName
 		n.DiscoveryMethods = []string{"walkietalkie", "remote-users"}

@@ -15,3 +15,4 @@ Plans, design docs, and other project documentation live here. Keep filenames de
 | [2026-07-14-meshsniff-plan.md](2026-07-14-meshsniff-plan.md) | MeshSniff: WalkieTalkie-first LAN map, MAC↔meshId (`0.1.1`) |
 | [2026-07-15-virtbbs-meshsniff-probe.md](2026-07-15-virtbbs-meshsniff-probe.md) | VirtBBS GET /sniff + MeshSniff enrich |
 | [2026-07-15-quakemesh-meshsniff-probe.md](2026-07-15-quakemesh-meshsniff-probe.md) | QuakeMesh Hub/Monitor GET /sniff + MeshSniff enrich |
+| [2026-07-15-phone-ap-placement.md](2026-07-15-phone-ap-placement.md) | Phones under Wi‑Fi AP + MeshBridge LAN bind |

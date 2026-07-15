@@ -3,7 +3,9 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -250,6 +252,35 @@ func (s *Store) SetMacAddresses(id string, macs []string, now time.Time) error {
 			d = &Device{ID: id, ProtocolVersion: proto.Version}
 		}
 		d.MacAddresses = macs
+		d.LastSeen = now
+		return s.put(tx, d)
+	})
+}
+
+// SetLastLANIP stores a private LAN IPv4 observed as the device's HTTP client
+// address (for MeshSniff via-router placement). Loopback / empty are ignored.
+func (s *Store) SetLastLANIP(id, ip string, now time.Time) error {
+	ip = strings.TrimSpace(ip)
+	if id == "" || ip == "" || ip == "127.0.0.1" || ip == "::1" {
+		return nil
+	}
+	parsed := net.ParseIP(ip)
+	if parsed == nil || parsed.IsLoopback() || parsed.IsUnspecified() {
+		return nil
+	}
+	v4 := parsed.To4()
+	if v4 == nil {
+		return nil
+	}
+	ip = v4.String()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		d, ok := s.get(tx, id)
+		if !ok {
+			d = &Device{ID: id, ProtocolVersion: proto.Version}
+		}
+		d.LastLANIP = ip
 		d.LastSeen = now
 		return s.put(tx, d)
 	})

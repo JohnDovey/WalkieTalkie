@@ -3,8 +3,11 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -55,6 +58,7 @@ type PunchBridge struct {
 type Settings struct {
 	LocalBaseURL    string           `json:"localBaseURL"`
 	SyncIntervalSec int              `json:"syncIntervalSeconds"`
+	BindHost        string           `json:"bindHost"` // e.g. "0.0.0.0" (LAN) or "127.0.0.1" (local only)
 	StatusPort      int              `json:"statusPort"`
 	NodeID          string           `json:"nodeId,omitempty"`
 	Manual          []ManualBridge   `json:"manual"`
@@ -70,6 +74,7 @@ func Default() Settings {
 	return Settings{
 		LocalBaseURL:    "http://127.0.0.1:9091",
 		SyncIntervalSec: 30,
+		BindHost:        "0.0.0.0",
 		StatusPort:      9095,
 		HubListenPort:   29191,
 		Manual:          []ManualBridge{},
@@ -86,6 +91,15 @@ func (s Settings) SyncInterval() time.Duration {
 		sec = 30
 	}
 	return time.Duration(sec) * time.Second
+}
+
+// ListenAddr returns host:port for the status HTTP server.
+func (s Settings) ListenAddr() string {
+	host := strings.TrimSpace(s.BindHost)
+	if host == "" {
+		host = "0.0.0.0"
+	}
+	return net.JoinHostPort(host, strconv.Itoa(s.StatusPort))
 }
 
 // Load reads settings from path, or writes defaults if missing.
@@ -111,6 +125,9 @@ func Load(path string) (Settings, error) {
 	}
 	if s.SyncIntervalSec <= 0 {
 		s.SyncIntervalSec = d.SyncIntervalSec
+	}
+	if s.BindHost == "" {
+		s.BindHost = d.BindHost
 	}
 	if s.StatusPort <= 0 {
 		s.StatusPort = d.StatusPort

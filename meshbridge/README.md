@@ -4,7 +4,7 @@ Companion process for WalkieTalkie. Runs **next to** a Base Station and syncs re
 
 **Does not** bridge live Talk (group PTT or private live Opus). Clients stay on their local LAN.
 
-Version: see [`VERSION`](VERSION) (currently **0.1.1**).
+Version: see [`VERSION`](VERSION) (currently **0.1.4**).
 
 ## Run
 
@@ -14,7 +14,8 @@ source tools/go-env.sh
 go run ./meshbridge/cmd/meshbridge
 ```
 
-- Status UI / API: `http://127.0.0.1:9095` (configurable)
+- Status UI / API: `http://127.0.0.1:9095` and LAN IPs (binds `0.0.0.0` by default)
+- Set `"bindHost": "127.0.0.1"` in `settings.json` to keep the UI local-only
 - Config: OS user config dir → `WalkieTalkie/meshbridge/settings.json`
   - macOS: `~/Library/Application Support/WalkieTalkie/meshbridge/settings.json`
   - Linux: `~/.config/WalkieTalkie/meshbridge/settings.json`

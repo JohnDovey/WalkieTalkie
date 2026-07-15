@@ -176,7 +176,9 @@ func ApplyWalkieTalkie(g *graph.Store, baseURL string) WalkieSeedResult {
 			d := rd.Device
 			node := deviceToWalkieNode(&d, "walkietalkie-remote")
 			node.Kind = graph.KindRemoteHint
-			node.ID = "remote:" + d.ID
+			if d.LastLANIP == "" {
+				node.ID = "remote:" + d.ID
+			}
 			node.RemoteBaseID = rd.RemoteBaseID
 			node.RemoteBaseName = rd.RemoteBaseName
 			node.DiscoveryMethods = []string{"walkietalkie", "remote-users"}
@@ -203,6 +205,11 @@ func deviceToWalkieNode(d *registry.Device, method string) graph.Node {
 			"seededFrom": "walkietalkie",
 			"status":     string(d.Status),
 		},
+	}
+	if d.LastLANIP != "" {
+		n.IPs = []string{d.LastLANIP}
+		n.ID = "host:" + d.LastLANIP
+		n.DiscoveryMethods = append(n.DiscoveryMethods, "last-lan-ip")
 	}
 	loc := d.CurrentLocation
 	if loc == nil {

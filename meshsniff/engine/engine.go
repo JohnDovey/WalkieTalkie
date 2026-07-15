@@ -148,7 +148,21 @@ func (e *Engine) scanOnce(ctx context.Context) {
 
 	e.addThisComputer()
 
-	if entries, err := arp.Table(); err == nil {
+	var entries []arp.Entry
+	var icmpAlive []string
+	if icmp.Enabled() {
+		for _, cidr := range cidrs {
+			hosts, err := netinfo.HostsInCIDR(cidr)
+			if err != nil {
+				continue
+			}
+			icmpAlive = append(icmpAlive, icmp.SweepAll(hosts, 150*time.Millisecond, 48)...)
+		}
+	}
+	if t, err := arp.Table(); err == nil {
+		entries = t
+	}
+	if len(entries) > 0 {
 		for _, ent := range entries {
 			kind := graph.KindComputer
 			hn := reverseDNS(ent.IP)
@@ -163,6 +177,7 @@ func (e *Engine) scanOnce(ctx context.Context) {
 				e.Graph.Link("subnet:"+subnet, id, "lan", false)
 			}
 		}
+		e.correlateARPWalkies(entries, subs)
 	}
 
 	mdnsCtx, cancel := context.WithTimeout(ctx, 6*time.Second)
@@ -177,14 +192,12 @@ func (e *Engine) scanOnce(ctx context.Context) {
 	hostSet := map[string]bool{}
 	// Hosts we already have evidence for (do not invent quiet last-N/.255 nodes).
 	evidenced := map[string]bool{}
-	if entries, err := arp.Table(); err == nil {
-		for _, ent := range entries {
-			if isUnusableLANAddress(ent.IP, subs) {
-				continue
-			}
-			hostSet[ent.IP] = true
-			evidenced[ent.IP] = true
+	for _, ent := range entries {
+		if isUnusableLANAddress(ent.IP, subs) {
+			continue
 		}
+		hostSet[ent.IP] = true
+		evidenced[ent.IP] = true
 	}
 	for _, ip := range netinfo.ThisMachine().IPs {
 		hostSet[ip] = true
@@ -200,22 +213,14 @@ func (e *Engine) scanOnce(ctx context.Context) {
 			evidenced[h] = true
 		}
 	}
-	for _, cidr := range cidrs {
-		hosts, err := netinfo.HostsInCIDR(cidr)
-		if err != nil {
+	for _, h := range icmpAlive {
+		if isUnusableLANAddress(h, subs) {
 			continue
 		}
-		// Only add hosts that answer ICMP — do not invent nodes for first/last
-		// addresses that never respond.
-		for _, h := range icmp.Sweep(hosts, 200*time.Millisecond, 64) {
-			if isUnusableLANAddress(h, subs) {
-				continue
-			}
-			hostSet[h] = true
-			evidenced[h] = true
-			subnet := matchSubnet(h, subs)
-			e.upsertMachine(h, "", graph.KindComputer, labelForIP(h), subnet, reverseDNS(h), []string{"icmp"})
-		}
+		hostSet[h] = true
+		evidenced[h] = true
+		subnet := matchSubnet(h, subs)
+		e.upsertMachine(h, "", graph.KindComputer, labelForIP(h), subnet, reverseDNS(h), []string{"icmp"})
 	}
 
 	var wg sync.WaitGroup
@@ -561,6 +566,58 @@ func (e *Engine) upsertMachine(ip, mac string, kind graph.Kind, label, subnet, h
 	return e.Graph.Upsert(n)
 }
 
+// correlateARPWalkies attaches LAN IPs to seeded walkie/phone nodes that have
+// MACs but no IPs yet, using the ARP cache (relocates onto host:<ip>).
+func (e *Engine) correlateARPWalkies(entries []arp.Entry, subs []netinfo.Subnet) {
+	byMAC := map[string]string{}
+	for _, ent := range entries {
+		mac := strings.ToLower(strings.TrimSpace(ent.MAC))
+		if mac == "" || ent.IP == "" {
+			continue
+		}
+		byMAC[mac] = ent.IP
+	}
+	for _, n := range e.Graph.Nodes() {
+		if n.Kind != graph.KindWalkie && n.Kind != graph.KindBridge {
+			continue
+		}
+		if len(n.IPs) > 0 {
+			continue
+		}
+		var ip string
+		for _, mac := range n.MACs {
+			mac = strings.ToLower(strings.TrimSpace(mac))
+			if mac == "" {
+				continue
+			}
+			if hit, ok := byMAC[mac]; ok {
+				ip = hit
+				break
+			}
+		}
+		if ip == "" {
+			continue
+		}
+		subnet := matchSubnet(ip, subs)
+		id := e.Graph.Upsert(graph.Node{
+			ID:               "host:" + ip,
+			Kind:             n.Kind,
+			Label:            n.Label,
+			Nickname:         n.Nickname,
+			MeshID:           n.MeshID,
+			Platform:         n.Platform,
+			AppVersion:       n.AppVersion,
+			IPs:              []string{ip},
+			MACs:             n.MACs,
+			Subnet:           subnet,
+			DiscoveryMethods: []string{"arp", "mac-correlate"},
+		})
+		if subnet != "" {
+			e.Graph.Link("subnet:"+subnet, id, "lan", false)
+		}
+	}
+}
+
 func (e *Engine) applyWalkiePeer(ip string, p mdns.Peer) {
 	ports := []int{}
 	services := []graph.Service{}
@@ -783,7 +840,7 @@ func (e *Engine) coalesceSameIP() {
 
 func (e *Engine) linkViaRouters(subs []netinfo.Subnet, gatewayBySubnet, routerIDs map[string]string) {
 	for _, n := range e.Graph.Nodes() {
-		if n.Kind == graph.KindNetwork || n.Kind == graph.KindSubnet || n.Kind == graph.KindRemoteHint {
+		if n.Kind == graph.KindNetwork || n.Kind == graph.KindSubnet {
 			continue
 		}
 		for _, ip := range n.IPs {
