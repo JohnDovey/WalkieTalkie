@@ -50,10 +50,16 @@
       margin: 0; padding: 0.35rem 0.5rem; background: #141b24; border-radius: 4px;
       border: 1px solid var(--border); font-size: 0.85rem;
     }
+    .modal .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
     .modal button {
       background: var(--accent); color: #041018; border: 0; border-radius: 4px;
       padding: 0.4rem 0.9rem; font-weight: 600; cursor: pointer;
     }
+    .modal button.secondary {
+      background: #243041; color: var(--text); border: 1px solid var(--border);
+    }
+    .modal button:disabled { opacity: 0.55; cursor: default; }
+    .modal #m-scan-status { font-size: 0.8rem; color: var(--muted); flex: 1; min-width: 12rem; align-self: center; }
     .pill { display: inline-block; padding: 0.1rem 0.45rem; border-radius: 999px; background: #243041; font-size: 0.72rem; margin: 0.1rem; }
   </style>
 </head>
@@ -68,7 +74,12 @@
       <div class="kind" id="m-kind"></div>
       <h2 id="m-title"></h2>
       <dl id="m-body"></dl>
-      <button type="button" id="m-close">Close</button>
+      <div class="actions">
+        <button type="button" id="m-scan" class="secondary" hidden>Full port scan</button>
+        <button type="button" id="m-scan-cancel" class="secondary" hidden>Cancel scan</button>
+        <span id="m-scan-status"></span>
+        <button type="button" id="m-close">Close</button>
+      </div>
     </div>
   </div>
   <script src="/static/vendor/vis-network.min.js"></script>

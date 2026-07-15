@@ -46,7 +46,7 @@ func main() {
 	eng := &engine.Engine{Settings: settings, Graph: g}
 	go eng.Run(ctx)
 
-	h := &web.Handlers{Graph: g}
+	h := &web.Handlers{Graph: g, Engine: eng}
 	mux := http.NewServeMux()
 	h.Register(mux)
 

@@ -154,6 +154,10 @@
     edgesDS.getIds().forEach(function (id) {
       if (!edgeIds[id]) edgesDS.remove(id);
     });
+    if (modalNodeId && document.getElementById("backdrop").classList.contains("open")) {
+      var cur = nodeCache[modalNodeId];
+      if (cur) showModal(cur);
+    }
   }
 
   function humanizeKey(k) {
@@ -177,6 +181,7 @@
       software: "Software",
       bbsName: "BBS name",
       discoveryMethods: "VirtBBS probes",
+      fullScan: "Full port scan",
       lat: "Latitude",
       lon: "Longitude",
       accuracy: "Accuracy (m)",
@@ -283,6 +288,7 @@
   function rowsFromDetail(dl, detail) {
     if (!isPlainObject(detail)) return;
     Object.keys(detail).sort().forEach(function (k) {
+      if (k === "fullScan") return; // shown in scan status strip
       row(dl, humanizeKey(k), detail[k]);
     });
   }
@@ -376,7 +382,58 @@
     return left.length ? left : null;
   }
 
+  var modalNodeId = null;
+
+  function scanableHost(n) {
+    if (!n) return "";
+    if (n.ips && n.ips.length) {
+      for (var i = 0; i < n.ips.length; i++) {
+        if (/^\d+\.\d+\.\d+\.\d+$/.test(n.ips[i]) && n.ips[i] !== "127.0.0.1") return n.ips[i];
+      }
+      for (var j = 0; j < n.ips.length; j++) {
+        if (/^\d+\.\d+\.\d+\.\d+$/.test(n.ips[j])) return n.ips[j];
+      }
+    }
+    if (n.id && n.id.indexOf("host:") === 0) {
+      var h = n.id.slice(5);
+      if (/^\d+\.\d+\.\d+\.\d+$/.test(h)) return h;
+    }
+    return "";
+  }
+
+  function formatFullScan(fs) {
+    if (!fs || typeof fs !== "object") return "";
+    var pct = fs.total ? Math.floor((100 * (fs.checked || 0)) / fs.total) : 0;
+    var s = (fs.status || "?") + " · " + (fs.checked || 0) + "/" + (fs.total || 65535) +
+      " (" + pct + "%) · " + (fs.open || 0) + " open";
+    if (fs.lastOpen) s += " · last " + fs.lastOpen;
+    if (fs.error) s += " · " + fs.error;
+    return s;
+  }
+
+  function updateScanControls(n) {
+    var host = scanableHost(n);
+    var scanBtn = document.getElementById("m-scan");
+    var cancelBtn = document.getElementById("m-scan-cancel");
+    var statusEl = document.getElementById("m-scan-status");
+    var fs = n && n.detail && n.detail.fullScan;
+    if (!host) {
+      scanBtn.hidden = true;
+      cancelBtn.hidden = true;
+      statusEl.textContent = "";
+      return;
+    }
+    scanBtn.hidden = false;
+    scanBtn.dataset.host = host;
+    cancelBtn.dataset.host = host;
+    var running = fs && fs.status === "running";
+    scanBtn.disabled = !!running;
+    cancelBtn.hidden = !running;
+    statusEl.textContent = fs ? formatFullScan(fs) : "TCP ports 1–65535";
+  }
+
   function showModal(n) {
+    modalNodeId = n.id;
     document.getElementById("m-kind").textContent = n.kind || "node";
     document.getElementById("m-title").textContent = n.ssid || n.hostname || n.nickname || n.label || n.id;
     const dl = document.getElementById("m-body");
@@ -412,14 +469,60 @@
     row(dl, "Discovery", n.discoveryMethods);
     row(dl, "Last seen", n.lastSeen);
     rowsFromDetail(dl, n.detail);
+    updateScanControls(n);
     document.getElementById("backdrop").classList.add("open");
   }
 
   document.getElementById("m-close").onclick = function () {
     document.getElementById("backdrop").classList.remove("open");
+    modalNodeId = null;
   };
   document.getElementById("backdrop").onclick = function (ev) {
-    if (ev.target.id === "backdrop") document.getElementById("backdrop").classList.remove("open");
+    if (ev.target.id === "backdrop") {
+      document.getElementById("backdrop").classList.remove("open");
+      modalNodeId = null;
+    }
+  };
+
+  document.getElementById("m-scan").onclick = function () {
+    var host = this.dataset.host;
+    if (!host) return;
+    var statusEl = document.getElementById("m-scan-status");
+    statusEl.textContent = "Starting full scan of " + host + "…";
+    this.disabled = true;
+    fetch("/api/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ host: host }),
+    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (res.j && res.j.scan) {
+          statusEl.textContent = formatFullScan({
+            status: res.j.scan.status,
+            checked: res.j.scan.checked,
+            total: res.j.scan.total,
+            open: res.j.scan.openFound,
+          }) + (res.j.alreadyRunning ? " (already running)" : "");
+        } else if (res.j && res.j.error) {
+          statusEl.textContent = res.j.error;
+        }
+        document.getElementById("m-scan-cancel").hidden = false;
+      })
+      .catch(function (e) {
+        statusEl.textContent = "scan error: " + e;
+        document.getElementById("m-scan").disabled = false;
+      });
+  };
+
+  document.getElementById("m-scan-cancel").onclick = function () {
+    var host = this.dataset.host;
+    if (!host) return;
+    fetch("/api/scan?host=" + encodeURIComponent(host), { method: "DELETE" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        document.getElementById("m-scan-status").textContent =
+          j.cancelled ? "Cancel requested…" : "No running scan";
+      });
   };
 
   network.on("click", function (params) {
