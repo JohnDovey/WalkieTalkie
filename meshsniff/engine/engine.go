@@ -128,6 +128,8 @@ func (e *Engine) scanOnce(ctx context.Context) {
 			DiscoveryMethods: []string{"netinfo"},
 			Detail:           map[string]any{"iface": s.Iface},
 		})
+		// Interface "network:" nodes are only useful when they are not going to
+		// duplicate a Wi‑Fi SSID already shown on the gateway/AP diamond.
 		netID := "network:" + s.Iface
 		e.Graph.Upsert(graph.Node{
 			ID:               netID,
@@ -173,18 +175,29 @@ func (e *Engine) scanOnce(ctx context.Context) {
 
 	ports := config.DiscoverPorts(e.Settings.Ports)
 	hostSet := map[string]bool{}
+	// Hosts we already have evidence for (do not invent quiet last-N/.255 nodes).
+	evidenced := map[string]bool{}
 	if entries, err := arp.Table(); err == nil {
 		for _, ent := range entries {
+			if isUnusableLANAddress(ent.IP, subs) {
+				continue
+			}
 			hostSet[ent.IP] = true
+			evidenced[ent.IP] = true
 		}
 	}
 	for _, ip := range netinfo.ThisMachine().IPs {
 		hostSet[ip] = true
+		evidenced[ip] = true
 	}
 	// Revisit hosts we previously found open ports on (even if not in ARP right now).
 	if e.Ports != nil {
 		for _, h := range e.Ports.Hosts() {
+			if isUnusableLANAddress(h, subs) {
+				continue
+			}
 			hostSet[h] = true
+			evidenced[h] = true
 		}
 	}
 	for _, cidr := range cidrs {
@@ -192,13 +205,14 @@ func (e *Engine) scanOnce(ctx context.Context) {
 		if err != nil {
 			continue
 		}
-		for i, h := range hosts {
-			if i < 5 || i >= len(hosts)-3 || strings.HasSuffix(h, ".1") {
-				hostSet[h] = true
-			}
-		}
+		// Only add hosts that answer ICMP — do not invent nodes for first/last
+		// addresses that never respond.
 		for _, h := range icmp.Sweep(hosts, 200*time.Millisecond, 64) {
+			if isUnusableLANAddress(h, subs) {
+				continue
+			}
 			hostSet[h] = true
+			evidenced[h] = true
 			subnet := matchSubnet(h, subs)
 			e.upsertMachine(h, "", graph.KindComputer, labelForIP(h), subnet, reverseDNS(h), []string{"icmp"})
 		}
@@ -210,6 +224,9 @@ func (e *Engine) scanOnce(ctx context.Context) {
 		host := host
 		if ctx.Err() != nil {
 			break
+		}
+		if isUnusableLANAddress(host, subs) {
+			continue
 		}
 		wg.Add(1)
 		go func() {
@@ -226,6 +243,10 @@ func (e *Engine) scanOnce(ctx context.Context) {
 					e.Ports.Remember(host, open)
 				}
 				e.Ports.PruneClosed(host, probe, open)
+			}
+			// Skip quiet speculative addresses: need open ports or prior evidence.
+			if len(open) == 0 && !evidenced[host] && !e.graphHasHost(host) {
+				return
 			}
 			subnet := matchSubnet(host, subs)
 			kind := graph.KindComputer
@@ -260,6 +281,7 @@ func (e *Engine) scanOnce(ctx context.Context) {
 	e.coalesceSameIP()
 	e.linkViaRouters(subs, gatewayBySubnet, routerIDs)
 	e.applyWifi(subs, routerIDs)
+	e.pruneUnevidencedHosts(evidenced, gatewayBySubnet)
 
 	st := e.Graph.Snapshot().Status
 	st.LastScan = time.Since(start).Round(time.Millisecond).String()
@@ -287,6 +309,43 @@ func (e *Engine) applyWifi(subs []netinfo.Subnet, routerIDs map[string]string) {
 	if w.Country != "" {
 		detail["country"] = w.Country
 	}
+
+	// Put SSID / channel / security on the gateway/AP diamond. Drop the
+	// separate network:iface oval when it would just duplicate that name.
+	ssidOnRouter := false
+	for _, s := range subs {
+		if s.Iface != w.Iface || s.Gateway == "" {
+			continue
+		}
+		id := routerIDs[s.Gateway]
+		if id == "" {
+			id = "host:" + s.Gateway
+		}
+		label := w.SSID
+		if label == "" {
+			label = "Router " + s.Gateway
+		} else {
+			ssidOnRouter = true
+		}
+		e.Graph.Upsert(graph.Node{
+			ID:               id,
+			Kind:             graph.KindRouter,
+			Label:            label,
+			IPs:              []string{s.Gateway},
+			Subnet:           s.CIDR,
+			SSID:             w.SSID,
+			BSSID:            w.BSSID,
+			Channel:          w.Channel,
+			Security:         w.Security,
+			Detail:           detail,
+			DiscoveryMethods: []string{"wifi"},
+		})
+	}
+	if ssidOnRouter {
+		e.Graph.Delete("network:" + w.Iface)
+		return
+	}
+	// No gateway to hang the SSID on — keep the interface node labeled.
 	netLabel := w.SSID
 	if netLabel == "" {
 		netLabel = w.Iface
@@ -304,32 +363,111 @@ func (e *Engine) applyWifi(subs []netinfo.Subnet, routerIDs map[string]string) {
 		Detail:           detail,
 		DiscoveryMethods: []string{"wifi"},
 	})
-	for _, s := range subs {
-		if s.Iface != w.Iface || s.Gateway == "" {
+}
+
+func (e *Engine) graphHasHost(ip string) bool {
+	id := "host:" + ip
+	for _, n := range e.Graph.Nodes() {
+		if n.ID == id {
+			return true
+		}
+		for _, ei := range n.IPs {
+			if ei == ip {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// pruneUnevidencedHosts removes quiet host nodes invented by old speculative
+// probing (no ARP/ICMP/services/mesh identity).
+func (e *Engine) pruneUnevidencedHosts(evidenced map[string]bool, gatewayBySubnet map[string]string) {
+	for _, n := range e.Graph.Nodes() {
+		if !strings.HasPrefix(n.ID, "host:") {
 			continue
 		}
-		id := routerIDs[s.Gateway]
-		if id == "" {
-			id = "host:" + s.Gateway
+		switch n.Kind {
+		case graph.KindRouter, graph.KindWalkie, graph.KindBridge, graph.KindRemoteHint:
+			continue
 		}
-		label := w.SSID
-		if label == "" {
-			label = "Router " + s.Gateway
+		if n.MeshID != "" || n.Nickname != "" || n.SSID != "" {
+			continue
 		}
-		e.Graph.Upsert(graph.Node{
-			ID:               id,
-			Kind:             graph.KindRouter,
-			Label:            label,
-			IPs:              []string{s.Gateway},
-			Subnet:           s.CIDR,
-			SSID:             w.SSID,
-			BSSID:            w.BSSID,
-			Channel:          w.Channel,
-			Security:         w.Security,
-			Detail:           detail,
-			DiscoveryMethods: []string{"wifi"},
-		})
+		if len(n.OpenPorts) > 0 || len(n.Services) > 0 {
+			continue
+		}
+		if strings.Contains(strings.ToLower(n.Label), "this computer") {
+			continue
+		}
+		ip := ""
+		if len(n.IPs) > 0 {
+			ip = n.IPs[0]
+		} else {
+			ip = strings.TrimPrefix(n.ID, "host:")
+		}
+		if evidenced[ip] || isLikelyRouter(ip, gatewayBySubnet) {
+			continue
+		}
+		if isUnusableLANAddress(ip, nil) {
+			e.Graph.Delete(n.ID)
+			continue
+		}
+		// Only drop nodes that never gained identity beyond a bare IP label.
+		if looksLikeIPLabel(n.Label) || n.Label == "" || n.Label == ip {
+			e.Graph.Delete(n.ID)
+		}
 	}
+}
+
+func looksLikeIPLabel(s string) bool {
+	return net.ParseIP(s) != nil
+}
+
+// isUnusableLANAddress is true for network/broadcast addresses (e.g. .0 / .255 on /24).
+func isUnusableLANAddress(ip string, subs []netinfo.Subnet) bool {
+	addr := net.ParseIP(ip)
+	if addr == nil {
+		return true
+	}
+	v4 := addr.To4()
+	if v4 == nil {
+		return true
+	}
+	for _, s := range subs {
+		_, ipNet, err := net.ParseCIDR(s.CIDR)
+		if err != nil || !ipNet.Contains(v4) {
+			continue
+		}
+		ones, bits := ipNet.Mask.Size()
+		if bits != 32 || ones >= 31 {
+			continue
+		}
+		network := ipNet.IP.Mask(ipNet.Mask).To4()
+		if network == nil {
+			continue
+		}
+		if v4.Equal(network) {
+			return true
+		}
+		bcast := make(net.IP, 4)
+		copy(bcast, network)
+		hostBits := uint32(0xffffffff) >> ones
+		n := uint32(network[0])<<24 | uint32(network[1])<<16 | uint32(network[2])<<8 | uint32(network[3])
+		n |= hostBits
+		bcast[0] = byte(n >> 24)
+		bcast[1] = byte(n >> 16)
+		bcast[2] = byte(n >> 8)
+		bcast[3] = byte(n)
+		if v4.Equal(bcast) {
+			return true
+		}
+	}
+	// Heuristic when subnet list empty: classic .0 / .255 endings.
+	if strings.HasSuffix(ip, ".0") || strings.HasSuffix(ip, ".255") {
+		return true
+	}
+	return false
 }
 
 func (e *Engine) addThisComputer() {
