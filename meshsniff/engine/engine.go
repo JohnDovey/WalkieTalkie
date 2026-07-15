@@ -21,6 +21,7 @@ import (
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/netinfo"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/seed"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/tcpprobe"
+	"github.com/JohnDovey/WalkieTalkie/meshsniff/virtbbs"
 )
 
 // Engine runs seed + continuous LAN discovery into a graph.Store.
@@ -230,6 +231,7 @@ func (e *Engine) scanOnce(ctx context.Context) {
 			for _, p := range open {
 				e.tryIdentify(host, p)
 			}
+			e.applyVirtBBS(host, open)
 			if subnet != "" {
 				e.Graph.Link("subnet:"+subnet, id, "lan", false)
 			}
@@ -457,7 +459,7 @@ func (e *Engine) applyWalkiePeer(ip string, p mdns.Peer) {
 func (e *Engine) tryIdentify(host string, ports ...int) {
 	seen := map[int]bool{}
 	for _, p := range ports {
-		if p <= 0 || seen[p] {
+		if p <= 0 || seen[p] || identify.SkipHTTPIdentify(p) {
 			continue
 		}
 		seen[p] = true
@@ -469,12 +471,46 @@ func (e *Engine) tryIdentify(host string, ports ...int) {
 	}
 }
 
+func (e *Engine) applyVirtBBS(host string, open []int) {
+	if !virtbbs.LooksLike(open) {
+		return
+	}
+	info, ok := virtbbs.Probe(host, open, 1200*time.Millisecond)
+	if !ok {
+		return
+	}
+	id := "host:" + host
+	label := info.Name
+	if label == "" {
+		label = "VirtBBS"
+	}
+	detail := info.Detail
+	if detail == nil {
+		detail = map[string]any{}
+	}
+	detail["discoveryMethods"] = info.Methods
+	n := graph.Node{
+		ID:               id,
+		Kind:             graph.KindComputer,
+		Label:            label,
+		Nickname:         info.Name,
+		Platform:         info.Platform,
+		AppVersion:       info.Version,
+		IPs:              []string{host},
+		Services:         info.Services,
+		URLs:             info.URLs,
+		DiscoveryMethods: append([]string{"virtbbs"}, info.Methods...),
+		Detail:           detail,
+	}
+	e.Graph.Upsert(n)
+}
+
 func (e *Engine) applyIdentify(host string, p *sniff.IdentifyPayload, srcURL string) {
 	kind := graph.KindWalkie
 	label := p.Name
 	if p.Platform == "meshbridge" {
 		kind = graph.KindBridge
-	} else if p.Platform == "meshsniff" || strings.HasPrefix(p.Platform, "desktop-") {
+	} else if p.Platform == "meshsniff" || p.Platform == "virtbbs" || strings.HasPrefix(p.Platform, "desktop-") {
 		kind = graph.KindComputer
 	}
 	var services []graph.Service

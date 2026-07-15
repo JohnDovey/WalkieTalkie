@@ -1,6 +1,6 @@
 # MeshSniff
 
-LAN / dual-network discovery map for WalkieTalkie. Version **0.1.6**.
+LAN / dual-network discovery map for WalkieTalkie. Version **0.1.8**.
 
 ## Run
 
@@ -16,7 +16,8 @@ go run ./meshsniff/cmd/meshsniff
 - **Same-machine services** — WalkieTalkie Base, MeshBridge, MeshSniff, VirtBBS, and other open ports coalesce onto one host node by IP; click the node for the full service list (map labels stay short so they do not cover the graph).
 - **Router links** — every LAN host gets a `via-router` edge to the default gateway so you can see what sits behind the router.
 - **Wi‑Fi AP details** — when this machine is on Wi‑Fi, the gateway/AP node shows SSID, channel, and security (BSSID is often redacted by macOS).
-- **TCP probes** — MeshSniff does **not** sweep ports 1–65535. It connect-probes a fixed well-known list (SSH, HTTP(S), WalkieTalkie, VirtBBS `2323`/`3232`/`8081`/`9998`/`24554`/`24555`, etc.). Extra ports can be added under `ports` in `settings.json`.
+- **TCP probes** — MeshSniff does **not** sweep ports 1–65535. It connect-probes a fixed well-known list (SSH, HTTP(S), WalkieTalkie, VirtBBS `2323`/`3232`/`8081`/`9998`/`24554`/`24555`, etc.). Extra ports can be added under `ports` in `settings.json`. WalkieTalkie identify (`GET /sniff`) runs only on HTTP-ish ports — not telnet/SSH/BinkP/VNC — so those banners do not spam the log.
+- **VirtBBS** — when VirtBBS ports are open, MeshSniff probes `GET /sniff` (or `/manifest.webmanifest`), BinkP `SYS`/`ZYZ`/`ADR`, and telnet banners to label the host with board name, version, sysop, and Fido addresses.
 
 1. **WalkieTalkie Base Station** (`localBaseURL`, default `http://127.0.0.1:9091`) — `/api/about`, `/api/sniff`, `/api/devices`, `/api/bridge/remote-devices`. Devices appear immediately and link under the Base hub.
 2. **Other Bases on LAN** — mDNS `_walkietalkie._tcp` with `api≠0`, same seed pull per Base.

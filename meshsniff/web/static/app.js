@@ -171,6 +171,12 @@
       gateway: "Gateway",
       country: "Country",
       note: "Note",
+      sysop: "Sysop",
+      fidoAddresses: "Fido addresses",
+      networks: "Networks",
+      software: "Software",
+      bbsName: "BBS name",
+      discoveryMethods: "VirtBBS probes",
       lat: "Latitude",
       lon: "Longitude",
       accuracy: "Accuracy (m)",
@@ -214,11 +220,18 @@
         var pill = document.createElement("span");
         pill.className = "pill";
         if (typeof item === "object" && item !== null) {
-          pill.textContent = (item.name || "") + (item.port ? " :" + item.port : "") + (item.url ? " " + item.url : "");
-          if (!item.name && !item.port) {
-            pill.textContent = Object.keys(item).map(function (k) {
-              return humanizeKey(k) + ": " + formatScalar(item[k]);
-            }).join(" · ");
+          if (item.name && (item.address || item.binkpPort || item.role)) {
+            pill.textContent = item.name +
+              (item.address ? " " + item.address : "") +
+              (item.role ? " (" + item.role + ")" : "") +
+              (item.binkpPort ? " :" + item.binkpPort : "");
+          } else {
+            pill.textContent = (item.name || "") + (item.port ? " :" + item.port : "") + (item.url ? " " + item.url : "");
+            if (!item.name && !item.port) {
+              pill.textContent = Object.keys(item).map(function (k) {
+                return humanizeKey(k) + ": " + formatScalar(item[k]);
+              }).join(" · ");
+            }
           }
         } else {
           pill.textContent = formatScalar(item);

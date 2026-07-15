@@ -170,7 +170,12 @@ func FetchRemoteDevices(baseURL string) ([]registry.RemoteDevice, error) {
 }
 
 func getJSON(url string) ([]byte, error) {
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+		Transport: &http.Transport{
+			DisableKeepAlives: true,
+		},
+	}
 	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
