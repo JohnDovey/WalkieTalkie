@@ -257,6 +257,33 @@ func (s *Store) SetMacAddresses(id string, macs []string, now time.Time) error {
 	})
 }
 
+// SetNetworkLink stores the device's reported uplink type and name
+// (wifi/cellular + SSID/carrier) for MeshSniff topology.
+func (s *Store) SetNetworkLink(id, networkType, networkName string, now time.Time) error {
+	networkType = strings.ToLower(strings.TrimSpace(networkType))
+	networkName = strings.TrimSpace(networkName)
+	if id == "" || networkType == "" {
+		return nil
+	}
+	switch networkType {
+	case "wifi", "cellular":
+	default:
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		d, ok := s.get(tx, id)
+		if !ok {
+			d = &Device{ID: id, ProtocolVersion: proto.Version}
+		}
+		d.NetworkType = networkType
+		d.NetworkName = networkName
+		d.LastSeen = now
+		return s.put(tx, d)
+	})
+}
+
 // SetLastLANIP stores a private LAN IPv4 observed as the device's HTTP client
 // address (for MeshSniff via-router placement). Loopback / empty are ignored.
 func (s *Store) SetLastLANIP(id, ip string, now time.Time) error {

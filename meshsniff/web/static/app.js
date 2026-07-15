@@ -168,6 +168,9 @@
         color = "#c9842b";
       } else if (e.kind === "walkietalkie") {
         color = "#3dd68c";
+      } else if (e.kind === "cellular") {
+        width = 2;
+        color = "#7b8cff";
       }
       edgesDS.update({
         id: e.id,

@@ -48,6 +48,11 @@ type Device struct {
 	// (MeshSniff places the device under the Wi‑Fi AP). Empty when unknown.
 	LastLANIP string `json:"lastLanIp,omitempty"`
 
+	// NetworkType is "wifi" or "cellular" when the device reported its uplink.
+	NetworkType string `json:"networkType,omitempty"`
+	// NetworkName is SSID (wifi) or carrier name (cellular).
+	NetworkName string `json:"networkName,omitempty"`
+
 	ProtocolVersion int `json:"protocolVersion"`
 
 	// directSeen is true once the server has heard from this device itself

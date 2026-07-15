@@ -12,13 +12,16 @@
 package mobile
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -47,6 +50,8 @@ type Node struct {
 	mu           sync.Mutex
 	name         string
 	lastGPS      *proto.GeoPoint
+	networkType  string
+	networkName  string
 	mdnsSrv      *mdns.Server
 	baseURL      string // last seen Base Station http://host:apiPort
 	voiceClient  *voicenote.Client
@@ -112,14 +117,16 @@ func StartNode(dataDir, name, platform, appVersion string, source media.AudioSou
 			services = append(services, sniff.Service{Name: "signaling", Port: n.sigPort, URL: u})
 		}
 		return sniff.IdentifyPayload{
-			MeshID:     n.selfID,
-			Name:       n.name,
-			Platform:   n.platform,
-			AppVersion: n.appVersion,
-			MACs:       sniff.LocalMACs(),
-			GPS:        sniff.Stamp(n.lastGPS),
-			URLs:       urls,
-			Services:   services,
+			MeshID:      n.selfID,
+			Name:        n.name,
+			Platform:    n.platform,
+			AppVersion:  n.appVersion,
+			MACs:        sniff.LocalMACs(),
+			GPS:         sniff.Stamp(n.lastGPS),
+			URLs:        urls,
+			Services:    services,
+			NetworkType: n.networkType,
+			NetworkName: n.networkName,
 		}
 	})
 	inbox, err := voicenote.OpenLocalInbox(dataDir)
@@ -244,8 +251,12 @@ func (n *Node) onPeerFound(p mdns.Peer) {
 	if p.PrimaryMAC != "" {
 		_ = n.store.SetMacAddresses(p.ID, []string{p.PrimaryMAC}, time.Now())
 	}
+	if p.NetworkType != "" {
+		_ = n.store.SetNetworkLink(p.ID, p.NetworkType, p.NetworkName, time.Now())
+	}
 	if p.APIPort != 0 && len(p.IPv4) > 0 {
 		n.setBaseStation(fmt.Sprintf("http://%s:%d", p.IPv4[0].String(), p.APIPort))
+		go n.httpAnnounce()
 	}
 	if p.RelayPort != 0 && len(p.IPv4) > 0 && n.relayClient != nil {
 		n.relayClient.SetEndpoint(p.IPv4[0].String(), p.RelayPort)
@@ -697,21 +708,49 @@ func (n *Node) UpdateName(name string) error {
 	return n.reannounce(gps)
 }
 
+// SetNetworkLink records the current uplink (wifi/cellular + SSID/carrier)
+// for MeshSniff and re-announces via mDNS + Base Station HTTP when known.
+func (n *Node) SetNetworkLink(networkType, networkName string) error {
+	networkType = strings.ToLower(strings.TrimSpace(networkType))
+	networkName = strings.TrimSpace(networkName)
+	if networkType == "" {
+		return nil
+	}
+	switch networkType {
+	case "wifi", "cellular":
+	default:
+		return fmt.Errorf("mobile: networkType must be wifi or cellular")
+	}
+	_ = n.store.SetNetworkLink(n.selfID, networkType, networkName, time.Now())
+	n.mu.Lock()
+	n.networkType = networkType
+	n.networkName = networkName
+	gps := n.lastGPS
+	n.mu.Unlock()
+	if err := n.reannounce(gps); err != nil {
+		return err
+	}
+	go n.httpAnnounce()
+	return nil
+}
+
 func (n *Node) reannounce(gps *proto.GeoPoint) error {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.lastGPS = gps
 
 	info := mdns.AnnounceInfo{
-		ID:         n.selfID,
-		Name:       n.name,
-		Platform:   n.platform,
-		AppVersion: n.appVersion,
-		ProtoVer:   proto.Version,
-		Port:       n.sigPort,
-		SignalPort: n.sigPort,
-		GPS:        gps,
-		PrimaryMAC: sniff.PrimaryMAC(),
+		ID:          n.selfID,
+		Name:        n.name,
+		Platform:    n.platform,
+		AppVersion:  n.appVersion,
+		ProtoVer:    proto.Version,
+		Port:        n.sigPort,
+		SignalPort:  n.sigPort,
+		GPS:         gps,
+		PrimaryMAC:  sniff.PrimaryMAC(),
+		NetworkType: n.networkType,
+		NetworkName: n.networkName,
 	}
 
 	if n.mdnsSrv != nil {
@@ -725,6 +764,42 @@ func (n *Node) reannounce(gps *proto.GeoPoint) error {
 	}
 	n.mdnsSrv = srv
 	return nil
+}
+
+func (n *Node) httpAnnounce() {
+	n.mu.Lock()
+	base := n.baseURL
+	payload := proto.AnnouncePayload{
+		ID:           n.selfID,
+		Name:         n.name,
+		Platform:     n.platform,
+		AppVersion:   n.appVersion,
+		Capabilities: []string{"audio"},
+		SignalPort:   n.sigPort,
+		MacAddresses: sniff.LocalMACs(),
+		NetworkType:  n.networkType,
+		NetworkName:  n.networkName,
+	}
+	n.mu.Unlock()
+	if base == "" {
+		return
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(base, "/")+"/api/devices/announce", bytes.NewReader(raw))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return
+	}
+	_ = resp.Body.Close()
 }
 
 // ReportBLESighting feeds a BLE-discovered peer (presence-only — no GPS,

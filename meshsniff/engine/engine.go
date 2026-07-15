@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/JohnDovey/WalkieTalkie/core/discovery/mdns"
+	"github.com/JohnDovey/WalkieTalkie/core/registry"
 	"github.com/JohnDovey/WalkieTalkie/core/sniff"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/arp"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/config"
@@ -667,6 +668,13 @@ func (e *Engine) applyWalkiePeer(ip string, p mdns.Peer) {
 		})
 	}
 	e.tryIdentify(ip, p.SignalPort, p.APIPort)
+	if p.NetworkType != "" {
+		seed.LinkNetworkTransport(e.Graph, id, &registry.Device{
+			ID:          p.ID,
+			NetworkType: p.NetworkType,
+			NetworkName: p.NetworkName,
+		})
+	}
 }
 
 func (e *Engine) tryIdentify(host string, ports ...int) {

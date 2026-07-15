@@ -22,6 +22,7 @@ import com.walkietalkie.audio.OpusSpeakerSink
 import com.walkietalkie.ble.BlePresenceBridge
 import com.walkietalkie.location.LocationUpdater
 import com.walkietalkie.mesh.MeshIdentity
+import com.walkietalkie.mesh.NetworkLinkReporter
 import com.walkietalkie.mesh.R
 import com.walkietalkie.settings.NicknameStore
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +47,7 @@ class PTTService : LifecycleService() {
     private var multicastLock: WifiManager.MulticastLock? = null
     private var locationUpdater: LocationUpdater? = null
     private var bleBridge: BlePresenceBridge? = null
+    private var networkLinkReporter: NetworkLinkReporter? = null
     private var micSource: OpusMicSource? = null
     private var speakerSink: OpusSpeakerSink? = null
     private var connectivityManager: ConnectivityManager? = null
@@ -154,6 +156,7 @@ class PTTService : LifecycleService() {
 
                 locationUpdater = LocationUpdater(applicationContext, started).apply { start() }
                 bleBridge = BlePresenceBridge(applicationContext, started).apply { start() }
+                networkLinkReporter = NetworkLinkReporter(applicationContext, started).apply { start() }
             } catch (e: Exception) {
                 Log.e(TAG, "failed to start node", e)
             }
@@ -175,6 +178,8 @@ class PTTService : LifecycleService() {
     private fun stopNodeOnly() {
         locationUpdater?.stop()
         bleBridge?.stop()
+        networkLinkReporter?.stop()
+        networkLinkReporter = null
         try {
             node?.stop()
         } catch (e: Exception) {

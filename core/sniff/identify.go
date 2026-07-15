@@ -20,14 +20,16 @@ type Service struct {
 
 // IdentifyPayload is what MeshSniff (and peers) learn about this node.
 type IdentifyPayload struct {
-	MeshID     string          `json:"meshId"`
-	Name       string          `json:"name"`
-	Platform   string          `json:"platform"`
-	AppVersion string          `json:"appVersion"`
-	MACs       []string        `json:"macs,omitempty"`
-	GPS        *proto.GeoPoint `json:"gps,omitempty"`
-	URLs       map[string]string `json:"urls,omitempty"`
-	Services   []Service       `json:"services,omitempty"`
+	MeshID      string            `json:"meshId"`
+	Name        string            `json:"name"`
+	Platform    string            `json:"platform"`
+	AppVersion  string            `json:"appVersion"`
+	MACs        []string          `json:"macs,omitempty"`
+	GPS         *proto.GeoPoint   `json:"gps,omitempty"`
+	URLs        map[string]string `json:"urls,omitempty"`
+	Services    []Service         `json:"services,omitempty"`
+	NetworkType string            `json:"networkType,omitempty"`
+	NetworkName string            `json:"networkName,omitempty"`
 }
 
 // LocalMACs returns best-effort non-loopback hardware addresses (may be empty

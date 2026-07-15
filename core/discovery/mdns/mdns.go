@@ -59,6 +59,11 @@ type AnnounceInfo struct {
 
 	// PrimaryMAC is optional MeshSniff correlation (mDNS TXT mac=).
 	PrimaryMAC string
+
+	// NetworkType is "wifi" or "cellular" (mDNS TXT net=).
+	NetworkType string
+	// NetworkName is SSID or carrier (mDNS TXT netname=).
+	NetworkName string
 }
 
 // Peer is a sighting of another node, decoded from its TXT record.
@@ -76,6 +81,8 @@ type Peer struct {
 	IPv6       []net.IP
 	GPS        *proto.GeoPoint
 	PrimaryMAC string
+	NetworkType string
+	NetworkName string
 }
 
 func buildTXT(info AnnounceInfo) []string {
@@ -103,10 +110,16 @@ func buildTXT(info AnnounceInfo) []string {
 	if info.PrimaryMAC != "" {
 		txt = append(txt, "mac="+strings.ToLower(info.PrimaryMAC))
 	}
+	if info.NetworkType != "" {
+		txt = append(txt, "net="+info.NetworkType)
+	}
+	if info.NetworkName != "" {
+		txt = append(txt, "netname="+url.QueryEscape(info.NetworkName))
+	}
 	return txt
 }
 
-func parseTXT(text []string) (id, name, plat, appVersion, mac string, ver, sig, api, relay int, gps *proto.GeoPoint) {
+func parseTXT(text []string) (id, name, plat, appVersion, mac, netType, netName string, ver, sig, api, relay int, gps *proto.GeoPoint) {
 	var lat, lon, acc float64
 	var hasLat, hasLon bool
 	for _, kv := range text {
@@ -118,33 +131,37 @@ func parseTXT(text []string) (id, name, plat, appVersion, mac string, ver, sig, 
 		case "id":
 			id = parts[1]
 		case "name":
-			if v, err := url.QueryUnescape(parts[1]); err == nil {
-				name = v
-			}
+			name, _ = url.QueryUnescape(parts[1])
 		case "plat":
 			plat = parts[1]
-		case "appver":
-			appVersion = parts[1]
-		case "mac":
-			mac = strings.ToLower(parts[1])
 		case "ver":
 			ver, _ = strconv.Atoi(parts[1])
 		case "sig":
 			sig, _ = strconv.Atoi(parts[1])
+		case "appver":
+			appVersion = parts[1]
 		case "api":
 			api, _ = strconv.Atoi(parts[1])
 		case "relay":
 			relay, _ = strconv.Atoi(parts[1])
+		case "mac":
+			mac = strings.ToLower(parts[1])
+		case "net":
+			netType = strings.ToLower(parts[1])
+		case "netname":
+			netName, _ = url.QueryUnescape(parts[1])
 		case "lat":
-			lat, hasLat = parseFloat(parts[1])
+			lat, _ = strconv.ParseFloat(parts[1], 64)
+			hasLat = true
 		case "lon":
-			lon, hasLon = parseFloat(parts[1])
+			lon, _ = strconv.ParseFloat(parts[1], 64)
+			hasLon = true
 		case "acc":
-			acc, _ = parseFloat(parts[1])
+			acc, _ = strconv.ParseFloat(parts[1], 64)
 		}
 	}
 	if hasLat && hasLon {
-		gps = &proto.GeoPoint{Lat: lat, Lon: lon, Accuracy: acc, Timestamp: time.Now()}
+		gps = &proto.GeoPoint{Lat: lat, Lon: lon, Accuracy: acc}
 	}
 	return
 }
@@ -324,24 +341,26 @@ func browseOnce(ctx context.Context, selfID string, onFound func(Peer)) error {
 	entries := make(chan *zeroconf.ServiceEntry)
 	go func() {
 		for entry := range entries {
-			id, name, plat, appVersion, mac, ver, sig, api, relay, gps := parseTXT(entry.Text)
+			id, name, plat, appVersion, mac, netType, netName, ver, sig, api, relay, gps := parseTXT(entry.Text)
 			if id == "" || id == selfID {
 				continue
 			}
 			onFound(Peer{
-				ID:         id,
-				Name:       name,
-				Platform:   plat,
-				AppVersion: appVersion,
-				ProtoVer:   ver,
-				SignalPort: sig,
-				APIPort:    api,
-				RelayPort:  relay,
-				Host:       entry.HostName,
-				IPv4:       entry.AddrIPv4,
-				IPv6:       entry.AddrIPv6,
-				GPS:        gps,
-				PrimaryMAC: mac,
+				ID:          id,
+				Name:        name,
+				Platform:    plat,
+				AppVersion:  appVersion,
+				ProtoVer:    ver,
+				SignalPort:  sig,
+				APIPort:     api,
+				RelayPort:   relay,
+				Host:        entry.HostName,
+				IPv4:        entry.AddrIPv4,
+				IPv6:        entry.AddrIPv6,
+				GPS:         gps,
+				PrimaryMAC:  mac,
+				NetworkType: netType,
+				NetworkName: netName,
 			})
 		}
 	}()

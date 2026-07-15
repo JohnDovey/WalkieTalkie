@@ -165,6 +165,7 @@ func ApplyWalkieTalkie(g *graph.Store, baseURL string) WalkieSeedResult {
 			}
 			devID := g.Upsert(deviceToWalkieNode(d, "walkietalkie"))
 			g.Link(hubID, devID, "walkietalkie", false)
+			LinkNetworkTransport(g, devID, d)
 			res.DeviceCount++
 		}
 	} else {
@@ -184,6 +185,7 @@ func ApplyWalkieTalkie(g *graph.Store, baseURL string) WalkieSeedResult {
 			node.DiscoveryMethods = []string{"walkietalkie", "remote-users"}
 			id := g.Upsert(node)
 			g.Link(hubID, id, "remote", true)
+			LinkNetworkTransport(g, id, &d)
 			res.RemoteCount++
 		}
 	}
@@ -206,6 +208,12 @@ func deviceToWalkieNode(d *registry.Device, method string) graph.Node {
 			"status":     string(d.Status),
 		},
 	}
+	if d.NetworkType != "" {
+		n.Detail["networkType"] = d.NetworkType
+	}
+	if d.NetworkName != "" {
+		n.Detail["networkName"] = d.NetworkName
+	}
 	if d.LastLANIP != "" {
 		n.IPs = []string{d.LastLANIP}
 		n.ID = "host:" + d.LastLANIP
@@ -219,6 +227,60 @@ func deviceToWalkieNode(d *registry.Device, method string) graph.Node {
 		n.GPS = &graph.GPS{Lat: loc.Lat, Lon: loc.Lon, Accuracy: loc.Accuracy, At: loc.Timestamp}
 	}
 	return n
+}
+
+// LinkNetworkTransport attaches a phone to a cellular cloud (or named Wi‑Fi
+// uplink when it has no LAN IP) using a dashed edge.
+func LinkNetworkTransport(g *graph.Store, phoneID string, d *registry.Device) {
+	if g == nil || phoneID == "" || d == nil {
+		return
+	}
+	nt := strings.ToLower(strings.TrimSpace(d.NetworkType))
+	if nt != "cellular" {
+		return
+	}
+	name := strings.TrimSpace(d.NetworkName)
+	label := name
+	if label == "" {
+		label = "Cellular"
+	}
+	slug := sanitizeNetSlug(name)
+	if slug == "" {
+		slug = "cellular"
+	}
+	netID := "network:cellular:" + slug
+	g.Upsert(graph.Node{
+		ID:               netID,
+		Kind:             graph.KindNetwork,
+		Label:            label,
+		DiscoveryMethods: []string{"network-link"},
+		Detail: map[string]any{
+			"transport":   "cellular",
+			"networkName": name,
+		},
+	})
+	g.Link(netID, phoneID, "cellular", true)
+}
+
+func sanitizeNetSlug(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case r == ' ' || r == '-' || r == '_':
+			b.WriteByte('-')
+		}
+	}
+	out := strings.Trim(b.String(), "-")
+	for strings.Contains(out, "--") {
+		out = strings.ReplaceAll(out, "--", "-")
+	}
+	if len(out) > 40 {
+		out = out[:40]
+	}
+	return out
 }
 
 // SeedMDNSBases browses for other WalkieTalkie Base Stations (api≠0) and seeds each.

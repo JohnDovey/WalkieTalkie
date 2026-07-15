@@ -43,13 +43,15 @@ type TransportStatus struct {
 
 // InventoryDevice is a compact device row for MeshSniff seeding.
 type InventoryDevice struct {
-	ID         string  `json:"id"`
-	Name       string  `json:"name"`
-	Platform   string  `json:"platform"`
-	AppVersion string  `json:"appVersion"`
-	MACs       []string `json:"macs,omitempty"`
-	Lat        float64 `json:"lat,omitempty"`
-	Lon        float64 `json:"lon,omitempty"`
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Platform    string   `json:"platform"`
+	AppVersion  string   `json:"appVersion"`
+	MACs        []string `json:"macs,omitempty"`
+	Lat         float64  `json:"lat,omitempty"`
+	Lon         float64  `json:"lon,omitempty"`
+	NetworkType string   `json:"networkType,omitempty"`
+	NetworkName string   `json:"networkName,omitempty"`
 }
 
 // InventoryRemote groups devices under a remote Base.
@@ -240,11 +242,13 @@ func (p *Pipeline) tick(ctx context.Context) {
 
 func toInvDevice(d registry.Device) InventoryDevice {
 	out := InventoryDevice{
-		ID:         d.ID,
-		Name:       d.Name,
-		Platform:   d.Platform,
-		AppVersion: d.AppVersion,
-		MACs:       d.MacAddresses,
+		ID:          d.ID,
+		Name:        d.Name,
+		Platform:    d.Platform,
+		AppVersion:  d.AppVersion,
+		MACs:        d.MacAddresses,
+		NetworkType: d.NetworkType,
+		NetworkName: d.NetworkName,
 	}
 	if d.CurrentLocation != nil {
 		out.Lat = d.CurrentLocation.Lat

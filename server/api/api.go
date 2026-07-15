@@ -185,6 +185,9 @@ func (h *Handlers) announce(w http.ResponseWriter, r *http.Request) {
 	if len(payload.MacAddresses) > 0 {
 		_ = h.Store.SetMacAddresses(payload.ID, payload.MacAddresses, time.Now())
 	}
+	if payload.NetworkType != "" {
+		_ = h.Store.SetNetworkLink(payload.ID, payload.NetworkType, payload.NetworkName, time.Now())
+	}
 	if ip := clientLANIP(r); ip != "" {
 		_ = h.Store.SetLastLANIP(payload.ID, ip, time.Now())
 	}

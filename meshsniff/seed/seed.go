@@ -19,13 +19,15 @@ type BridgeInventory struct {
 		RemoteBaseID   string `json:"remoteBaseId"`
 		RemoteBaseName string `json:"remoteBaseName"`
 		Devices        []struct {
-			ID         string   `json:"id"`
-			Name       string   `json:"name"`
-			Platform   string   `json:"platform"`
-			AppVersion string   `json:"appVersion"`
-			MACs       []string `json:"macs"`
-			Lat        float64  `json:"lat"`
-			Lon        float64  `json:"lon"`
+			ID          string   `json:"id"`
+			Name        string   `json:"name"`
+			Platform    string   `json:"platform"`
+			AppVersion  string   `json:"appVersion"`
+			MACs        []string `json:"macs"`
+			Lat         float64  `json:"lat"`
+			Lon         float64  `json:"lon"`
+			NetworkType string   `json:"networkType"`
+			NetworkName string   `json:"networkName"`
 		} `json:"devices"`
 	} `json:"remotes"`
 	UpdatedAt time.Time `json:"updatedAt"`
@@ -93,6 +95,9 @@ func ApplyBridge(g *graph.Store, inv *BridgeInventory) {
 			}
 			id := g.Upsert(n)
 			g.Link(baseNodeID, id, "remote", true)
+			LinkNetworkTransport(g, id, &registry.Device{
+				ID: d.ID, NetworkType: d.NetworkType, NetworkName: d.NetworkName,
+			})
 		}
 	}
 }
@@ -119,7 +124,8 @@ func ApplyRemoteDevices(g *graph.Store, remotes []registry.RemoteDevice) {
 		n.RemoteBaseID = rd.RemoteBaseID
 		n.RemoteBaseName = rd.RemoteBaseName
 		n.DiscoveryMethods = []string{"walkietalkie", "remote-users"}
-		g.Upsert(n)
+		id := g.Upsert(n)
+		LinkNetworkTransport(g, id, &d)
 	}
 }
 

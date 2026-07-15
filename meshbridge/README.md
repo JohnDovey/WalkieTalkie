@@ -4,7 +4,7 @@ Companion process for WalkieTalkie. Runs **next to** a Base Station and syncs re
 
 **Does not** bridge live Talk (group PTT or private live Opus). Clients stay on their local LAN.
 
-Version: see [`VERSION`](VERSION) (currently **0.1.4**).
+Version: see [`VERSION`](VERSION) (currently **0.1.5**).
 
 ## Run
 

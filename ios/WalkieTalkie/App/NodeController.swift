@@ -101,8 +101,14 @@ final class NodeController: ObservableObject {
         pathStarted = true
         pathMonitor.pathUpdateHandler = { [weak self] path in
             let wifi = path.status == .satisfied && path.usesInterfaceType(.wifi)
+            let cellular = path.status == .satisfied && path.usesInterfaceType(.cellular)
             Task { @MainActor in
                 guard let self else { return }
+                if cellular && !wifi {
+                    try? self.node?.setNetworkLink("cellular", networkName: "")
+                } else if wifi {
+                    try? self.node?.setNetworkLink("wifi", networkName: "")
+                }
                 if wifi {
                     if self.everLostWifi && !self.hadWifi && self.node != nil {
                         self.restartWorkItem?.cancel()

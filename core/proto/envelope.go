@@ -47,6 +47,10 @@ type AnnouncePayload struct {
 	Capabilities []string `json:"capabilities"`
 	SignalPort   int      `json:"signalPort"`
 	MacAddresses []string `json:"macAddresses,omitempty"`
+	// NetworkType is the device's current uplink: "wifi" or "cellular".
+	NetworkType string `json:"networkType,omitempty"`
+	// NetworkName is the Wi‑Fi SSID or cellular carrier name when known.
+	NetworkName string `json:"networkName,omitempty"`
 }
 
 // GPSUpdatePayload is sent by a device on a configurable interval.
