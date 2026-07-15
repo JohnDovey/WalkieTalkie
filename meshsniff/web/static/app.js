@@ -344,6 +344,12 @@
       "virtbbs binkp": "VirtBBS BinkP",
       "virtbbs binkp lovly": "VirtBBS BinkP (LovlyNet)",
       "virtbbs binkp virtnet": "VirtBBS BinkP (VirtNet)",
+      "quakemesh monitor": "QuakeMesh Monitor",
+      "quakemesh hub": "QuakeMesh Hub",
+      "quakemesh hub heartbeat": "QuakeMesh Hub",
+      "quakemesh hub management": "QuakeMesh Hub Management",
+      "quakemesh hub ogm": "QuakeMesh Hub OGM",
+      "quakemesh hub discovery": "QuakeMesh Hub Discovery",
     };
     var name = (s && s.name) ? String(s.name) : "";
     if (!name && s && s.port) return "Port " + s.port;
@@ -360,6 +366,7 @@
     if (s.port === 80 || name === "http") return "http://" + host + "/";
     if (s.port === 443 || name === "https") return "https://" + host + "/";
     if (s.port === 8081 || name.indexOf("virtbbs web") >= 0) return "http://" + host + ":8081/";
+    if (s.port === 8082 || name.indexOf("quakemesh monitor") >= 0) return "http://" + host + ":8082/";
     if (s.port === 8080 || s.port === 8443 || s.port === 9091 || s.port === 9095 || s.port === 9096) {
       var scheme = s.port === 8443 ? "https" : "http";
       return scheme + "://" + host + ":" + s.port + "/";

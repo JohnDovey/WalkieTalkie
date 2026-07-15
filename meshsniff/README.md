@@ -1,6 +1,6 @@
 # MeshSniff
 
-LAN / dual-network discovery map for WalkieTalkie. Version **0.1.12**.
+LAN / dual-network discovery map for WalkieTalkie. Version **0.1.13**.
 
 ## Run
 
@@ -13,11 +13,12 @@ go run ./meshsniff/cmd/meshsniff
 ## Topology
 
 - **Computers** — ARP / TCP / ICMP hosts (desktops, laptops), including **this machine** with hostname.
-- **Same-machine services** — WalkieTalkie Base, MeshBridge, MeshSniff, VirtBBS, and other open ports coalesce onto one host node by IP; click the node for the full service list (map labels stay short so they do not cover the graph).
+- **Same-machine services** — WalkieTalkie Base, MeshBridge, MeshSniff, VirtBBS, QuakeMesh Hub/Monitor, and other open ports coalesce onto one host node by IP; click the node for the full service list (map labels stay short so they do not cover the graph).
 - **Router links** — every LAN host gets a `via-router` edge to the default gateway so you can see what sits behind the router.
 - **Wi‑Fi AP details** — when this machine is on Wi‑Fi, the gateway/AP node shows SSID, channel, and security (BSSID is often redacted by macOS).
-- **TCP probes** — MeshSniff does **not** sweep ports 1–65535. It connect-probes a fixed well-known list (SSH, HTTP(S), WalkieTalkie, VirtBBS `2323`/`3232`/`8081`/`9998`/`24554`/`24555`, etc.). Extra ports can be added under `ports` in `settings.json`. WalkieTalkie identify (`GET /sniff`) runs only on HTTP-ish ports — not telnet/SSH/BinkP/VNC — so those banners do not spam the log.
+- **TCP probes** — MeshSniff does **not** sweep ports 1–65535. It connect-probes a fixed well-known list (SSH, HTTP(S), WalkieTalkie, VirtBBS, QuakeMesh `8082`/`18085`/`8083`, etc.). Extra ports can be added under `ports` in `settings.json`. WalkieTalkie identify (`GET /sniff`) runs only on HTTP-ish ports — not telnet/SSH/BinkP/VNC — so those banners do not spam the log.
 - **VirtBBS** — when VirtBBS ports are open, MeshSniff probes `GET /sniff` (or `/manifest.webmanifest`), BinkP `SYS`/`ZYZ`/`ADR`, and telnet banners to label the host with board name, version, sysop, and Fido addresses.
+- **QuakeMesh** — Hub heartbeat (`18085`) and Monitor (`8082`) advertise unauthenticated `GET /sniff`; MeshSniff labels them as QuakeMeshHub / QuakeMeshMonitor with mesh NodeID and services.
 - **Full port scan** — in a node’s detail modal, **Full port scan** runs a background TCP sweep of ports 1–65535. Open ports stream into the graph (and identify probes) as they are found; cancel anytime. Results are saved under `known-ports.json` and re-checked on later scans / after restart.
 - **Phones** — Android / iOS / Wear WalkieTalkie devices render as a phone (or watch) icon, distinct from blue computer squares and orange router diamonds.
 

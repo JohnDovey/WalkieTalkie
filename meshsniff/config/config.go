@@ -31,10 +31,11 @@ func Default() Settings {
 }
 
 // DefaultDiscoverPorts is the TCP connect probe list (not a full 1–65535 sweep).
-// Includes common LAN services plus VirtBBS defaults (telnet/SSH/web/API/BinkP).
+// Includes common LAN services plus VirtBBS defaults (telnet/SSH/web/API/BinkP)
+// and QuakeMesh Monitor (:8082) / Hub heartbeat (:18085) / local management (:8083).
 var DefaultDiscoverPorts = []int{
 	22, 53, 80, 88, 139, 443, 445, 548, 631, 2323, 3232, 3389, 5000, 5900, 7000,
-	8080, 8081, 8443, 9091, 9095, 9096, 9998, 24554, 24555,
+	8080, 8081, 8082, 8083, 8443, 9091, 9095, 9096, 9998, 18085, 24554, 24555,
 }
 
 // DiscoverPorts returns the configured list unioned with built-in well-known ports

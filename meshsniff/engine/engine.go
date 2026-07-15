@@ -666,8 +666,18 @@ func (e *Engine) applyIdentify(host string, p *sniff.IdentifyPayload, srcURL str
 	label := p.Name
 	if p.Platform == "meshbridge" {
 		kind = graph.KindBridge
-	} else if p.Platform == "meshsniff" || p.Platform == "virtbbs" || strings.HasPrefix(p.Platform, "desktop-") {
+	} else if p.Platform == "meshsniff" || p.Platform == "virtbbs" ||
+		p.Platform == "quakemesh-hub" || p.Platform == "quakemesh-monitor" ||
+		strings.HasPrefix(p.Platform, "desktop-") {
 		kind = graph.KindComputer
+	}
+	if label == "" {
+		switch p.Platform {
+		case "quakemesh-hub":
+			label = "QuakeMeshHub"
+		case "quakemesh-monitor":
+			label = "QuakeMeshMonitor"
+		}
 	}
 	var services []graph.Service
 	var ports []int
@@ -680,6 +690,12 @@ func (e *Engine) applyIdentify(host string, p *sniff.IdentifyPayload, srcURL str
 			name = "MeshBridge"
 		case s.Port == 9096 || p.Platform == "meshsniff":
 			name = "MeshSniff"
+		case s.Port == 18085 || strings.EqualFold(name, "QuakeMesh Hub Heartbeat"):
+			name = "QuakeMesh Hub"
+		case s.Port == 8082 || strings.EqualFold(name, "QuakeMesh Monitor"):
+			name = "QuakeMesh Monitor"
+		case s.Port == 8083 || strings.EqualFold(name, "QuakeMesh Hub Management"):
+			name = "QuakeMesh Hub Management"
 		}
 		services = append(services, graph.Service{Name: name, Port: s.Port, URL: s.URL})
 		ports = append(ports, s.Port)
@@ -700,8 +716,8 @@ func (e *Engine) applyIdentify(host string, p *sniff.IdentifyPayload, srcURL str
 		OpenPorts:        ports,
 		DiscoveryMethods: []string{"sniff"},
 		Detail: map[string]any{
-			"identifyURL":      srcURL,
-			"sameMachineNote":  "Services listed below all run on this computer",
+			"identifyURL":     srcURL,
+			"sameMachineNote": "Services listed below all run on this computer",
 		},
 	}
 	if p.GPS != nil {
@@ -875,6 +891,10 @@ func portName(p int) string {
 		return "vnc"
 	case 8081:
 		return "VirtBBS Web"
+	case 8082:
+		return "QuakeMesh Monitor"
+	case 8083:
+		return "QuakeMesh Hub Management"
 	case 9091:
 		return "WalkieTalkie Base"
 	case 9095:
@@ -883,6 +903,8 @@ func portName(p int) string {
 		return "MeshSniff"
 	case 9998:
 		return "VirtBBS API"
+	case 18085:
+		return "QuakeMesh Hub"
 	case 24554:
 		return "VirtBBS BinkP Lovly"
 	case 24555:

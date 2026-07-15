@@ -13,3 +13,5 @@ Plans, design docs, and other project documentation live here. Keep filenames de
 | [INSTALL-v1.8.0.md](INSTALL-v1.8.0.md) | Install notes shipped with GitHub release `v1.8.0` |
 | [2026-07-14-meshbridge-plan.md](2026-07-14-meshbridge-plan.md) | MeshBridge design: dual-LAN / Ethernet / Wi‑Fi / punch (Manual ch. + `meshbridge/README.md`) |
 | [2026-07-14-meshsniff-plan.md](2026-07-14-meshsniff-plan.md) | MeshSniff: WalkieTalkie-first LAN map, MAC↔meshId (`0.1.1`) |
+| [2026-07-15-virtbbs-meshsniff-probe.md](2026-07-15-virtbbs-meshsniff-probe.md) | VirtBBS GET /sniff + MeshSniff enrich |
+| [2026-07-15-quakemesh-meshsniff-probe.md](2026-07-15-quakemesh-meshsniff-probe.md) | QuakeMesh Hub/Monitor GET /sniff + MeshSniff enrich |
