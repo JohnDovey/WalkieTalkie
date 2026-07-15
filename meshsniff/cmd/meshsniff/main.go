@@ -16,6 +16,7 @@ import (
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/engine"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/graph"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/icmp"
+	"github.com/JohnDovey/WalkieTalkie/meshsniff/portmem"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/ver"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/web"
 )
@@ -43,7 +44,16 @@ func main() {
 	defer cancel()
 
 	g := graph.NewStore()
-	eng := &engine.Engine{Settings: settings, Graph: g}
+	portsMem, err := portmem.Open(dataDir)
+	if err != nil {
+		log.Printf("meshsniff: known-ports load failed (%v); renaming and starting empty", err)
+		_ = os.Rename(filepath.Join(dataDir, "known-ports.json"), filepath.Join(dataDir, "known-ports.json.bak"))
+		portsMem, err = portmem.Open(dataDir)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	eng := &engine.Engine{Settings: settings, Graph: g, Ports: portsMem}
 	go eng.Run(ctx)
 
 	h := &web.Handlers{Graph: g, Engine: eng}

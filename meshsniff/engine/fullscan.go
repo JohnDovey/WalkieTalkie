@@ -119,6 +119,9 @@ func (e *Engine) FullScanStatus(host string) *FullScan {
 }
 
 func (e *Engine) runFullPortScan(ctx context.Context, host, nodeID string, info *FullScan) {
+	var found []int
+	var foundMu sync.Mutex
+
 	defer func() {
 		book := e.book()
 		book.mu.Lock()
@@ -127,6 +130,21 @@ func (e *Engine) runFullPortScan(ctx context.Context, host, nodeID string, info 
 		}
 		info.Finished = time.Now()
 		book.mu.Unlock()
+
+		foundMu.Lock()
+		openExact := append([]int(nil), found...)
+		foundMu.Unlock()
+		if e.Ports != nil {
+			// Prefer graph open ports if present (merge), else what we collected.
+			for _, n := range e.Graph.Nodes() {
+				if n.ID == nodeID && len(n.OpenPorts) > 0 {
+					openExact = unionPorts(openExact, n.OpenPorts)
+					break
+				}
+			}
+			e.Ports.SetExact(host, openExact)
+		}
+
 		e.Graph.Upsert(graph.Node{
 			ID: nodeID,
 			Detail: map[string]any{
@@ -138,28 +156,28 @@ func (e *Engine) runFullPortScan(ctx context.Context, host, nodeID string, info 
 					"started":  info.Started,
 					"finished": info.Finished,
 					"error":    info.Error,
+					"saved":    len(openExact),
 				},
 			},
 		})
 		st := e.Graph.Snapshot().Status
-		st.Message = fmt.Sprintf("full TCP scan %s %s (%d open)", host, info.Status, info.OpenFound)
+		st.Message = fmt.Sprintf("full TCP scan %s %s (%d open, saved)", host, info.Status, info.OpenFound)
 		e.Graph.SetStatus(st)
-		log.Printf("meshsniff full scan %s: %s checked=%d open=%d", host, info.Status, info.Checked, info.OpenFound)
+		log.Printf("meshsniff full scan %s: %s checked=%d open=%d saved=%d", host, info.Status, info.Checked, info.OpenFound, len(openExact))
 
-		var open []int
-		for _, n := range e.Graph.Nodes() {
-			if n.ID == nodeID {
-				open = n.OpenPorts
-				break
-			}
-		}
-		if virtbbs.LooksLike(open) {
-			e.applyVirtBBS(host, open)
+		if virtbbs.LooksLike(openExact) {
+			e.applyVirtBBS(host, openExact)
 		}
 	}()
 
 	err := tcpprobe.Sweep(ctx, host, 1, 65535, 150*time.Millisecond, 256,
 		func(port int) {
+			foundMu.Lock()
+			found = append(found, port)
+			foundMu.Unlock()
+			if e.Ports != nil {
+				e.Ports.Remember(host, []int{port})
+			}
 			svc := graph.Service{Name: portName(port), Port: port}
 			e.Graph.Upsert(graph.Node{
 				ID:               nodeID,

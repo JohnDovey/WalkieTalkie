@@ -19,6 +19,7 @@ import (
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/icmp"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/identify"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/netinfo"
+	"github.com/JohnDovey/WalkieTalkie/meshsniff/portmem"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/seed"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/tcpprobe"
 	"github.com/JohnDovey/WalkieTalkie/meshsniff/virtbbs"
@@ -28,6 +29,7 @@ import (
 type Engine struct {
 	Settings config.Settings
 	Graph    *graph.Store
+	Ports    *portmem.Store // remembered open ports across restarts
 }
 
 // Run seeds then scans until ctx is done.
@@ -179,6 +181,12 @@ func (e *Engine) scanOnce(ctx context.Context) {
 	for _, ip := range netinfo.ThisMachine().IPs {
 		hostSet[ip] = true
 	}
+	// Revisit hosts we previously found open ports on (even if not in ARP right now).
+	if e.Ports != nil {
+		for _, h := range e.Ports.Hosts() {
+			hostSet[h] = true
+		}
+	}
 	for _, cidr := range cidrs {
 		hosts, err := netinfo.HostsInCIDR(cidr)
 		if err != nil {
@@ -208,7 +216,17 @@ func (e *Engine) scanOnce(ctx context.Context) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			open := tcpprobe.OpenPorts(host, ports, 350*time.Millisecond)
+			probe := append([]int(nil), ports...)
+			if e.Ports != nil {
+				probe = unionPorts(probe, e.Ports.PortsFor(host))
+			}
+			open := tcpprobe.OpenPorts(host, probe, 350*time.Millisecond)
+			if e.Ports != nil {
+				if len(open) > 0 {
+					e.Ports.Remember(host, open)
+				}
+				e.Ports.PruneClosed(host, probe, open)
+			}
 			subnet := matchSubnet(host, subs)
 			kind := graph.KindComputer
 			label := labelForIP(host)
@@ -741,4 +759,17 @@ func firstMAC(macs []string) string {
 		return ""
 	}
 	return macs[0]
+}
+
+func unionPorts(a, b []int) []int {
+	seen := map[int]bool{}
+	var out []int
+	for _, p := range append(a, b...) {
+		if p <= 0 || p > 65535 || seen[p] {
+			continue
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	return out
 }

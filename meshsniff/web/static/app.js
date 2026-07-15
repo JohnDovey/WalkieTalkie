@@ -23,21 +23,38 @@
 
   const nodeCache = {};
 
-  function shapeFor(kind) {
+  const PHONE_ICON = "/static/icons/phone.svg";
+  const WATCH_ICON = "/static/icons/watch.svg";
+
+  function isPhoneNode(n) {
+    if (!n) return false;
+    var p = (n.platform || "").toLowerCase();
+    if (p === "android" || p === "ios" || p === "wear") return true;
+    return n.kind === "walkie";
+  }
+
+  function isWearNode(n) {
+    return n && (n.platform || "").toLowerCase() === "wear";
+  }
+
+  function shapeFor(n) {
+    var kind = n && n.kind;
+    if (isPhoneNode(n)) return "image";
     switch (kind) {
       case "router": return "diamond";
       case "subnet": return "dot";
       case "network": return "ellipse";
-      case "computer": return "dot";
+      case "computer": return "square";
       case "bridge": return "star";
-      case "walkie": return "dot";
-      case "host": return "dot";
+      case "host": return "square";
       case "remoteHint": return "dot";
       default: return "dot";
     }
   }
 
-  function colorFor(kind) {
+  function colorFor(n) {
+    var kind = n && n.kind;
+    if (isPhoneNode(n)) return { background: "#1f6f54", border: "#3dd68c" };
     switch (kind) {
       case "router": return { background: "#c9842b", border: "#f0b35a" };
       case "subnet": return { background: "#1e3a5f", border: "#3d9bfd" };
@@ -70,7 +87,14 @@
 
   function nodeTooltip(n) {
     var lines = [];
-    if (n.kind) lines.push(n.kind);
+    if (n.kind) {
+      if (isPhoneNode(n)) {
+        lines.push(isWearNode(n) ? "phone (wear)" : "phone");
+      } else {
+        lines.push(n.kind);
+      }
+    }
+    if (n.platform) lines.push("platform " + n.platform);
     if (n.ssid) lines.push("SSID " + n.ssid);
     if (n.hostname && n.hostname !== n.ssid) lines.push(n.hostname);
     if (n.ips && n.ips.length) lines.push(n.ips.join(", "));
@@ -104,12 +128,13 @@
     (g.nodes || []).forEach(function (n) {
       nodeCache[n.id] = n;
       nodeIds[n.id] = true;
-      var size = n.kind === "router" ? 28 : (n.kind === "computer" || n.kind === "host" ? 18 : 14);
-      nodesDS.update({
+      var size = n.kind === "router" ? 28 : (isPhoneNode(n) ? 26 : (n.kind === "computer" || n.kind === "host" ? 16 : 14));
+      var shape = shapeFor(n);
+      var nodeOpts = {
         id: n.id,
         label: nodeLabel(n),
-        shape: shapeFor(n.kind),
-        color: colorFor(n.kind),
+        shape: shape,
+        color: colorFor(n),
         size: size,
         font: {
           size: 11,
@@ -121,7 +146,12 @@
         },
         title: nodeTooltip(n),
         opacity: n.kind === "remoteHint" ? 0.65 : 1,
-      });
+      };
+      if (shape === "image") {
+        nodeOpts.image = isWearNode(n) ? WATCH_ICON : PHONE_ICON;
+        nodeOpts.shapeProperties = { useBorderWithImage: true };
+      }
+      nodesDS.update(nodeOpts);
     });
     nodesDS.getIds().forEach(function (id) {
       if (!nodeIds[id]) nodesDS.remove(id);
@@ -434,7 +464,8 @@
 
   function showModal(n) {
     modalNodeId = n.id;
-    document.getElementById("m-kind").textContent = n.kind || "node";
+    document.getElementById("m-kind").textContent =
+      isPhoneNode(n) ? (isWearNode(n) ? "phone · wear" : "phone") : (n.kind || "node");
     document.getElementById("m-title").textContent = n.ssid || n.hostname || n.nickname || n.label || n.id;
     const dl = document.getElementById("m-body");
     dl.innerHTML = "";

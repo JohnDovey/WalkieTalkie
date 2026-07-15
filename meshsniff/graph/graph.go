@@ -254,8 +254,19 @@ func mergeNode(dst *Node, src Node) {
 	}
 	if src.Platform != "" {
 		dst.Platform = src.Platform
-		if strings.HasPrefix(src.Platform, "desktop-") && (dst.Kind == KindHost || dst.Kind == "") {
-			dst.Kind = KindComputer
+		if strings.HasPrefix(src.Platform, "desktop-") && (dst.Kind == KindHost || dst.Kind == "" || dst.Kind == KindWalkie) {
+			// Desktop platforms win over generic walkie only when not a phone platform.
+			if !isPhonePlatform(dst.Platform) {
+				dst.Kind = KindComputer
+			}
+		}
+	}
+	// Phones/Wear must stay visually distinct from computers even if ARP/TCP
+	// first classified the IP as a generic host/computer.
+	if isPhonePlatform(dst.Platform) || isPhonePlatform(src.Platform) {
+		dst.Kind = KindWalkie
+		if src.Platform != "" {
+			dst.Platform = src.Platform
 		}
 	}
 	if src.AppVersion != "" {
@@ -326,9 +337,9 @@ func preferKind(a, b Kind) Kind {
 		switch k {
 		case KindRouter:
 			return 6
-		case KindComputer:
+		case KindWalkie: // phones / wear — prefer over generic computer
 			return 5
-		case KindWalkie:
+		case KindComputer:
 			return 4
 		case KindBridge:
 			return 3
@@ -344,6 +355,15 @@ func preferKind(a, b Kind) Kind {
 		return b
 	}
 	return a
+}
+
+func isPhonePlatform(p string) bool {
+	switch strings.ToLower(strings.TrimSpace(p)) {
+	case "android", "ios", "wear":
+		return true
+	default:
+		return false
+	}
 }
 
 func looksLikeIP(s string) bool {
