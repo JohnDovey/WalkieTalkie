@@ -9,7 +9,7 @@ import (
 	"github.com/grandcat/zeroconf"
 )
 
-// BasePeer is a Base Station found on a secondary interface.
+// BasePeer is a Base Station found on a secondary interface or LAN browse.
 type BasePeer struct {
 	ID      string
 	Name    string
@@ -19,8 +19,20 @@ type BasePeer struct {
 }
 
 // BrowseBases watches _walkietalkie._tcp and reports peers with api≠0.
+// preferIface, when non-empty, prefers addresses on that interface's /24.
 func BrowseBases(ctx context.Context, preferIface string, onBase func(BasePeer)) error {
-	resolver, err := zeroconf.NewResolver(nil)
+	ifaces := multicastInterfaces()
+	var opts []zeroconf.ClientOption
+	if len(ifaces) > 0 {
+		opts = append(opts, zeroconf.SelectIfaces(ifaces))
+	}
+	// When a named iface is requested, also pin the resolver to it if found.
+	if preferIface != "" {
+		if ifi, err := net.InterfaceByName(preferIface); err == nil {
+			opts = []zeroconf.ClientOption{zeroconf.SelectIfaces([]net.Interface{*ifi})}
+		}
+	}
+	resolver, err := zeroconf.NewResolver(opts...)
 	if err != nil {
 		return err
 	}
@@ -109,6 +121,22 @@ func sameL3Subnet(a, b net.IP) bool {
 		return false
 	}
 	return a4[0] == b4[0] && a4[1] == b4[1] && a4[2] == b4[2]
+}
+
+// multicastInterfaces returns up + multicast-capable interfaces for zeroconf.
+func multicastInterfaces() []net.Interface {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil
+	}
+	var out []net.Interface
+	for _, ifi := range ifaces {
+		if ifi.Flags&net.FlagUp == 0 || ifi.Flags&net.FlagMulticast == 0 || ifi.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		out = append(out, ifi)
+	}
+	return out
 }
 
 // WithTimeout wraps parent with a deadline.

@@ -35,13 +35,15 @@ type WiFiBridge struct {
 	Interface string `json:"interface"` // e.g. en1
 }
 
-// EthernetBridge uses a wired iface already on the other router’s LAN
-// (USB-C/Thunderbolt adapter, docking station, etc.). No SSID associate —
-// macOS (or the user) must already have that interface up with an IP.
-// MeshBridge only mDNS-discovers Bases (`api≠0`) on that interface.
+// EthernetBridge uses a network interface that already has an IP (wired dual-LAN
+// adapter, or the primary Wi‑Fi/Ethernet for same-LAN multi-Base auto-discover).
+// No SSID associate — the OS must already have that interface up.
+// MeshBridge mDNS-discovers Bases (`api≠0`) on that interface.
+// Set Interface to "" or "auto" to browse the LAN without binding a named NIC
+// (good for two Base Stations already on the same Wi‑Fi).
 type EthernetBridge struct {
 	Name      string `json:"name,omitempty"`
-	Interface string `json:"interface"` // e.g. en5 — check Network settings / ifconfig
+	Interface string `json:"interface"` // e.g. "Wi-Fi", "en5", or "auto"
 }
 
 // PunchBridge uses QuakeMesh-style UDP punch + optional hub relay.

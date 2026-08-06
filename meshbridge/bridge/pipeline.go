@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -140,8 +141,13 @@ func (p *Pipeline) tick(ctx context.Context) {
 		}
 		devices, baseID, baseName, err := p.Local.SyncRemoteBase(m.URL, "", m.Name)
 		if err != nil {
-			st.LastErr = err.Error()
-			log.Printf("meshbridge manual %s: %v", m.URL, err)
+			if isSkipSelf(err) {
+				st.OK = true
+				st.Detail = m.URL + " (self, skipped)"
+			} else {
+				st.LastErr = err.Error()
+				log.Printf("meshbridge manual %s: %v", m.URL, err)
+			}
 		} else {
 			st.OK = true
 			bridgeCount++
@@ -177,19 +183,35 @@ func (p *Pipeline) tick(ctx context.Context) {
 	}
 
 	for _, e := range p.Settings.Ethernet {
-		st := TransportStatus{Kind: "ethernet", Name: e.Name, Detail: e.Interface}
-		if e.Interface == "" {
-			st.LastErr = "interface required (e.g. en5)"
+		iface := e.Interface
+		// Empty or "auto" = browse mDNS on the primary LAN (same-LAN multi-Base).
+		if iface == "" || iface == "auto" {
+			iface = ""
+			st := TransportStatus{Kind: "ethernet", Name: e.Name, Detail: "auto (LAN mDNS)"}
+			if e.Name == "" {
+				st.Name = "LAN auto-discover"
+			}
+			found, err := p.discoverAndSync(ctx, iface, record)
+			if err != nil {
+				st.LastErr = err.Error()
+				log.Printf("meshbridge ethernet auto: %v", err)
+			} else if found > 0 {
+				st.OK = true
+				bridgeCount += found
+			} else {
+				st.LastErr = "no other Base Station with api= found on LAN via mDNS"
+			}
 			statuses = append(statuses, st)
 			continue
 		}
+		st := TransportStatus{Kind: "ethernet", Name: e.Name, Detail: iface}
 		if e.Name == "" {
-			st.Name = e.Interface
+			st.Name = iface
 		}
-		found, err := p.discoverAndSync(ctx, e.Interface, record)
+		found, err := p.discoverAndSync(ctx, iface, record)
 		if err != nil {
 			st.LastErr = err.Error()
-			log.Printf("meshbridge ethernet %s: %v", e.Interface, err)
+			log.Printf("meshbridge ethernet %s: %v", iface, err)
 		} else if found > 0 {
 			st.OK = true
 			bridgeCount += found
@@ -262,16 +284,31 @@ func toInvDevice(d registry.Device) InventoryDevice {
 
 type recordFn func(baseID, baseName string, devices []registry.Device)
 
-// discoverAndSync browses mDNS on iface and syncs every Base (api≠0) found.
+// discoverAndSync browses mDNS on iface (or all interfaces when iface is empty)
+// and syncs every other Base (api≠0) found. Self is skipped.
+// When iface is empty ("auto"), also HTTP-scans local /24 subnets for Bases
+// on port 9091 — mDNS alone is unreliable on some Windows Wi‑Fi stacks.
 func (p *Pipeline) discoverAndSync(ctx context.Context, iface string, record recordFn) (int, error) {
-	bctx, cancel := discovery.WithTimeout(ctx, 8*time.Second)
-	defer cancel()
 	found := 0
 	var lastErr error
-	_ = discovery.BrowseBases(bctx, iface, func(bp discovery.BasePeer) {
+	seen := map[string]bool{}
+
+	syncPeer := func(bp discovery.BasePeer) {
 		url := fmt.Sprintf("http://%s:%d", bp.Host, bp.APIPort)
+		key := bp.ID
+		if key == "" {
+			key = url
+		}
+		if seen[key] {
+			return
+		}
+		seen[key] = true
 		devices, baseID, baseName, err := p.Local.SyncRemoteBase(url, bp.ID, bp.Name)
 		if err != nil {
+			if isSkipSelf(err) {
+				log.Printf("meshbridge skip self %s", url)
+				return
+			}
 			log.Printf("meshbridge sync %s: %v", url, err)
 			lastErr = err
 			return
@@ -280,9 +317,30 @@ func (p *Pipeline) discoverAndSync(ctx context.Context, iface string, record rec
 			record(baseID, baseName, devices)
 		}
 		found++
-	})
+	}
+
+	bctx, cancel := discovery.WithTimeout(ctx, 10*time.Second)
+	_ = discovery.BrowseBases(bctx, iface, syncPeer)
+	cancel()
+
+	// Auto / empty iface: HTTP /24 scan finds Bases even when mDNS is quiet.
+	if iface == "" {
+		sctx, scancel := discovery.WithTimeout(ctx, 25*time.Second)
+		if err := discovery.ScanLANBases(sctx, []int{9091}, syncPeer); err != nil && sctx.Err() == nil {
+			log.Printf("meshbridge lan scan: %v", err)
+			if lastErr == nil {
+				lastErr = err
+			}
+		}
+		scancel()
+	}
+
 	if found == 0 {
 		return 0, lastErr
 	}
 	return found, nil
+}
+
+func isSkipSelf(err error) bool {
+	return err != nil && strings.HasPrefix(err.Error(), "skip self")
 }
